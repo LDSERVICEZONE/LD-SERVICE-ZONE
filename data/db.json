@@ -1,0 +1,281 @@
+{
+  "users": [
+    {
+      "id": "USR-30FD8467F6",
+      "supabaseUserId": "",
+      "name": "Super Admin",
+      "businessName": "LD SERVICE ZONE",
+      "email": "admin@ldservicezone.in",
+      "mobile": "",
+      "role": "admin",
+      "status": "active",
+      "kycStatus": "verified",
+      "passwordHash": "453d1272bf0346508e3e0485eec639ef:de4cf6249a2c9faf597edc7da334d95ce196fb34ae7e74be6ed566d3fb81ff2883f3f85bc79b75def1af403e2e10b1b75bfbf5a6e17adddde063a474ecf740d7",
+      "createdAt": "2026-08-29T20:07:16.631Z"
+    },
+    {
+      "id": "USR-7DAABA9C4F",
+      "supabaseUserId": "",
+      "name": "Demo Retailer",
+      "businessName": "LD SERVICE ZONE Demo",
+      "email": "demo@ldservicezone.in",
+      "mobile": "6370892501",
+      "role": "retailer",
+      "status": "active",
+      "kycStatus": "verified",
+      "emailVerifiedAt": "2026-08-30T06:20:15.828Z",
+      "passwordHash": "ced7c69eb67369f138fb73e7e1b23a68:78218a65d53268d5fa62041bff1819fdb05739f9894adb66283f4330eba52373747df9cfe68b210ce89e43218ffe5b9dd235f649d212e7cea6f9e7795c028bb9",
+      "createdAt": "2026-08-30T06:20:15.869Z"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "SES-3AC4D4FF54",
+      "userId": "USR-30FD8467F6",
+      "tokenHash": "3b57a57a845670f9df559feb3b225cb91a14cc752eb689d2f0bfa61ca8020eea",
+      "createdAt": "2026-09-10T10:00:08.817Z",
+      "expiresAt": "2026-09-17T10:00:08.818Z"
+    }
+  ],
+  "applications": [],
+  "payments": [],
+  "auditLogs": [
+    {
+      "id": "AUD-24A735EE3F",
+      "actorId": "USR-30FD8467F6",
+      "actorName": "Super Admin",
+      "action": "LOGIN_LEGACY",
+      "entity": "user",
+      "entityId": "USR-30FD8467F6",
+      "meta": {},
+      "createdAt": "2026-09-10T10:00:08.818Z"
+    },
+    {
+      "id": "AUD-41BED8D929",
+      "actorId": "USR-7DAABA9C4F",
+      "actorName": "Demo Retailer",
+      "action": "DEMO_LOGIN",
+      "entity": "user",
+      "entityId": "USR-7DAABA9C4F",
+      "meta": {},
+      "createdAt": "2026-09-03T03:47:41.662Z"
+    },
+    {
+      "id": "AUD-21C177A633",
+      "actorId": "USR-7DAABA9C4F",
+      "actorName": "Demo Retailer",
+      "action": "DEMO_LOGIN",
+      "entity": "user",
+      "entityId": "USR-7DAABA9C4F",
+      "meta": {},
+      "createdAt": "2026-09-03T03:45:42.576Z"
+    },
+    {
+      "id": "AUD-B756150B29",
+      "actorId": "USR-7DAABA9C4F",
+      "actorName": "Demo Retailer",
+      "action": "DEMO_LOGIN",
+      "entity": "user",
+      "entityId": "USR-7DAABA9C4F",
+      "meta": {},
+      "createdAt": "2026-08-30T06:29:06.065Z"
+    },
+    {
+      "id": "AUD-F9B9C263D1",
+      "actorId": "USR-7DAABA9C4F",
+      "actorName": "Demo Retailer",
+      "action": "SUPPORT_TICKET_CREATED",
+      "entity": "ticket",
+      "entityId": "TKT-A9BC34F015",
+      "meta": {},
+      "createdAt": "2026-08-30T06:28:41.981Z"
+    },
+    {
+      "id": "AUD-B6EB42D758",
+      "actorId": "USR-7DAABA9C4F",
+      "actorName": "Demo Retailer",
+      "action": "DEMO_LOGIN",
+      "entity": "user",
+      "entityId": "USR-7DAABA9C4F",
+      "meta": {},
+      "createdAt": "2026-08-30T06:22:07.107Z"
+    },
+    {
+      "id": "AUD-444A519C5E",
+      "actorId": "USR-7DAABA9C4F",
+      "actorName": "Demo Retailer",
+      "action": "DEMO_LOGIN",
+      "entity": "user",
+      "entityId": "USR-7DAABA9C4F",
+      "meta": {},
+      "createdAt": "2026-08-30T06:20:15.870Z"
+    },
+    {
+      "id": "AUD-53840B38FC",
+      "actorId": "system",
+      "actorName": "System",
+      "action": "ADMIN_SEEDED",
+      "entity": "user",
+      "entityId": "USR-30FD8467F6",
+      "meta": {},
+      "createdAt": "2026-08-29T20:07:16.632Z"
+    }
+  ],
+  "otpVerifications": [],
+  "wallets": {
+    "USR-30FD8467F6": {
+      "userId": "USR-30FD8467F6",
+      "balance": 0,
+      "creditLimit": 0,
+      "pendingSettlement": 0,
+      "createdAt": "2026-08-29T20:07:16.632Z",
+      "updatedAt": "2026-08-29T20:07:16.632Z"
+    },
+    "USR-7DAABA9C4F": {
+      "userId": "USR-7DAABA9C4F",
+      "balance": 0,
+      "creditLimit": 0,
+      "pendingSettlement": 0,
+      "createdAt": "2026-08-30T06:20:15.869Z",
+      "updatedAt": "2026-08-30T06:20:15.869Z"
+    }
+  },
+  "walletLedger": [],
+  "rechargeTransactions": [],
+  "commissionLedger": [],
+  "supportTickets": [
+    {
+      "id": "TKT-A9BC34F015",
+      "userId": "USR-7DAABA9C4F",
+      "subject": "s",
+      "category": "Payments",
+      "priority": "medium",
+      "status": "open",
+      "message": "sd",
+      "createdAt": "2026-08-30T06:28:41.981Z",
+      "updatedAt": "2026-08-30T06:28:41.981Z"
+    }
+  ],
+  "helpRequests": [],
+  "services": [
+    {
+      "id": "S001",
+      "category": "Government",
+      "name": "Voter ID Card",
+      "processingTime": "7-15 days",
+      "customerPrice": 100,
+      "commission": 40,
+      "documents": [
+        "Aadhaar",
+        "DOB Proof"
+      ],
+      "color": "#4F46E5",
+      "createdAt": "2026-09-10T04:36:33.859Z",
+      "updatedAt": "2026-09-10T04:36:33.860Z"
+    },
+    {
+      "id": "S002",
+      "category": "Government",
+      "name": "Driving Licence",
+      "processingTime": "15-30 days",
+      "customerPrice": 500,
+      "commission": 100,
+      "documents": [
+        "Aadhaar",
+        "Medical Cert",
+        "Age Proof"
+      ],
+      "color": "#1D56D8",
+      "createdAt": "2026-09-10T04:36:33.860Z",
+      "updatedAt": "2026-09-10T04:36:33.860Z"
+    },
+    {
+      "id": "S003",
+      "category": "Government",
+      "name": "RC Smart Card",
+      "processingTime": "10-20 days",
+      "customerPrice": 400,
+      "commission": 80,
+      "documents": [
+        "RC Book",
+        "Insurance",
+        "PUC"
+      ],
+      "color": "#06B6D4",
+      "createdAt": "2026-09-10T04:36:33.860Z",
+      "updatedAt": "2026-09-10T04:36:33.860Z"
+    },
+    {
+      "id": "S004",
+      "category": "Tax",
+      "name": "ITR-1 Filing",
+      "processingTime": "Same day",
+      "customerPrice": 299,
+      "commission": 120,
+      "documents": [
+        "PAN",
+        "Form 16",
+        "Bank Statement"
+      ],
+      "color": "#10B981",
+      "createdAt": "2026-09-10T04:36:33.860Z",
+      "updatedAt": "2026-09-10T04:36:33.860Z"
+    },
+    {
+      "id": "S005",
+      "category": "Tax",
+      "name": "GST Registration",
+      "processingTime": "3-7 days",
+      "customerPrice": 999,
+      "commission": 300,
+      "documents": [
+        "PAN",
+        "Aadhaar",
+        "Business Proof"
+      ],
+      "color": "#F59E0B",
+      "createdAt": "2026-09-10T04:36:33.860Z",
+      "updatedAt": "2026-09-10T04:36:33.860Z"
+    },
+    {
+      "id": "S007",
+      "category": "PAN",
+      "name": "New PAN Card",
+      "processingTime": "7-15 days",
+      "customerPrice": 107,
+      "commission": 32,
+      "documents": [
+        "Aadhaar",
+        "DOB Proof",
+        "Photograph"
+      ],
+      "color": "#F87171",
+      "createdAt": "2026-09-10T04:36:33.860Z",
+      "updatedAt": "2026-09-10T04:36:33.860Z"
+    }
+  ],
+  "pendingSignups": [
+    {
+      "id": "PSU-6A17FFE71A",
+      "supabaseUserId": "ca452e51-aed0-4728-b6a3-f6942b9d3368",
+      "name": "urjbrek",
+      "businessName": "ewnm",
+      "email": "bilsondiagl58@gmail.com",
+      "mobile": "+918917606956",
+      "passwordHash": "30b811a0b1bd45f650a3d5ed0027a67a:d40b63d3d6fa4028c63ddbde30108d95ee72f65be09ef116290021e9294b8fda4e14ded86407184bec71540a42e2d7b26832397a77a7be3b70c9f193802921f0",
+      "createdAt": "2026-09-10T13:33:46.459Z",
+      "emailVerified": false
+    },
+    {
+      "id": "PSU-F198C9A9A6",
+      "supabaseUserId": "a213047b-5b8d-47e5-9c84-e84dd35ad5cb",
+      "name": "Bilson",
+      "businessName": "hh",
+      "email": "bilsondigal58@gmail.com",
+      "mobile": "+918917606856",
+      "passwordHash": "0cd8e7d8ffbc4e98dc155c65fc73db05:9e28757a901ccb9c5a412d41ae189a50f32e8e2a7cc9f43c699685e9d62c2473af7ef652b806b6864471ff0e760044e0a68b3945cebf80510ac492f7ba7299ee",
+      "createdAt": "2026-09-10T13:38:09.810Z",
+      "emailVerified": false
+    }
+  ]
+}

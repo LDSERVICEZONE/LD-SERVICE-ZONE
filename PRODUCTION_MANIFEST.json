@@ -1,0 +1,9 @@
+{
+  "project": "LD SERVICE ZONE",
+  "source": "authfix 3-3.zip",
+  "production_schema_added": true,
+  "environment_template_added": true,
+  "external_secrets_included": false,
+  "production_ready_claim": false,
+  "reason": "Live provider accounts, domain, database and storage credentials must be supplied by the owner."
+}
