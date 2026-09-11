@@ -59,7 +59,10 @@ if (!dataEncryptionKey) {
   }
 }
 const DATA_KEY = crypto.createHash("sha256").update(dataEncryptionKey).digest();
-const PUBLIC_APP_URL = process.env.PUBLIC_APP_URL || `http://localhost:${process.env.VITE_PORT || 8443}`;
+const rawPublicUrl = String(process.env.PUBLIC_APP_URL || "").trim().replace(/\/$/, "");
+const PUBLIC_APP_URL = (isVercel && (!rawPublicUrl || rawPublicUrl.includes("localhost")))
+  ? "https://ldservicezone.vercel.app"
+  : (rawPublicUrl || `http://localhost:${process.env.VITE_PORT || 8443}`);
 
 const rateLimits = new Map();
 function checkRateLimit(key, maxRequests = 10, windowMs = 60_000) {
@@ -183,10 +186,22 @@ function parseJson(req) {
     try { return JSON.parse(body); } catch { throw new Error("Invalid JSON"); }
   });
 }
+function getCorsOrigin(res) {
+  const req = res._req;
+  const origin = req?.headers?.origin;
+  if (origin) {
+    if (origin.endsWith(".vercel.app") || origin.startsWith("http://localhost:") || origin === "https://ldservicezone.vercel.app") {
+      return origin;
+    }
+  }
+  const configured = String(process.env.CORS_ORIGIN || "").trim().replace(/\/$/, "");
+  if (configured && !configured.includes("localhost")) return configured;
+  return origin || (isVercel ? "https://ldservicezone.vercel.app" : "*");
+}
 function send(res, status, payload, headers = {}) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": process.env.CORS_ORIGIN || "*",
+    "Access-Control-Allow-Origin": getCorsOrigin(res),
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
     ...headers,
@@ -567,6 +582,7 @@ async function razorpayRequest(endpoint, method, body) {
 }
 
 export async function handleRequest(req, res) {
+  res._req = req;
   if (req.method === "OPTIONS") return send(res, 204, {});
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathName = url.pathname;
