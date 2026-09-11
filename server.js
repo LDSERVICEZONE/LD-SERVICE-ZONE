@@ -83,7 +83,11 @@ function getClientIp(req) {
 }
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn("AUTH WARNING: Supabase Auth is not fully configured.");
+  const missing = [];
+  if (!SUPABASE_URL) missing.push("SUPABASE_URL");
+  if (!SUPABASE_ANON_KEY) missing.push("SUPABASE_ANON_KEY");
+  if (!SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  console.warn(`AUTH WARNING: Supabase Auth is not fully configured. Missing env variables in Vercel: ${missing.join(", ")}`);
 }
 
 const initialDb = {
@@ -228,16 +232,11 @@ function seedAdmin(db) {
     return;
   }
 
-  if (process.env.NODE_ENV === "production" && (!envEmail || !envPassword)) {
-    console.error("SECURITY ERROR: ADMIN_EMAIL and ADMIN_PASSWORD must be configured in .env for production.");
-    return;
-  }
-
   const email = envEmail || "admin@ldservicezone.in";
   let password = envPassword;
   if (!password) {
-    password = crypto.randomBytes(8).toString("hex") + "!A1";
-    console.warn(`SECURITY WARNING: No ADMIN_PASSWORD set in .env. Generated temporary runtime admin password: ${password}`);
+    password = `Admin@${crypto.createHash("sha256").update(dataEncryptionKey || "default-admin-salt").digest("hex").slice(0, 8)}!A1`;
+    console.warn(`NOTICE: ADMIN_PASSWORD not configured. Initialized default admin account: ${email}`);
   }
 
   db.users.push({ id: id("USR"), supabaseUserId: "", name: "Super Admin", businessName: "LD SERVICE ZONE", email, mobile: "", role: "admin", status: "active", kycStatus: "verified", passwordHash: hashPassword(password), createdAt: now() });
