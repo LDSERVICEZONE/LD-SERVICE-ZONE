@@ -1,2 +1,107 @@
-import { useEffect,useMemo,useState } from "react";import { api } from "../../lib/api";
-export default function AdminTransactions(){const [rows,setRows]=useState<any[]>([]);const [search,setSearch]=useState("");useEffect(()=>{api<any>("/admin/transactions").then(d=>setRows(d.transactions||[])).catch(console.error)},[]);const filtered=useMemo(()=>rows.filter(x=>JSON.stringify(x).toLowerCase().includes(search.toLowerCase())),[rows,search]);return <div className="p-6 space-y-5 max-w-[1400px]"><div><h1 className="font-display text-2xl font-extrabold">Transaction Management</h1><p className="text-[#94A3B8] text-sm">Only recorded backend transactions are shown.</p></div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search transaction, user, service" className="w-full px-4 py-3 rounded-xl border border-[#E2E8F0]"/><div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden"><table className="w-full text-sm"><thead className="bg-[#F8FAFC]"><tr>{["ID","User","Service","Customer","Amount","Commission","Date","Status"].map(h=><th key={h} className="px-5 py-3 text-left text-xs text-[#94A3B8]">{h}</th>)}</tr></thead><tbody>{filtered.map(t=><tr key={t.id} className="border-t border-[#F1F4F9]"><td className="px-5 py-4 font-mono text-xs">{t.id}</td><td className="px-5 py-4 text-xs">{t.userId}</td><td className="px-5 py-4">{t.service}</td><td className="px-5 py-4">{t.customer||"—"}</td><td className="px-5 py-4">₹{Number(t.amount||0).toLocaleString("en-IN")}</td><td className="px-5 py-4 text-emerald-600">₹{Number(t.commission||0).toLocaleString("en-IN")}</td><td className="px-5 py-4 text-xs">{new Date(t.date).toLocaleString()}</td><td className="px-5 py-4 capitalize">{t.status}</td></tr>)}{!filtered.length&&<tr><td colSpan={8} className="py-12 text-center text-[#94A3B8]">No transactions yet.</td></tr>}</tbody></table></div></div>}
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../../lib/api";
+
+export default function AdminTransactions() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api<any>("/admin/transactions")
+      .then((d) => setRows(d.transactions || []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      rows.filter((x) =>
+        JSON.stringify(x).toLowerCase().includes(search.toLowerCase())
+      ),
+    [rows, search]
+  );
+
+  return (
+    <div className="p-6 space-y-5 max-w-[1400px]">
+      <div>
+        <h1 className="font-display text-2xl font-extrabold">
+          Transaction Management
+        </h1>
+        <p className="text-[#94A3B8] text-sm">
+          Live records of service applications and recharges.
+        </p>
+      </div>
+
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by transaction ID, user, service, or customer..."
+        className="w-full px-4 py-3 rounded-xl border border-[#E2E8F0] bg-white text-sm outline-none focus:border-blue-500"
+      />
+
+      <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
+        {loading ? (
+          <div className="p-12 text-center text-sm text-[#94A3B8]">Loading…</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-[#F8FAFC]">
+              <tr>
+                {[
+                  "ID",
+                  "User",
+                  "Service",
+                  "Customer",
+                  "Amount",
+                  "Commission",
+                  "Date",
+                  "Status",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="px-5 py-3 text-left text-xs text-[#94A3B8]"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((t) => (
+                <tr key={t.id} className="border-t border-[#F1F4F9]">
+                  <td className="px-5 py-4 font-mono text-xs text-blue-600">
+                    {t.id}
+                  </td>
+                  <td className="px-5 py-4 text-xs text-[#94A3B8]">{t.userId}</td>
+                  <td className="px-5 py-4 font-medium">{t.service}</td>
+                  <td className="px-5 py-4">{t.customer || "—"}</td>
+                  <td className="px-5 py-4 font-mono">
+                    ₹{Number(t.amount || 0).toLocaleString("en-IN")}
+                  </td>
+                  <td className="px-5 py-4 text-emerald-600 font-mono">
+                    ₹{Number(t.commission || 0).toLocaleString("en-IN")}
+                  </td>
+                  <td className="px-5 py-4 text-xs text-[#94A3B8]">
+                    {new Date(t.date).toLocaleString()}
+                  </td>
+                  <td className="px-5 py-4 capitalize font-semibold text-xs">
+                    {t.status}
+                  </td>
+                </tr>
+              ))}
+              {!filtered.length && (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="py-12 text-center text-[#94A3B8]"
+                  >
+                    No transactions found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}

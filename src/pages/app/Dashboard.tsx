@@ -1,20 +1,274 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { api, getUser } from "../../lib/api";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
+import { api } from "../../lib/api";
+import { useAuth, useWallet } from "../../context/AppContext";
 
-function KpiCard({label,value,sub,icon}:{label:string;value:string;sub:string;icon:string}){return <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5"><div className="flex items-start justify-between mb-3"><p className="text-[#94A3B8] text-xs uppercase tracking-wider font-semibold">{label}</p><span className="text-lg">{icon}</span></div><p className="font-mono-data font-extrabold text-2xl text-[#0F172A]">{value}</p><p className="text-[#94A3B8] text-xs mt-1">{sub}</p></div>}
-function Empty({children}:{children:string}){return <div className="py-10 text-center text-sm text-[#94A3B8]">{children}</div>}
+function KpiCard({
+  label,
+  value,
+  sub,
+  icon,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: string;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5">
+      <div className="flex items-start justify-between mb-3">
+        <p className="text-[#94A3B8] text-xs uppercase tracking-wider font-semibold">
+          {label}
+        </p>
+        <span className="text-lg">{icon}</span>
+      </div>
+      <p className="font-mono-data font-extrabold text-2xl text-[#0F172A]">
+        {value}
+      </p>
+      <p className="text-[#94A3B8] text-xs mt-1">{sub}</p>
+    </div>
+  );
+}
 
-export default function Dashboard(){
- const navigate=useNavigate(); const user:any=getUser(); const [period,setPeriod]=useState<"7d"|"30d">("7d"); const [data,setData]=useState<any>(null); const [wallet,setWallet]=useState<any>(null); const [apps,setApps]=useState<any[]>([]); const [loading,setLoading]=useState(true);
- useEffect(()=>{setLoading(true);Promise.all([api<any>(`/analytics/summary?range=${period}`),api<any>("/wallet"),api<any>("/applications")]).then(([a,w,x])=>{setData(a);setWallet(w.wallet);setApps(x.applications||[])}).catch(console.error).finally(()=>setLoading(false))},[period]);
- const k=data?.kpis||{}; const trend=data?.trend||[];
- return <div className="p-6 space-y-6 max-w-[1400px]">
-  <div className="flex items-start justify-between"><div><h1 className="font-display text-2xl font-extrabold text-[#0F172A]">Good {new Date().getHours()<12?"morning":new Date().getHours()<17?"afternoon":"evening"}, {user?.name||"Retailer"} 👋</h1><p className="text-[#94A3B8] text-sm mt-0.5">Your live business activity. No demo figures are used.</p></div><div className="px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold">Live data</div></div>
-  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4"><KpiCard label="Available Balance" value={`₹${Number(wallet?.balance||0).toLocaleString("en-IN")}`} sub="Real wallet balance" icon="💳"/><KpiCard label="Today's Sales" value={`₹${Number(k.todaySales||0).toLocaleString("en-IN")}`} sub="From recorded transactions" icon="📈"/><KpiCard label="Today's Commission" value={`₹${Number(k.todayEarnings||0).toLocaleString("en-IN")}`} sub="Recorded commission" icon="💰"/><KpiCard label="Pending Settlement" value={`₹${Number(wallet?.pendingSettlement||0).toLocaleString("en-IN")}`} sub="Backend wallet record" icon="⏳"/></div>
-  <div className="grid lg:grid-cols-3 gap-5"><div className="lg:col-span-2 bg-white rounded-2xl border border-[#E2E8F0] p-5"><div className="flex items-center justify-between mb-5"><div><h2 className="font-display font-bold text-[#0F172A]">Revenue Overview</h2><p className="text-[#94A3B8] text-xs">{period === "7d" ? "Last 7 days" : "Last 30 days"}</p></div><div className="flex rounded-xl border border-[#E2E8F0] overflow-hidden text-xs">{(["7d","30d"] as const).map(p=><button key={p} onClick={()=>setPeriod(p)} className={`px-3 py-1.5 ${period===p?"bg-[#07111F] text-white":"text-[#94A3B8] hover:bg-[#F1F4F9]"}`}>{p}</button>)}</div></div>{loading?<div className="h-[200px] animate-pulse bg-[#F8FAFC] rounded-xl"/>:trend.length?<ResponsiveContainer width="100%" height={200}><AreaChart data={trend}><CartesianGrid strokeDasharray="3 3" stroke="#F1F4F9" vertical={false}/><XAxis dataKey="date" tick={{fontSize:10,fill:"#94A3B8"}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:10,fill:"#94A3B8"}} axisLine={false} tickLine={false}/><Tooltip/><Area type="monotone" dataKey="revenue" stroke="#1D56D8" fill="#1D56D8" fillOpacity={0.08}/></AreaChart></ResponsiveContainer>:<Empty>No transactions yet — your chart will appear here.</Empty>}</div>
-  <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5"><h2 className="font-display font-bold text-[#0F172A] mb-4">Quick Actions</h2><div className="grid grid-cols-2 gap-3">{[["💳","Add Money","/dashboard/wallet"],["📱","Recharge","/dashboard/recharge"],["🪪","Services","/dashboard/services"],["📊","Analytics","/dashboard/analytics"]].map(([icon,label,path])=><button key={label} onClick={()=>navigate(path)} className="flex flex-col items-center gap-2 p-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] hover:border-[#1D56D8]/40 transition-colors"><span className="text-xl">{icon}</span><span className="text-xs font-medium text-[#475569]">{label}</span></button>)}</div><div className="mt-4 rounded-xl bg-[#07111F] p-3 space-y-1.5 text-xs"><div className="flex justify-between"><span className="text-white/60">Transactions</span><b className="text-white">{k.transactions||0}</b></div><div className="flex justify-between"><span className="text-white/60">Success Rate</span><b className="text-emerald-400">{k.successRate||0}%</b></div><div className="flex justify-between"><span className="text-white/60">Customers</span><b className="text-white">{k.customers||0}</b></div></div></div></div>
-  <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5"><h2 className="font-display font-bold text-[#0F172A] mb-4">Recent Applications</h2><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[#F1F4F9]"><th className="pb-3 text-left text-xs text-[#94A3B8]">Application</th><th className="pb-3 text-left text-xs text-[#94A3B8]">Service</th><th className="pb-3 text-left text-xs text-[#94A3B8]">Amount</th><th className="pb-3 text-left text-xs text-[#94A3B8]">Status</th></tr></thead><tbody>{apps.slice(0,8).map(a=><tr key={a.applicationId} className="border-t border-[#F1F4F9]"><td className="py-3 font-mono text-xs">{a.applicationId}</td><td className="py-3">{a.serviceName}</td><td className="py-3 font-mono-data">₹{Number(a.customerPrice||0).toLocaleString("en-IN")}</td><td className="py-3 capitalize">{a.status.replaceAll("_"," ")}</td></tr>)}{!apps.length&&<tr><td colSpan={4}><Empty>No applications yet.</Empty></td></tr>}</tbody></table></div></div>
- </div>
+function Empty({ children }: { children: string }) {
+  return (
+    <div className="py-10 text-center text-sm text-[#94A3B8]">{children}</div>
+  );
+}
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { wallet } = useWallet();
+  const [period, setPeriod] = useState<"7d" | "30d">("7d");
+  const [data, setData] = useState<any>(null);
+  const [apps, setApps] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      api<any>(`/analytics/summary?range=${period}`),
+      api<any>("/applications"),
+    ])
+      .then(([a, x]) => {
+        setData(a);
+        setApps(x.applications || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [period]);
+
+  const k = data?.kpis || {};
+  const trend = data?.trend || [];
+
+  return (
+    <div className="p-6 space-y-6 max-w-[1400px]">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold text-[#0F172A]">
+            Good{" "}
+            {new Date().getHours() < 12
+              ? "morning"
+              : new Date().getHours() < 17
+              ? "afternoon"
+              : "evening"}
+            , {user?.name || "Retailer"} 👋
+          </h1>
+          <p className="text-[#94A3B8] text-sm mt-0.5">
+            Your live business activity. No demo figures are used.
+          </p>
+        </div>
+        <div className="px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold">
+          Live data
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          label="Available Balance"
+          value={`₹${Number(wallet?.balance || 0).toLocaleString("en-IN")}`}
+          sub="Real wallet balance"
+          icon="💳"
+        />
+        <KpiCard
+          label="Today's Sales"
+          value={`₹${Number(k.todaySales || 0).toLocaleString("en-IN")}`}
+          sub="From recorded transactions"
+          icon="📈"
+        />
+        <KpiCard
+          label="Today's Commission"
+          value={`₹${Number(k.todayEarnings || 0).toLocaleString("en-IN")}`}
+          sub="Recorded commission"
+          icon="💰"
+        />
+        <KpiCard
+          label="Pending Settlement"
+          value={`₹${Number(wallet?.pendingSettlement || 0).toLocaleString(
+            "en-IN"
+          )}`}
+          sub="Backend wallet record"
+          icon="⏳"
+        />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E2E8F0] p-5">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="font-display font-bold text-[#0F172A]">
+                Revenue Overview
+              </h2>
+              <p className="text-[#94A3B8] text-xs">
+                {period === "7d" ? "Last 7 days" : "Last 30 days"}
+              </p>
+            </div>
+            <div className="flex rounded-xl border border-[#E2E8F0] overflow-hidden text-xs">
+              {(["7d", "30d"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1.5 transition-colors ${
+                    period === p
+                      ? "bg-[#07111F] text-white"
+                      : "text-[#94A3B8] hover:bg-[#F1F4F9]"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="h-[200px] animate-pulse bg-[#F8FAFC] rounded-xl" />
+          ) : trend.length ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={trend}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#F1F4F9"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: "#94A3B8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#94A3B8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#1D56D8"
+                  fill="#1D56D8"
+                  fillOpacity={0.08}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <Empty>No transactions yet — your chart will appear here.</Empty>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5">
+          <h2 className="font-display font-bold text-[#0F172A] mb-4">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ["💳", "Add Money", "/dashboard/wallet"],
+              ["📱", "Recharge", "/dashboard/recharge"],
+              ["🪪", "Services", "/dashboard/services"],
+              ["📊", "Analytics", "/dashboard/analytics"],
+            ].map(([icon, label, path]) => (
+              <button
+                key={label}
+                onClick={() => navigate(path)}
+                className="flex flex-col items-center gap-2 p-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] hover:border-[#1D56D8]/40 transition-colors"
+              >
+                <span className="text-xl">{icon}</span>
+                <span className="text-xs font-medium text-[#475569]">
+                  {label}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-xl bg-[#07111F] p-3 space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-white/60">Transactions</span>
+              <b className="text-white">{k.transactions || 0}</b>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-white/60">Success Rate</span>
+              <b className="text-emerald-400">{k.successRate || 0}%</b>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-white/60">Customers</span>
+              <b className="text-white">{k.customers || 0}</b>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5">
+        <h2 className="font-display font-bold text-[#0F172A] mb-4">
+          Recent Applications
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#F1F4F9]">
+                <th className="pb-3 text-left text-xs text-[#94A3B8]">
+                  Application
+                </th>
+                <th className="pb-3 text-left text-xs text-[#94A3B8]">
+                  Service
+                </th>
+                <th className="pb-3 text-left text-xs text-[#94A3B8]">Amount</th>
+                <th className="pb-3 text-left text-xs text-[#94A3B8]">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {apps.slice(0, 8).map((a) => (
+                <tr key={a.applicationId} className="border-t border-[#F1F4F9]">
+                  <td className="py-3 font-mono text-xs">{a.applicationId}</td>
+                  <td className="py-3">{a.serviceName}</td>
+                  <td className="py-3 font-mono-data">
+                    ₹{Number(a.customerPrice || 0).toLocaleString("en-IN")}
+                  </td>
+                  <td className="py-3 capitalize">
+                    {a.status.replaceAll("_", " ")}
+                  </td>
+                </tr>
+              ))}
+              {!apps.length && (
+                <tr>
+                  <td colSpan={4}>
+                    <Empty>No applications yet.</Empty>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -1,23 +1,49 @@
-# Supabase local setup
+# Supabase Setup Guide
 
-The project reads Supabase server credentials from `.env` at the project root. The browser never receives the service-role key.
+The project standardizes on **Supabase** for Authentication and PostgreSQL database management.
 
-Configured for local development:
-- Supabase project URL
-- Supabase anon key
-- Supabase service-role key (server only)
-- Data encryption key
-- Admin email/password
-- Demo login disabled
-- Mobile OTP disabled until an SMS provider is configured
+## 1. Credentials Configuration
 
-## Supabase dashboard requirements
+Copy `.env.example` to `.env` and fill in your Supabase credentials:
 
-1. In Authentication → Providers → Email, enable Email provider.
-2. Configure the email confirmation/OTP behavior required by the project.
-3. Add `http://localhost:8443/login` and `http://localhost:8443/reset-password` to the allowed redirect URLs.
-4. When mobile OTP is needed later, configure a supported SMS provider in Supabase Authentication → Providers → Phone, then enable the project's mobile OTP flag.
+```env
+# Supabase PostgreSQL connection string (from Database Settings -> Connection string -> URI)
+DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres?sslmode=require"
 
-## Security
+# Supabase Project API credentials (from Project Settings -> API)
+SUPABASE_URL="https://[YOUR-PROJECT-REF].supabase.co"
+SUPABASE_ANON_KEY="eyJhbGciOi..."
+SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOi..."
+```
 
-`.env` is ignored by `.gitignore`. Do not commit it or publish it. If these credentials were shared anywhere public, rotate the Supabase service-role key and data-encryption key before production use.
+> [!WARNING]
+> The `SUPABASE_SERVICE_ROLE_KEY` has full administrative bypass rights and is strictly read by `server.js`. It must NEVER be committed to Git or exposed to the client-side frontend bundle.
+
+## 2. Supabase Authentication Setup
+
+1. In your Supabase Dashboard, navigate to **Authentication** → **Providers** → **Email**:
+   - Ensure the Email provider is **Enabled**.
+   - Set email confirmation / OTP according to your onboarding workflow.
+2. In **Authentication** → **URL Configuration**:
+   - Set **Site URL** to your frontend URL (e.g., `http://localhost:8443` or production domain).
+   - Add `http://localhost:8443/login` and `http://localhost:8443/reset-password` to **Redirect URLs**.
+
+## 3. Database Schema Migration (Prisma on Supabase)
+
+Generate the Prisma client and push the schema directly to your Supabase PostgreSQL instance:
+
+```bash
+# Push Prisma schema to Supabase Postgres
+npm run db:push
+
+# Or run Prisma migrations:
+npm run db:migrate
+
+# Open visual Prisma Studio to inspect tables:
+npm run db:studio
+```
+
+## 4. Encryption & Security
+
+- Generate a 32-byte secure key for `DATA_ENCRYPTION_KEY` in `.env` (`openssl rand -hex 32`). This key protects Aadhaar, PAN, and Bank details with AES-256-GCM.
+- In production, set `NODE_ENV=production` and `DEMO_MODE=false`.

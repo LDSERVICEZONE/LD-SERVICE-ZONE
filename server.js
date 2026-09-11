@@ -44,8 +44,40 @@ const GOOGLE_SHEET_TAB_APPLICATIONS = process.env.GOOGLE_SHEET_TAB_APPLICATIONS 
 const GOOGLE_SHEET_TAB_PAYMENTS = process.env.GOOGLE_SHEET_TAB_PAYMENTS || "Payments";
 const GOOGLE_SHEET_TAB_AUDIT = process.env.GOOGLE_SHEET_TAB_AUDIT || "AuditLogs";
 const GOOGLE_SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "";
-const DATA_KEY = crypto.createHash("sha256").update(process.env.DATA_ENCRYPTION_KEY || "ld-service-zone-demo-change-this-key").digest();
+
+let dataEncryptionKey = process.env.DATA_ENCRYPTION_KEY;
+if (!dataEncryptionKey) {
+  if (process.env.NODE_ENV === "production") {
+    console.error("FATAL SECURITY ERROR: DATA_ENCRYPTION_KEY must be set in production.");
+    process.exit(1);
+  } else {
+    console.warn("SECURITY WARNING: DATA_ENCRYPTION_KEY is not set. Generating a temporary runtime key. Configure DATA_ENCRYPTION_KEY in .env for persistent decryption.");
+    dataEncryptionKey = crypto.randomBytes(32).toString("hex");
+  }
+}
+const DATA_KEY = crypto.createHash("sha256").update(dataEncryptionKey).digest();
 const PUBLIC_APP_URL = process.env.PUBLIC_APP_URL || `http://localhost:${process.env.VITE_PORT || 8443}`;
+
+const rateLimits = new Map();
+function checkRateLimit(key, maxRequests = 10, windowMs = 60_000) {
+  const nowTime = Date.now();
+  const entry = rateLimits.get(key) || { count: 0, resetAt: nowTime + windowMs };
+  if (nowTime > entry.resetAt) {
+    entry.count = 1;
+    entry.resetAt = nowTime + windowMs;
+  } else {
+    entry.count += 1;
+  }
+  rateLimits.set(key, entry);
+  if (entry.count > maxRequests) {
+    const retryAfter = Math.ceil((entry.resetAt - nowTime) / 1000);
+    return { limited: true, retryAfter };
+  }
+  return { limited: false, retryAfter: 0 };
+}
+function getClientIp(req) {
+  return String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1").split(",")[0].trim();
+}
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
   console.warn("AUTH WARNING: Supabase Auth is not fully configured.");
@@ -180,17 +212,58 @@ function seedAdmin(db) {
   audit(db, null, "ADMIN_SEEDED", "user", db.users.at(-1).id);
 }
 const SERVICE_SEED = [
+  // Government Identity & Transport
   { id: "S001", category: "Government", name: "Voter ID Card", processingTime: "7-15 days", customerPrice: 100, commission: 40, documents: ["Aadhaar", "DOB Proof"], color: "#4F46E5" },
+  { id: "VOTER-NEW", category: "Government", name: "New Voter ID", processingTime: "7-15 days", customerPrice: 100, commission: 40, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#4F46E5" },
+  { id: "VOTER-CORRECTION", category: "Government", name: "Voter ID Correction", processingTime: "7-15 days", customerPrice: 100, commission: 35, documents: ["Voter ID", "Aadhaar", "Supporting Proof"], color: "#F59E0B" },
+  { id: "VOTER-ADDRESS", category: "Government", name: "Voter ID Address Change", processingTime: "7-15 days", customerPrice: 100, commission: 35, documents: ["Voter ID", "Address Proof"], color: "#06B6D4" },
+  { id: "VOTER-DOWNLOAD", category: "Government", name: "Voter ID Download", processingTime: "Instant", customerPrice: 30, commission: 10, documents: ["EPIC Number", "Mobile Number"], color: "#10B981" },
+
   { id: "S002", category: "Government", name: "Driving Licence", processingTime: "15-30 days", customerPrice: 500, commission: 100, documents: ["Aadhaar", "Medical Cert", "Age Proof"], color: "#1D56D8" },
+  { id: "DL-NEW", category: "Government", name: "New Driving Licence", processingTime: "15-30 days", customerPrice: 500, commission: 100, documents: ["Aadhaar", "Medical Cert", "Age Proof"], color: "#1D56D8" },
+  { id: "DL-LEARNER", category: "Government", name: "Learner Licence", processingTime: "7-15 days", customerPrice: 300, commission: 70, documents: ["Aadhaar", "Age Proof"], color: "#4F46E5" },
+  { id: "DL-RENEWAL", category: "Government", name: "Driving Licence Renewal", processingTime: "7-15 days", customerPrice: 400, commission: 80, documents: ["Driving Licence", "Aadhaar"], color: "#10B981" },
+  { id: "DL-CORRECTION", category: "Government", name: "Driving Licence Correction", processingTime: "7-15 days", customerPrice: 400, commission: 75, documents: ["Driving Licence", "Supporting Proof"], color: "#F59E0B" },
+  { id: "DL-DUPLICATE", category: "Government", name: "Duplicate Driving Licence", processingTime: "7-15 days", customerPrice: 450, commission: 90, documents: ["Driving Licence", "Aadhaar"], color: "#7C3AED" },
+
   { id: "S003", category: "Government", name: "RC Smart Card", processingTime: "10-20 days", customerPrice: 400, commission: 80, documents: ["RC Book", "Insurance", "PUC"], color: "#06B6D4" },
+  { id: "RC-NEW", category: "Government", name: "New RC Smart Card", processingTime: "10-20 days", customerPrice: 400, commission: 80, documents: ["RC Book", "Insurance", "PUC"], color: "#06B6D4" },
+  { id: "RC-TRANSFER", category: "Government", name: "RC Transfer", processingTime: "10-20 days", customerPrice: 500, commission: 100, documents: ["RC Book", "Sale Agreement", "Insurance"], color: "#4F46E5" },
+  { id: "RC-CORRECTION", category: "Government", name: "RC Correction", processingTime: "10-20 days", customerPrice: 350, commission: 70, documents: ["RC Book", "Supporting Proof"], color: "#F59E0B" },
+  { id: "RC-DUPLICATE", category: "Government", name: "Duplicate RC", processingTime: "10-20 days", customerPrice: 400, commission: 80, documents: ["Vehicle Details", "Insurance", "PUC"], color: "#7C3AED" },
+
+  // Tax & Business
   { id: "S004", category: "Tax", name: "ITR-1 Filing", processingTime: "Same day", customerPrice: 299, commission: 120, documents: ["PAN", "Form 16", "Bank Statement"], color: "#10B981" },
+  { id: "ITR-1-REVISED", category: "Tax", name: "Revised ITR-1", processingTime: "Same day", customerPrice: 399, commission: 150, documents: ["PAN", "Form 16", "Original ITR"], color: "#F59E0B" },
   { id: "S005", category: "Tax", name: "GST Registration", processingTime: "3-7 days", customerPrice: 999, commission: 300, documents: ["PAN", "Aadhaar", "Business Proof"], color: "#F59E0B" },
+  { id: "GST-REG", category: "Tax", name: "New GST Registration", processingTime: "3-7 days", customerPrice: 999, commission: 300, documents: ["PAN", "Aadhaar", "Business Proof"], color: "#F59E0B" },
+  { id: "GST-CORRECTION", category: "Tax", name: "GST Amendment", processingTime: "3-7 days", customerPrice: 699, commission: 200, documents: ["GSTIN", "Supporting Proof"], color: "#4F46E5" },
+
+  // Certificates
+  { id: "INCOME-NEW", category: "Certificate", name: "New Income Certificate", processingTime: "7-10 days", customerPrice: 150, commission: 50, documents: ["Aadhaar", "Ration Card"], color: "#7C3AED" },
+  { id: "INCOME-RENEW", category: "Certificate", name: "Income Certificate Renewal", processingTime: "7-10 days", customerPrice: 150, commission: 45, documents: ["Old Certificate", "Aadhaar"], color: "#10B981" },
+  { id: "CASTE-NEW", category: "Certificate", name: "New Caste Certificate", processingTime: "10-15 days", customerPrice: 100, commission: 40, documents: ["Aadhaar", "Old Caste Cert"], color: "#06B6D4" },
+  { id: "CASTE-CORRECTION", category: "Certificate", name: "Caste Certificate Correction", processingTime: "10-15 days", customerPrice: 100, commission: 35, documents: ["Certificate", "Supporting Proof"], color: "#F59E0B" },
+
+  // PAN Services
   { id: "S007", category: "PAN", name: "New PAN Card", processingTime: "7-15 days", customerPrice: 107, commission: 32, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171" },
+  { id: "PAN-NEW", category: "PAN", name: "New PAN", processingTime: "7-15 days", customerPrice: 107, commission: 32, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171" },
+  { id: "PAN-CORRECTION", category: "PAN", name: "PAN Correction", processingTime: "7-15 days", customerPrice: 107, commission: 28, documents: ["PAN Card", "Aadhaar", "Supporting Proof"], color: "#F59E0B" },
+  { id: "PAN-REPRINT", category: "PAN", name: "PAN Reprint", processingTime: "7-15 days", customerPrice: 50, commission: 20, documents: ["PAN Number", "Aadhaar"], color: "#06B6D4" },
+  { id: "PAN-FIND", category: "PAN", name: "PAN Find", processingTime: "Instant", customerPrice: 20, commission: 10, documents: ["Aadhaar"], color: "#4F46E5" },
+  { id: "PAN-STATUS", category: "PAN", name: "PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: ["Acknowledgement Number"], color: "#10B981" },
+  { id: "PAN-UTI", category: "PAN", name: "UTI Services", processingTime: "7-15 days", customerPrice: 120, commission: 40, documents: ["Aadhaar", "PAN"], color: "#7C3AED" },
+  { id: "PAN-NSDL", category: "PAN", name: "NSDL Services", processingTime: "7-15 days", customerPrice: 120, commission: 35, documents: ["Aadhaar", "PAN"], color: "#1D56D8" },
 ];
 function seedServices(db) {
   if (!Array.isArray(db.services)) db.services = [];
-  if (db.services.length) return;
-  db.services = SERVICE_SEED.map(service => ({ ...service, documents: [...service.documents], createdAt: now(), updatedAt: now() }));
+  const existingIds = new Set(db.services.map(s => s.id));
+  for (const service of SERVICE_SEED) {
+    if (!existingIds.has(service.id)) {
+      db.services.push({ ...service, documents: [...service.documents], createdAt: now(), updatedAt: now() });
+      existingIds.add(service.id);
+    }
+  }
 }
 function applicationHelpSnapshot(app) {
   if (!app) return null;
@@ -223,7 +296,7 @@ function creditApplicationCommission(db, app) {
   app.adminCommission = adminCommission;
   if (userCommission > 0) {
     const wallet = ensureWallet(app.userId);
-    wallet.balance += userCommission;
+    wallet.balance = Number((wallet.balance + userCommission).toFixed(2));
     wallet.updatedAt = now();
     db.walletLedger.unshift({ id: id("WL"), userId: app.userId, type: "credit", amount: userCommission, reference: app.applicationId, description: `50% service commission - ${app.serviceName}`, status: "success", createdAt: now(), balanceAfter: wallet.balance });
   }
@@ -238,12 +311,45 @@ function updateApplicationByAdmin(db, app, input, actor) {
   if (input.status) app.status = input.status;
   if (typeof input.adminNote === "string") app.adminNote = input.adminNote;
   let commissionCredited = false;
-  if (input.status === "completed" && !app.commissionCredited) commissionCredited = creditApplicationCommission(db, app);
+  let commissionReversed = false;
+
+  if (input.status === "completed" && !app.commissionCredited) {
+    commissionCredited = creditApplicationCommission(db, app);
+  } else if (previousStatus === "completed" && input.status === "rejected" && app.commissionCredited) {
+    // Automatically reverse credited commission upon application rejection
+    if (app.userCommission > 0) {
+      const wallet = ensureWallet(app.userId);
+      wallet.balance = Math.max(0, Number((wallet.balance - app.userCommission).toFixed(2)));
+      wallet.updatedAt = now();
+      db.walletLedger.unshift({
+        id: id("WL"),
+        userId: app.userId,
+        type: "debit",
+        amount: app.userCommission,
+        reference: `REV-${app.applicationId}`,
+        description: `Commission reversal - ${app.serviceName} rejected`,
+        status: "success",
+        createdAt: now(),
+        balanceAfter: wallet.balance,
+      });
+      db.commissionLedger.unshift({
+        id: id("CM"),
+        applicationId: app.applicationId,
+        userId: app.userId,
+        providerCommission: -Number(app.providerCommission || 0),
+        userCommission: -Number(app.userCommission || 0),
+        adminCommission: -Number(app.adminCommission || 0),
+        createdAt: now(),
+      });
+    }
+    app.commissionCredited = false;
+    commissionReversed = true;
+  }
+
   app.updatedAt = now();
-  const meta = { adminNote: app.adminNote, previousStatus, commissionCredited };
-  if (previousStatus === "completed" && input.status === "rejected") meta.commissionReversal = "Manual review required; wallet credit was not auto-reversed.";
+  const meta = { adminNote: app.adminNote, previousStatus, commissionCredited, commissionReversed };
   audit(db, actor, `APPLICATION_${String(input.status || "UPDATED").toUpperCase()}`, "application", app.applicationId, meta);
-  return { previousStatus, commissionCredited };
+  return { previousStatus, commissionCredited, commissionReversed };
 }
 const db = loadDb();
 function ensureWallet(userId) {
@@ -253,8 +359,6 @@ function ensureWallet(userId) {
 for (const user of db.users) ensureWallet(user.id);
 seedAdmin(db);
 seedServices(db);
-for (const user of db.users) ensureWallet(user.id);
-saveDb(db);
 saveDb(db);
 
 
@@ -447,6 +551,10 @@ const server = http.createServer(async (req, res) => {
 
 
     if (pathName === "/api/auth/signup" && req.method === "POST") {
+      const clientIp = getClientIp(req);
+      const signupLimit = checkRateLimit(`signup:${clientIp}`, 5, 15 * 60_000);
+      if (signupLimit.limited) return send(res, 429, { error: `Too many registration attempts. Please try again in ${signupLimit.retryAfter} seconds.` });
+
       const input = await parseJson(req);
       const name = String(input.name || "").trim();
       const email = String(input.email || "").trim().toLowerCase();
@@ -503,6 +611,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathName === "/api/auth/signup/verify-email" && req.method === "POST") {
+      const clientIp = getClientIp(req);
+      const verifyLimit = checkRateLimit(`verify:${clientIp}`, 10, 15 * 60_000);
+      if (verifyLimit.limited) return send(res, 429, { error: `Too many verification attempts. Please try again in ${verifyLimit.retryAfter} seconds.` });
+
       const input = await parseJson(req);
       const email = String(input.email || "").trim().toLowerCase();
       const code = String(input.code || input.otp || "").trim();
@@ -520,6 +632,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathName === "/api/auth/signup/resend-email" && req.method === "POST") {
+      const clientIp = getClientIp(req);
+      const resendLimit = checkRateLimit(`resend:${clientIp}`, 3, 15 * 60_000);
+      if (resendLimit.limited) return send(res, 429, { error: `Too many resend requests. Please wait ${resendLimit.retryAfter} seconds before trying again.` });
+
       const input = await parseJson(req);
       const email = String(input.email || "").trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return send(res, 400, { error: "Enter a valid email address" });
@@ -530,9 +646,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathName === "/api/auth/demo-login" && req.method === "POST") {
-      // Demo access is intentionally separate from real authentication.
-      // Disable it for production deployments with DEMO_MODE=false.
-      if (String(process.env.DEMO_MODE || "true").toLowerCase() !== "true") return send(res, 403, { error: "Demo sign-in is disabled" });
+      // Demo access is disabled by default for production security.
+      // Must be explicitly enabled with DEMO_MODE=true in .env for development/testing.
+      if (String(process.env.DEMO_MODE || "false").toLowerCase() !== "true") {
+        return send(res, 403, { error: "Demo sign-in is disabled. Please use registered retailer credentials or set DEMO_MODE=true in .env for local testing." });
+      }
       let user = db.users.find(u => u.email === "demo@ldservicezone.in" && u.role === "retailer");
       if (!user) {
         user = {
@@ -552,6 +670,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathName === "/api/auth/login" && req.method === "POST") {
+      const clientIp = getClientIp(req);
+      const loginLimit = checkRateLimit(`login:${clientIp}`, 10, 15 * 60_000);
+      if (loginLimit.limited) return send(res, 429, { error: `Too many login attempts. Please try again in ${loginLimit.retryAfter} seconds.` });
+
       const input = await parseJson(req);
       const credential = String(input.email || input.credential || input.mobile || "").trim();
       const password = String(input.password || "");
@@ -827,10 +949,47 @@ const server = http.createServer(async (req, res) => {
       const raw = JSON.parse(rawBody || "{}");
       if (raw.event === "payment.captured" && raw.payload?.payment?.entity?.order_id) {
         const orderId = raw.payload.payment.entity.order_id;
+        const gatewayPaymentId = raw.payload.payment.entity.id;
         const payment = db.payments.find(p => p.orderId === orderId);
-        if (payment) { payment.status = "paid"; payment.gatewayPaymentId = raw.payload.payment.entity.id; payment.paidAt = now(); const app = db.applications.find(a => a.applicationId === payment.applicationId); if (app) { app.status = "submitted"; app.paymentId = payment.gatewayPaymentId; app.updatedAt = now(); } saveDb(db);
+
+        if (payment && payment.status !== "paid") {
+          payment.status = "paid";
+          payment.gatewayPaymentId = gatewayPaymentId;
+          payment.paidAt = now();
+
+          // Handle application fee payment
+          if (payment.applicationId) {
+            const app = db.applications.find(a => a.applicationId === payment.applicationId);
+            if (app) {
+              app.status = "submitted";
+              app.paymentId = gatewayPaymentId;
+              app.updatedAt = now();
+              syncSheet(GOOGLE_SHEET_TAB_APPLICATIONS, sheetApplication(app));
+            }
+          }
+
+          // Handle wallet top-up payment
+          if (payment.mode === "razorpay_wallet" || raw.payload.payment.entity.notes?.type === "wallet_topup") {
+            const wallet = ensureWallet(payment.userId);
+            wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2));
+            wallet.updatedAt = now();
+            db.walletLedger.unshift({
+              id: id("WL"),
+              userId: payment.userId,
+              type: "credit",
+              amount: Number(payment.amount),
+              reference: payment.paymentId,
+              description: "Razorpay wallet top-up (webhook)",
+              status: "success",
+              createdAt: now(),
+              balanceAfter: wallet.balance,
+            });
+            audit(db, { id: payment.userId, name: "Webhook" }, "WALLET_TOPUP_WEBHOOK", "wallet", payment.userId, { amount: payment.amount });
+          }
+
+          saveDb(db);
           syncSheet(GOOGLE_SHEET_TAB_PAYMENTS, sheetPayment(payment));
-          if (app) syncSheet(GOOGLE_SHEET_TAB_APPLICATIONS, sheetApplication(app)); }
+        }
       }
       return send(res, 200, { received: true });
     }
@@ -905,10 +1064,14 @@ const server = http.createServer(async (req, res) => {
         const providersResult = await getProviders();
         const allProviders = (providersResult.data?.services || []).flatMap(s => (s.providers || []).map(p => ({...p, service:s.service, code:p.code || s.code})));
         const wanted = String(detected.operator).toLowerCase().replace(/[^a-z0-9]/g, "");
+        const rawWanted = String(detected.operator).toLowerCase().trim();
         const provider = allProviders.find(p => {
           const n = String(p.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
           const c = String(p.code || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-          return n === wanted || c === wanted || n.includes(wanted) || wanted.includes(n);
+          return n === wanted || c === wanted;
+        }) || allProviders.find(p => {
+          const n = String(p.name || "").toLowerCase();
+          return new RegExp(`\\b${rawWanted}\\b`, "i").test(n);
         });
         if (!provider) return send(res, 422, { error: `Detected operator "${detected.operator}" but it is not available in your Pay2All provider catalogue. Please select manually.`, detected });
         return send(res, 200, { detected, provider: { provider_id: provider.provider_id, name: provider.name, code: provider.code } });
