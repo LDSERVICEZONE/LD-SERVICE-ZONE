@@ -205,10 +205,33 @@ function audit(db, actor, action, entity, entityId, meta = {}) {
   syncSheet(GOOGLE_SHEET_TAB_AUDIT, sheetAudit(log));
 }
 function seedAdmin(db) {
-  if (db.users.some(u => u.role === "admin")) return;
-  const email = process.env.ADMIN_EMAIL || "admin@ldservicezone.in";
-  const password = process.env.ADMIN_PASSWORD || "Admin@12345";
-  db.users.push({ id: id("USR"), supabaseUserId: "", name: "Super Admin", businessName: "LD SERVICE ZONE", email: email.toLowerCase(), mobile: "", role: "admin", status: "active", kycStatus: "verified", passwordHash: hashPassword(password), createdAt: now() });
+  const adminUser = db.users.find(u => u.role === "admin");
+  const envEmail = process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.trim().toLowerCase() : "";
+  const envPassword = process.env.ADMIN_PASSWORD ? process.env.ADMIN_PASSWORD.trim() : "";
+
+  if (adminUser) {
+    if (envEmail && adminUser.email !== envEmail) {
+      adminUser.email = envEmail;
+    }
+    if (envPassword) {
+      adminUser.passwordHash = hashPassword(envPassword);
+    }
+    return;
+  }
+
+  if (process.env.NODE_ENV === "production" && (!envEmail || !envPassword)) {
+    console.error("SECURITY ERROR: ADMIN_EMAIL and ADMIN_PASSWORD must be configured in .env for production.");
+    return;
+  }
+
+  const email = envEmail || "admin@ldservicezone.in";
+  let password = envPassword;
+  if (!password) {
+    password = crypto.randomBytes(8).toString("hex") + "!A1";
+    console.warn(`SECURITY WARNING: No ADMIN_PASSWORD set in .env. Generated temporary runtime admin password: ${password}`);
+  }
+
+  db.users.push({ id: id("USR"), supabaseUserId: "", name: "Super Admin", businessName: "LD SERVICE ZONE", email, mobile: "", role: "admin", status: "active", kycStatus: "verified", passwordHash: hashPassword(password), createdAt: now() });
   audit(db, null, "ADMIN_SEEDED", "user", db.users.at(-1).id);
 }
 const SERVICE_SEED = [

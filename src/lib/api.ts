@@ -1,4 +1,4 @@
-export const API_BASE = "/api";
+export const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || "/api";
 
 export function getToken() { return localStorage.getItem("ld_token") || ""; }
 export function getUser<T = any>(): T | null { try { return JSON.parse(localStorage.getItem("ld_user") || "null"); } catch { return null; } }

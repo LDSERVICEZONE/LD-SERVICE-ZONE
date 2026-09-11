@@ -65,15 +65,15 @@ Backend health check:
 ```bash
 curl http://localhost:8787/api/health
 ```
+## Admin Configuration
 
-## Demo admin login
+Administrative credentials are configured securely via `.env`:
 
-Default seeded admin:
+- `ADMIN_EMAIL`: Your primary administrator email address.
+- `ADMIN_PASSWORD`: A secure, strong administrative password.
 
-- Email: `admin@ldservicezone.in`
-- Password: `Admin@12345`
-
-Change both using `.env` before real deployment.
+> [!IMPORTANT]
+> Never commit real administrator credentials to public documentation or source control. Always define them in your private `.env` file.
 
 ## Real Razorpay payments
 
