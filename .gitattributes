@@ -144,3 +144,10 @@
 *.stl                filter=lfs diff=lfs merge=lfs -text
 *.nc                 filter=lfs diff=lfs merge=lfs -text
 *.mat                filter=lfs diff=lfs merge=lfs -text
+
+# ---------------------------------------------------------------------------
+# UI Web Assets - Exempt from Git LFS so Vercel & Netlify builds include real binaries
+# ---------------------------------------------------------------------------
+src/imports/*        !filter !diff !merge -text
+public/*             !filter !diff !merge -text
+
