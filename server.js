@@ -558,7 +558,7 @@ async function razorpayRequest(endpoint, method, body) {
   return data;
 }
 
-const server = http.createServer(async (req, res) => {
+export async function handleRequest(req, res) {
   if (req.method === "OPTIONS") return send(res, 204, {});
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathName = url.pathname;
@@ -1306,7 +1306,18 @@ const server = http.createServer(async (req, res) => {
     console.error(error);
     return send(res, 500, { error: error?.message || "Internal server error" });
   }
-});
+}
 
-server.on("error", error => { console.error(`LD SERVICE ZONE API could not start on port ${PORT}: ${error.message}`); process.exit(1); });
-server.listen(PORT, "0.0.0.0", () => console.log(`LD SERVICE ZONE API running on http://localhost:${PORT} | payment: ${RAZORPAY_KEY_ID ? "Razorpay" : "Demo"}`));
+const server = http.createServer(handleRequest);
+
+if (!process.env.VERCEL) {
+  server.on("error", error => {
+    console.error(`LD SERVICE ZONE API could not start on port ${PORT}: ${error.message}`);
+    process.exit(1);
+  });
+  server.listen(PORT, "0.0.0.0", () =>
+    console.log(`LD SERVICE ZONE API running on http://localhost:${PORT} | payment: ${RAZORPAY_KEY_ID ? "Razorpay" : "Demo"}`)
+  );
+}
+
+export default server;
