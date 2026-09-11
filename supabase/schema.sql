@@ -30,7 +30,7 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- 2. User & Authentication
 CREATE TABLE IF NOT EXISTS "User" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "email" TEXT UNIQUE,
   "mobile" TEXT UNIQUE,
   "passwordHash" TEXT,
@@ -45,14 +45,14 @@ CREATE TABLE IF NOT EXISTS "User" (
 );
 
 CREATE TABLE IF NOT EXISTS "RetailerProfile" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT NOT NULL UNIQUE REFERENCES "User"("id") ON DELETE CASCADE,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS "Session" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
   "tokenHash" TEXT NOT NULL UNIQUE,
   "expiresAt" TIMESTAMPTZ NOT NULL,
@@ -63,13 +63,13 @@ CREATE INDEX IF NOT EXISTS "session_user_expires_idx" ON "Session"("userId", "ex
 
 -- 3. Service Catalog
 CREATE TABLE IF NOT EXISTS "ServiceCategory" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "name" TEXT NOT NULL UNIQUE,
   "active" BOOLEAN NOT NULL DEFAULT true
 );
 
 CREATE TABLE IF NOT EXISTS "Service" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "categoryId" TEXT NOT NULL REFERENCES "ServiceCategory"("id"),
   "name" TEXT NOT NULL,
   "slug" TEXT NOT NULL UNIQUE,
@@ -87,7 +87,7 @@ CREATE INDEX IF NOT EXISTS "service_category_active_idx" ON "Service"("categoryI
 
 -- 4. Customer Applications
 CREATE TABLE IF NOT EXISTS "Application" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT NOT NULL REFERENCES "User"("id"),
   "serviceId" TEXT NOT NULL REFERENCES "Service"("id"),
   "status" "ApplicationStatus" NOT NULL DEFAULT 'SUBMITTED',
@@ -101,7 +101,7 @@ CREATE INDEX IF NOT EXISTS "application_user_created_idx" ON "Application"("user
 CREATE INDEX IF NOT EXISTS "application_status_created_idx" ON "Application"("status", "createdAt");
 
 CREATE TABLE IF NOT EXISTS "ApplicationDocument" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "applicationId" TEXT NOT NULL REFERENCES "Application"("id") ON DELETE CASCADE,
   "storageKey" TEXT NOT NULL,
   "originalName" TEXT NOT NULL,
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS "ApplicationDocument" (
 );
 
 CREATE TABLE IF NOT EXISTS "ApplicationStatusHistory" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "applicationId" TEXT NOT NULL REFERENCES "Application"("id") ON DELETE CASCADE,
   "fromStatus" "ApplicationStatus",
   "toStatus" "ApplicationStatus" NOT NULL,
@@ -123,7 +123,7 @@ CREATE INDEX IF NOT EXISTS "app_status_hist_idx" ON "ApplicationStatusHistory"("
 
 -- 5. KYC Profiles & Documents
 CREATE TABLE IF NOT EXISTS "KycProfile" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT NOT NULL UNIQUE REFERENCES "User"("id") ON DELETE CASCADE,
   "status" "KycStatus" NOT NULL DEFAULT 'PENDING',
   "encryptedData" TEXT,
@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS "KycProfile" (
 );
 
 CREATE TABLE IF NOT EXISTS "KycDocument" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "kycId" TEXT NOT NULL REFERENCES "KycProfile"("id") ON DELETE CASCADE,
   "type" TEXT NOT NULL,
   "storageKey" TEXT NOT NULL,
@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS "KycDocument" (
 );
 
 CREATE TABLE IF NOT EXISTS "KycReview" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "kycId" TEXT NOT NULL REFERENCES "KycProfile"("id") ON DELETE CASCADE,
   "status" "KycStatus" NOT NULL,
   "note" TEXT,
@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS "KycReview" (
 
 -- 6. Wallets & Ledger
 CREATE TABLE IF NOT EXISTS "Wallet" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT NOT NULL UNIQUE REFERENCES "User"("id") ON DELETE CASCADE,
   "balance" DECIMAL(14,2) NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS "Wallet" (
 );
 
 CREATE TABLE IF NOT EXISTS "WalletLedger" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "walletId" TEXT NOT NULL REFERENCES "Wallet"("id") ON DELETE CASCADE,
   "type" "WalletEntryType" NOT NULL,
   "amount" DECIMAL(14,2) NOT NULL,
@@ -175,7 +175,7 @@ CREATE INDEX IF NOT EXISTS "wallet_ledger_idx" ON "WalletLedger"("walletId", "cr
 
 -- 7. Payments & Transactions
 CREATE TABLE IF NOT EXISTS "Payment" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT NOT NULL,
   "provider" TEXT NOT NULL,
   "providerOrderId" TEXT UNIQUE,
@@ -188,7 +188,7 @@ CREATE TABLE IF NOT EXISTS "Payment" (
 CREATE INDEX IF NOT EXISTS "payment_user_created_idx" ON "Payment"("userId", "createdAt");
 
 CREATE TABLE IF NOT EXISTS "PaymentEvent" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "paymentId" TEXT NOT NULL REFERENCES "Payment"("id") ON DELETE CASCADE,
   "providerEventId" TEXT NOT NULL UNIQUE,
   "eventType" TEXT NOT NULL,
@@ -197,7 +197,7 @@ CREATE TABLE IF NOT EXISTS "PaymentEvent" (
 );
 
 CREATE TABLE IF NOT EXISTS "Refund" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "paymentId" TEXT NOT NULL,
   "providerRefundId" TEXT UNIQUE,
   "amount" DECIMAL(14,2) NOT NULL,
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS "Refund" (
 
 -- 8. Mobile & DTH Recharge
 CREATE TABLE IF NOT EXISTS "RechargeTransaction" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT NOT NULL,
   "provider" TEXT NOT NULL,
   "externalRef" TEXT UNIQUE,
@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS "RechargeTransaction" (
 CREATE INDEX IF NOT EXISTS "recharge_user_created_idx" ON "RechargeTransaction"("userId", "createdAt");
 
 CREATE TABLE IF NOT EXISTS "RechargeStatusHistory" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "transactionId" TEXT NOT NULL REFERENCES "RechargeTransaction"("id") ON DELETE CASCADE,
   "status" "RechargeStatus" NOT NULL,
   "payload" JSONB,
@@ -232,7 +232,7 @@ CREATE TABLE IF NOT EXISTS "RechargeStatusHistory" (
 );
 
 CREATE TABLE IF NOT EXISTS "CommissionRule" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "serviceId" TEXT,
   "operator" TEXT,
   "rate" DECIMAL(8,4) NOT NULL,
@@ -242,7 +242,7 @@ CREATE TABLE IF NOT EXISTS "CommissionRule" (
 
 -- 9. Notifications, Support & Audit
 CREATE TABLE IF NOT EXISTS "Notification" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT NOT NULL,
   "channel" TEXT NOT NULL,
   "type" TEXT NOT NULL,
@@ -252,7 +252,7 @@ CREATE TABLE IF NOT EXISTS "Notification" (
 );
 
 CREATE TABLE IF NOT EXISTS "SupportTicket" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT NOT NULL REFERENCES "User"("id"),
   "subject" TEXT NOT NULL,
   "category" TEXT NOT NULL,
@@ -263,7 +263,7 @@ CREATE TABLE IF NOT EXISTS "SupportTicket" (
 );
 
 CREATE TABLE IF NOT EXISTS "SupportMessage" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "ticketId" TEXT NOT NULL REFERENCES "SupportTicket"("id") ON DELETE CASCADE,
   "senderId" TEXT,
   "body" TEXT NOT NULL,
@@ -271,7 +271,7 @@ CREATE TABLE IF NOT EXISTS "SupportMessage" (
 );
 
 CREATE TABLE IF NOT EXISTS "AuditLog" (
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "userId" TEXT REFERENCES "User"("id") ON DELETE SET NULL,
   "action" TEXT NOT NULL,
   "entity" TEXT,
