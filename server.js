@@ -20,8 +20,8 @@ if (fs.existsSync(envFile)) {
 
 const { getProviders, getPlans, initiateRecharge, checkRechargeStatus, detectOperatorCircle, configured: pay2allConfigured } = await import("./server/services/rechargeProvider.js");
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, "data");
+const isVercel = Boolean(process.env.VERCEL);
+const dataDir = isVercel ? path.join("/tmp", "ld-data") : path.join(__dirname, "data");
 const uploadDir = path.join(dataDir, "uploads");
 const kycDir = path.join(dataDir, "kyc");
 const dbFile = path.join(dataDir, "db.json");
@@ -109,7 +109,13 @@ function loadDb() {
     return structuredClone(initialDb);
   }
 }
-function saveDb(db) { fs.writeFileSync(dbFile, JSON.stringify(db, null, 2)); }
+function saveDb(db) {
+  try {
+    fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
+  } catch (err) {
+    console.error("saveDb write error:", err.message);
+  }
+}
 function id(prefix) { return `${prefix}-${crypto.randomBytes(5).toString("hex").toUpperCase()}`; }
 function now() { return new Date().toISOString(); }
 function normalizeIndianMobile(value) {
