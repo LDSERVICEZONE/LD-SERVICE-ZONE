@@ -432,7 +432,7 @@ function updateApplicationByAdmin(db, app, input, actor) {
   audit(db, actor, `APPLICATION_${String(input.status || "UPDATED").toUpperCase()}`, "application", app.applicationId, meta);
   return { previousStatus, commissionCredited, commissionReversed };
 }
-const db = await loadDb();
+let db = await loadDb();
 function ensureWallet(userId) {
   if (!db.wallets[userId]) db.wallets[userId] = { userId, balance: 0, creditLimit: 0, pendingSettlement: 0, createdAt: now(), updatedAt: now() };
   return db.wallets[userId];
@@ -655,6 +655,9 @@ export async function handleRequest(req, res) {
   const pathName = url.pathname;
 
   try {
+    // Refresh the shared snapshot on every request so warm serverless instances
+    // cannot validate sessions against stale Supabase state.
+    if (DATA_STORE === "supabase") db = await loadDb();
     if (pathName === "/api/health" && req.method === "GET") {
       return send(res, 200, {
         ok: true, service: "LD SERVICE ZONE API",
@@ -979,12 +982,16 @@ export async function handleRequest(req, res) {
     }
 
     if (pathName === "/api/auth/me" && req.method === "GET") {
-      const auth = requireAuth(req, res, db); if (!auth) return;
+      // Vercel may route the follow-up request to a warm instance with an older
+      // module-level snapshot. Reload Supabase state before validating sessions.
+      const authDb = DATA_STORE === "supabase" ? await loadDb() : db;
+      const auth = requireAuth(req, res, authDb); if (!auth) return;
       return send(res, 200, { user: sanitizeUser(auth.user) });
     }
 
     if (pathName === "/api/auth/logout" && req.method === "POST") {
-      const token = bearer(req); db.sessions = db.sessions.filter(s => s.tokenHash !== crypto.createHash("sha256").update(token).digest("hex")); await saveDb(db); return send(res, 200, { ok: true });
+      const authDb = DATA_STORE === "supabase" ? await loadDb() : db;
+      const token = bearer(req); authDb.sessions = authDb.sessions.filter(s => s.tokenHash !== crypto.createHash("sha256").update(token).digest("hex")); await saveDb(authDb); return send(res, 200, { ok: true });
     }
 
     if (pathName === "/api/auth/activity" && req.method === "GET") {
