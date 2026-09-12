@@ -88,7 +88,9 @@ export default function ServicesPage() {
     setFiles({});
     setSelectedFiles({});
     setSubmitMessage("");
-    setSelectedService(service);
+    const current = services.find(s => s.id === service.id);
+    if (!current) { setSubmitMessage("This service is currently unavailable. Refresh the catalogue."); return; }
+    setSelectedService({ ...service, ...current });
   };
 
   const fieldDefs = useMemo(() => {
@@ -113,6 +115,8 @@ export default function ServicesPage() {
     const required = fieldDefs.filter(f => f !== "Email Address");
     const missing = required.find(f => !(form[f] || "").trim());
     if (missing) { setSubmitMessage(`Please enter ${missing}.`); return; }
+    const missingDocument = selectedService.documents.find((name: string) => !selectedFiles[name]);
+    if (missingDocument) { setSubmitMessage(`Please upload ${missingDocument}.`); return; }
     setSubmitting(true); setSubmitMessage("");
     try {
       const created = await api<any>("/applications", {
@@ -134,7 +138,7 @@ export default function ServicesPage() {
         await api(`/applications/${application.applicationId}/documents`, { method: "POST", body: JSON.stringify({ documentName: doc, fileName: file.name, mimeType: file.type, data: dataUrl }) });
       }
       const payment = await api<any>("/payments/create-order", { method: "POST", body: JSON.stringify({ applicationId: application.applicationId }) });
-      if (payment.mode === "free") {
+      if (payment.mode === "free" || payment.mode === "demo") {
         setSubmitMessage(`Application ${application.applicationId} submitted successfully.`); setForm({}); setFiles({}); setSelectedFiles({}); return;
       }
       await new Promise<void>((resolve, reject) => {
@@ -262,7 +266,7 @@ export default function ServicesPage() {
               <button onClick={() => setSelectedParentService(null)} className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] text-xl">×</button>
             </div>
             <div className="p-5 sm:p-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(SERVICE_SUBSERVICES[selectedParentService.name] || [selectedParentService]).map((sub: any) => (
+              {(SERVICE_SUBSERVICES[selectedParentService.name] || [selectedParentService]).filter((sub: any) => services.some(s => s.id === sub.id)).map((sub: any) => ({ ...sub, ...services.find(s => s.id === sub.id) })).map((sub: any) => (
                 <button key={sub.id} type="button" onClick={() => { setSelectedParentService(null); openApplication({ ...sub, category: selectedParentService.category }); }}
                   className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-[#8B5CF6]/40 hover:shadow-xl hover:-translate-y-1 transition-all">
                   <div className="flex items-start justify-between"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: sub.color + "20" }}>{sub.icon || "📄"}</div><span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">START</span></div>
@@ -285,13 +289,13 @@ export default function ServicesPage() {
               <button onClick={() => setShowPanServices(false)} className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] text-xl">×</button>
             </div>
             <div className="p-5 sm:p-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {PAN_SERVICES.map(p => (
+              {PAN_SERVICES.filter(p => services.some(s => s.id === p.id)).map(p => ({ ...p, ...services.find(s => s.id === p.id) })).map(p => (
                 <button key={p.id} type="button" onClick={() => { setShowPanServices(false); openApplication({ ...p, category: "PAN" }); }}
                   className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-violet-300 hover:shadow-xl hover:-translate-y-1 transition-all">
                   <div className="flex items-start justify-between"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: p.color + "20" }}>{p.icon}</div><span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700">PAN SERVICE</span></div>
                   <h4 className="font-bold text-[#0F172A] mt-4">{p.name}</h4><p className="text-xs text-[#64748B] mt-1">⏱ {p.processingTime}</p>
                   <div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl bg-[#F8FAFC] p-3"><p className="text-[9px] text-[#94A3B8]">Customer Price</p><p className="font-bold text-sm">{p.customerPrice === 0 ? "Free" : `₹${p.customerPrice}`}</p></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-[9px] text-emerald-600">Your Commission</p><p className="font-bold text-sm text-emerald-700">{p.commission === 0 ? "Free" : `₹${p.commission}`}</p></div></div>
-                  <div className="flex flex-wrap gap-1.5 mt-4">{p.documents.map(d => <span key={d} className="text-[9px] px-2 py-1 rounded-full bg-[#F1F4F9] text-[#475569]">{d}</span>)}</div>
+                  <div className="flex flex-wrap gap-1.5 mt-4">{p.documents.map((d: string) => <span key={d} className="text-[9px] px-2 py-1 rounded-full bg-[#F1F4F9] text-[#475569]">{d}</span>)}</div>
                   <div className="mt-4 text-sm font-bold text-[#4F46E5] group-hover:translate-x-1 transition-transform">Open {p.name} →</div>
                 </button>
               ))}

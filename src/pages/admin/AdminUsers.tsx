@@ -1,25 +1,28 @@
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import KycReview from "../../components/KycReview";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     api<any>("/admin/users")
       .then((d) => setUsers(d.users || []))
-      .catch(console.error)
+      .catch(e => setLoadError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="p-6 space-y-5 max-w-[1300px]">
+      {loadError && <p role="alert" className="text-red-600">{loadError}</p>}
       <div>
         <h1 className="font-display text-2xl font-extrabold">Users</h1>
         <p className="text-[#94A3B8] text-sm">Real registered accounts only.</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
+      <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-x-auto">
         {loading ? (
           <div className="p-12 text-center text-sm text-[#94A3B8]">Loading…</div>
         ) : (
@@ -76,6 +79,7 @@ export default function AdminUsers() {
           </table>
         )}
       </div>
+      <KycReview onUpdated={() => void api<any>("/admin/users").then(data => setUsers(data.users || [])).catch(error => setLoadError(error.message))} />
     </div>
   );
 }

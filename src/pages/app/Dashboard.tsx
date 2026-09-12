@@ -53,6 +53,7 @@ export default function Dashboard() {
   const [data, setData] = useState<any>(null);
   const [apps, setApps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -64,7 +65,7 @@ export default function Dashboard() {
         setData(a);
         setApps(x.applications || []);
       })
-      .catch(console.error)
+      .catch(e => setLoadError(e.message))
       .finally(() => setLoading(false));
   }, [period]);
 
@@ -73,6 +74,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px]">
+      {loadError && <p role="alert" className="text-red-600">{loadError}</p>}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="font-display text-2xl font-extrabold text-[#0F172A]">

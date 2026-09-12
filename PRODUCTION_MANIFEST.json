@@ -5,5 +5,5 @@
   "environment_template_added": true,
   "external_secrets_included": false,
   "production_ready_claim": false,
-  "reason": "Live provider accounts, domain, database and storage credentials must be supplied by the owner."
+  "reason": "Supabase schema/RLS are present, but the HTTP handlers still use the JSON development store. Production startup is blocked until the Supabase data adapter and Storage document migration are implemented."
 }

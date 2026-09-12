@@ -5,12 +5,13 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [selected, setSelected] = useState<any>(null);
 
   useEffect(() => {
     api<any>("/customers")
       .then((d) => setCustomers(d.customers || []))
-      .catch(console.error)
+      .catch(e => setLoadError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -20,6 +21,7 @@ export default function CustomersPage() {
 
   return (
     <div className="p-6 space-y-5 max-w-[1100px]">
+      {loadError && <p role="alert" className="text-red-600">{loadError}</p>}
       <div>
         <h1 className="font-display text-2xl font-extrabold text-[#0F172A]">
           Customers

@@ -12,11 +12,12 @@ import {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     api<any>("/admin/stats")
       .then(setStats)
-      .catch(console.error)
+      .catch(e => setLoadError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -24,6 +25,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1300px]">
+      {loadError && <p role="alert" className="text-red-600">{loadError}</p>}
       <div>
         <h1 className="font-display text-2xl font-extrabold">Admin Overview</h1>
         <p className="text-[#94A3B8] text-sm">

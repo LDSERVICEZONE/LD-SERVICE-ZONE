@@ -93,6 +93,18 @@ When keys are configured, a paid service application uses:
 
 Without keys, the same flow runs in safe local **Demo Payment** mode so the project can be tested without a payment account.
 
+For the current basic demo, set `DEMO_MODE=true`. Service applications are recorded as submitted without charging a payment. Set it to `false` before enabling real payments.
+
+### Vercel demo deployment
+
+1. Run the latest `supabase/schema.sql` after pulling this version. It creates the protected `platform_state` table and private `private-documents` bucket.
+2. Import this repository into Vercel with the root directory set to the repository root and the build command `npm run build`.
+3. Add these Vercel Environment Variables for **Production, Preview, and Development**: `NODE_ENV=production`, `DATA_STORE=supabase`, `DEMO_MODE=true`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_ENCRYPTION_KEY`, `SUPABASE_STATE_TABLE=platform_state`, `SUPABASE_STORAGE_BUCKET=private-documents`, `PUBLIC_APP_URL` (your Vercel URL), `CORS_ORIGIN` (the same Vercel URL), `ADMIN_EMAIL`, and `ADMIN_PASSWORD`.
+4. Deploy. The app uses `/api/index.js` through the included rewrites; no separate backend server is needed.
+5. In Supabase Dashboard → Authentication → URL Configuration, set the Site URL to your Vercel URL and add `https://your-project.vercel.app/reset-password` plus `https://your-project.vercel.app/login` as redirect URLs.
+
+Keep `SUPABASE_SERVICE_ROLE_KEY`, `DATA_ENCRYPTION_KEY`, and `ADMIN_PASSWORD` as server-only Vercel variables. `DEMO_MODE=true` enables no-charge application submissions and the demo sign-in endpoint for this test deployment; turn it off before a real deployment.
+
 ## Important production upgrades
 
 This project is intentionally easy to install locally. Before handling real Aadhaar/PAN documents or money, move the data layer to PostgreSQL/MySQL, put the app behind HTTPS, use a managed secrets system, add rate limiting, malware scan uploads, private object storage, stronger session controls, notifications, reconciliation/refunds, monitoring and backups, and complete the applicable privacy/KYC/retention requirements.

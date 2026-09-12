@@ -5,15 +5,17 @@ import { BarChart3 } from "lucide-react";
 export default function AdminAnalytics() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api<any>("/admin/transactions")
       .then((d) => setRows(d.transactions || []))
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
   const stats = useMemo(() => {
-    const revenue = rows.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const revenue = rows.filter(x => ["completed", "success"].includes(x.status)).reduce((a, x) => a + Number(x.amount || 0), 0);
     const commission = rows.reduce((a, x) => a + Number(x.commission || 0), 0);
     const completed = rows.filter(
       (x) =>
@@ -30,6 +32,7 @@ export default function AdminAnalytics() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1300px]">
+      {error && <p role="alert" className="text-red-600">{error}</p>}
       <div>
         <h1 className="font-display text-2xl font-extrabold">Analytics</h1>
         <p className="text-[#94A3B8] text-sm">

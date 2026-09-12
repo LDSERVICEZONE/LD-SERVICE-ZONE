@@ -16,10 +16,14 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "start:production": "node server.js"
+    "start:production": "node server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/api-audit.test.mjs",
+    "audit:browser": "node tests/browser-audit.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
+    "@vercel/analytics": "^1.4.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -29,8 +33,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.18.2",
-    "recharts": "^3.10.1",
-    "@vercel/analytics": "^1.4.1"
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
@@ -39,6 +42,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
     "oxfmt": "^0.2.0",
+    "playwright": "^1.63.0",
     "prisma": "^6.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",

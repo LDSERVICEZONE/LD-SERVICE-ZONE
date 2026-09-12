@@ -5,11 +5,12 @@ export default function AdminTransactions() {
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     api<any>("/admin/transactions")
       .then((d) => setRows(d.transactions || []))
-      .catch(console.error)
+      .catch(e => setLoadError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -23,6 +24,7 @@ export default function AdminTransactions() {
 
   return (
     <div className="p-6 space-y-5 max-w-[1400px]">
+      {loadError && <p role="alert" className="text-red-600">{loadError}</p>}
       <div>
         <h1 className="font-display text-2xl font-extrabold">
           Transaction Management

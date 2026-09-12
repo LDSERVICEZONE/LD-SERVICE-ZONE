@@ -5,15 +5,18 @@ import { CheckCircle2, Settings2, XCircle } from "lucide-react";
 export default function AdminSettings() {
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api<any>("/health")
       .then(setHealth)
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="p-6 space-y-6 max-w-[1000px]">
+      {error && <p role="alert" className="text-red-600">{error}</p>}
       <div>
         <h1 className="font-display text-2xl font-extrabold">Settings</h1>
         <p className="text-[#94A3B8] text-sm">
@@ -37,7 +40,7 @@ export default function AdminSettings() {
                 </span>
                 {value ? (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
-                    <CheckCircle2 size={16} /> Connected
+                    <CheckCircle2 size={16} /> Configured
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 text-xs text-slate-400">

@@ -5,10 +5,12 @@ import { ClipboardList, Download } from "lucide-react";
 export default function AdminReports() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api<any>("/admin/transactions")
       .then((d) => setRows(d.transactions || []))
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
@@ -26,7 +28,11 @@ export default function AdminReports() {
     const csv = [
       headers.join(","),
       ...rows.map((r) =>
-        headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
+        headers.map((h) => {
+          const value = String(r[h] ?? "");
+          const safe = /^[=+@\-\t\r]/.test(value) ? "'" + value : value;
+          return '"' + safe.replaceAll('"', '""') + '"';
+        }).join(",")
       ),
     ].join("\n");
     const a = document.createElement("a");
@@ -40,6 +46,7 @@ export default function AdminReports() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1300px]">
+      {error && <p role="alert" className="text-red-600">{error}</p>}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-extrabold">Reports</h1>

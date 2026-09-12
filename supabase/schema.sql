@@ -281,3 +281,19 @@ CREATE TABLE IF NOT EXISTS "AuditLog" (
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS "audit_log_created_idx" ON "AuditLog"("createdAt");
+
+-- Basic test-mode persistence for the current API. This stores the complete
+-- application state in Supabase PostgreSQL while the relational handlers are
+-- migrated incrementally. It is service-role-only and must never be exposed
+-- to the browser.
+CREATE TABLE IF NOT EXISTS public.platform_state (
+  id TEXT PRIMARY KEY,
+  state JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE public.platform_state ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.platform_state FROM anon, authenticated;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('private-documents', 'private-documents', false)
+ON CONFLICT (id) DO UPDATE SET public = false;

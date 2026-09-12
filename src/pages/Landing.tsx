@@ -51,7 +51,7 @@ export default function Landing({ onLogin }: Props) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
             <img src={ldLogo} alt="LD Service Zone" className="h-9 w-9 rounded-full object-cover" />
-            <span className="font-display font-800 text-lg tracking-tight">LD SERVICE ZONE</span>
+            <span className="font-display font-bold text-xs sm:text-lg tracking-tight">LD SERVICE ZONE</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-white/70">
             <a href="#services" className="hover:text-white transition-colors">Services</a>
@@ -68,6 +68,7 @@ export default function Landing({ onLogin }: Props) {
             </button>
             <button
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen(v => !v)}
               className="md:hidden w-9 h-9 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-white/80"
             >

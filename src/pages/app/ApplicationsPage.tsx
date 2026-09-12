@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, downloadAuthenticatedFile } from "../../lib/api";
 import { Download, FileText, LifeBuoy, X } from "lucide-react";
+import ApplicationCheckout from "../../components/ApplicationCheckout";
 
 export default function ApplicationsPage() {
   const [apps, setApps] = useState<any[]>([]);
@@ -15,6 +16,7 @@ export default function ApplicationsPage() {
   const load = () =>
     api<any>("/applications")
       .then((d) => setApps(d.applications || []))
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false));
 
   useEffect(() => {
@@ -182,6 +184,7 @@ export default function ApplicationsPage() {
             )}
 
             <div className="mt-5 space-y-4">
+              {selectedApp.status === "payment_pending" && <ApplicationCheckout application={selectedApp} onComplete={() => { setSelectedApp(null); void load(); }} />}
               <div>
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                   Uploaded Documents

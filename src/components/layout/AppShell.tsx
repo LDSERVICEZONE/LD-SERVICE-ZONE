@@ -16,7 +16,6 @@ import {
   WalletCards,
 } from "lucide-react";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
-import AnimatedBackground from "../background/AnimatedBackground";
 import { useAuth, useWallet } from "../../context/AppContext";
 
 interface Props {
@@ -49,7 +48,7 @@ export default function AppShell({ onLogout }: Props) {
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSearchOpen(false);
+      if (e.key === "Escape") { setSearchOpen(false); if (window.innerWidth < 768) setSidebarOpen(false); }
     };
     window.addEventListener("keydown", fn);
     return () => window.removeEventListener("keydown", fn);
@@ -57,7 +56,7 @@ export default function AppShell({ onLogout }: Props) {
 
   const handleLogout = async () => {
     if (onLogout) {
-      onLogout();
+      await onLogout();
     } else {
       await logout();
       navigate("/login");
@@ -65,16 +64,16 @@ export default function AppShell({ onLogout }: Props) {
   };
 
   return (
-    <div className="relative isolate flex h-screen bg-[#F1F4F9]/95 overflow-hidden">
-      <AnimatedBackground variant="subtle" />
+    <div className="relative isolate flex h-dvh bg-[#F1F4F9] overflow-hidden">
 
       {/* Sidebar */}
       <aside
+        id="retailer-navigation"
         className={`${
           sidebarOpen
             ? "w-60"
             : "w-16 md:w-16 -translate-x-full md:translate-x-0"
-        } fixed md:relative z-50 h-full bg-[#07111F] flex flex-col transition-all duration-300`}
+        } ${sidebarOpen ? "visible" : "invisible md:visible"} fixed md:relative z-30 h-full shrink-0 bg-[#07111F] flex flex-col transition-all duration-300`}
       >
         <div className="flex items-center gap-3 p-4 h-16 border-b border-white/10">
           <img
@@ -92,7 +91,7 @@ export default function AppShell({ onLogout }: Props) {
           )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-3 px-2">
+        <nav aria-label="Retailer navigation" className="flex-1 overflow-y-auto py-3 px-2">
           {NAV.map((item, i) =>
             "group" in item ? (
               <div
@@ -109,6 +108,8 @@ export default function AppShell({ onLogout }: Props) {
               <NavLink
                 key={item.path + item.label}
                 to={item.path!}
+                aria-label={item.label}
+                title={item.label}
                 end={item.path === "/dashboard"}
                 onClick={() =>
                   window.innerWidth < 768 && setSidebarOpen(false)
@@ -159,31 +160,34 @@ export default function AppShell({ onLogout }: Props) {
 
       {sidebarOpen && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-black/30"
+          className="md:hidden fixed inset-0 z-20 bg-black/30"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Main Container */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        <header className="h-16 bg-white border-b border-[#E2E8F0] flex items-center px-4 gap-3">
+        <header className="h-16 shrink-0 bg-white border-b border-[#E2E8F0] flex items-center px-3 sm:px-4 gap-2 sm:gap-3">
           <button
             aria-label="Open navigation"
+            aria-expanded={sidebarOpen}
+            aria-controls="retailer-navigation"
             onClick={() => setSidebarOpen(true)}
-            className="md:hidden w-9 h-9 rounded-xl border flex items-center justify-center"
+            className="md:hidden shrink-0 w-9 h-9 rounded-xl border flex items-center justify-center"
           >
             <Menu size={18} />
           </button>
 
           <button
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F1F4F9] border border-[#E2E8F0] text-[#94A3B8] text-sm flex-1 max-w-sm"
+            aria-label="Search navigation"
+            className="flex min-w-0 items-center gap-2 px-3 py-2 rounded-xl bg-[#F1F4F9] border border-[#E2E8F0] text-[#64748B] text-sm flex-1 max-w-sm"
           >
             <Search size={16} />
-            Search services, customers, transactions...
+            <span className="truncate">Search pages...</span>
           </button>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto shrink-0 flex items-center gap-2 sm:gap-3">
             {/* Live Shared Reactive Wallet Balance */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-[#07111F] text-white text-sm">
               <span className="text-white/50 text-xs">Balance</span>
@@ -213,7 +217,7 @@ export default function AppShell({ onLogout }: Props) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 min-h-0 overflow-y-auto">
           <Outlet />
         </main>
       </div>

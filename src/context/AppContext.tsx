@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { api, clearSession, getToken, getUser, setSession } from "../lib/api";
+import { api, ApiError, clearSession, getToken, getUser, setSession } from "../lib/api";
 
 export interface UserProfile {
   id: string;
@@ -36,6 +36,7 @@ export interface AppContextType {
   role: "retailer" | "admin";
   loggedIn: boolean;
   authLoading: boolean;
+  authError: string;
   login: (token: string, user: UserProfile) => void;
   logout: () => Promise<void>;
   refreshUser: () => Promise<UserProfile | null>;
@@ -57,7 +58,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUserState] = useState<UserProfile | null>(() =>
     getUser<UserProfile>()
   );
-  const [authLoading, setAuthLoading] = useState<boolean>(false);
+  const [authLoading, setAuthLoading] = useState<boolean>(() => Boolean(getToken()));
+  const [authError, setAuthError] = useState("");
 
   const [wallet, setWalletState] = useState<WalletState | null>(null);
   const [walletLoading, setWalletLoading] = useState<boolean>(false);
@@ -68,17 +70,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Refresh user profile from backend
   const refreshUser = useCallback(async (): Promise<UserProfile | null> => {
-    if (!getToken()) {
+    setAuthError("");
+    const sessionToken = getToken();
+    if (!sessionToken) {
+      setTokenState("");
       setUserState(null);
       setAuthLoading(false);
       return null;
     }
     try {
       const data = await api<{ user: UserProfile }>("/auth/me");
+      if (getToken() !== sessionToken) return null;
       setUserState(data.user);
-      setSession(getToken(), data.user);
+      setTokenState(sessionToken);
+      setSession(sessionToken, data.user);
       return data.user;
-    } catch {
+    } catch (error) {
+      if (getToken() !== sessionToken) return null;
+      if (!(error instanceof ApiError) || ![401, 403].includes(error.status)) {
+        setAuthError("We could not verify your session. Check your connection and try again.");
+        return null;
+      }
       clearSession();
       setTokenState("");
       setUserState(null);
@@ -90,13 +102,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Refresh wallet balance from backend
   const refreshWallet = useCallback(async (): Promise<WalletState | null> => {
-    if (!getToken()) {
+    const sessionToken = getToken();
+    if (!sessionToken) {
       setWalletState(null);
       return null;
     }
     setWalletLoading(true);
     try {
       const data = await api<{ wallet: WalletState }>("/wallet");
+      if (getToken() !== sessionToken) return null;
       setWalletState(data.wallet);
       return data.wallet;
     } catch {
@@ -123,22 +137,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     setSession(newToken, newUser);
     setTokenState(newToken);
     setUserState(newUser);
+    setWalletState(null);
+    setAuthLoading(false);
+    setAuthError("");
   }, []);
 
   // Logout action
   const logout = useCallback(async () => {
-    try {
-      await api("/auth/logout", { method: "POST" });
-    } catch {}
+    const request = api("/auth/logout", { method: "POST" }).catch(() => {});
     clearSession();
     setTokenState("");
     setUserState(null);
     setWalletState(null);
+    setAuthError("");
+    await request;
   }, []);
 
   // Check auth session on initial app load
   useEffect(() => {
     refreshUser();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    const reset = () => {
+      setTokenState(""); setUserState(null); setWalletState(null); setAuthLoading(false);
+    };
+    const sync = (event: StorageEvent) => {
+      if (event.key !== "ld_token" && event.key !== null) return;
+      if (!getToken()) reset();
+      else { setAuthLoading(true); void refreshUser(); }
+    };
+    window.addEventListener("ld-session-expired", reset);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("ld-session-expired", reset);
+      window.removeEventListener("storage", sync);
+    };
   }, [refreshUser]);
 
   // Load wallet whenever a user is authenticated
@@ -148,7 +182,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     } else {
       setWalletState(null);
     }
-  }, [loggedIn, refreshWallet]);
+  }, [loggedIn, token, refreshWallet]);
 
   const value: AppContextType = {
     user,
@@ -156,6 +190,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     role,
     loggedIn,
     authLoading,
+    authError,
     login,
     logout,
     refreshUser,
@@ -178,9 +213,9 @@ export function useApp(): AppContextType {
 }
 
 export function useAuth() {
-  const { user, token, role, loggedIn, authLoading, login, logout, refreshUser } =
+  const { user, token, role, loggedIn, authLoading, authError, login, logout, refreshUser } =
     useApp();
-  return { user, token, role, loggedIn, authLoading, login, logout, refreshUser };
+  return { user, token, role, loggedIn, authLoading, authError, login, logout, refreshUser };
 }
 
 export function useWallet() {

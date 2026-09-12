@@ -1,0 +1,621 @@
+{
+  "results": [
+    {
+      "route": "/",
+      "size": "desktop",
+      "filename": "01-desktop--.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 65
+      }
+    },
+    {
+      "route": "/login",
+      "size": "desktop",
+      "filename": "02-desktop--login.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 65
+      }
+    },
+    {
+      "route": "/register",
+      "size": "desktop",
+      "filename": "03-desktop--register.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 65
+      }
+    },
+    {
+      "route": "/reset-password",
+      "size": "desktop",
+      "filename": "04-desktop--reset-password.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 65
+      }
+    },
+    {
+      "route": "/dashboard",
+      "size": "desktop",
+      "filename": "05-desktop--dashboard.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 240,
+        "y": 0,
+        "width": 1200,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/wallet",
+      "size": "desktop",
+      "filename": "06-desktop--dashboard-wallet.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 240,
+        "y": 0,
+        "width": 1200,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/recharge",
+      "size": "desktop",
+      "filename": "07-desktop--dashboard-recharge.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 240,
+        "y": 0,
+        "width": 1200,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/services",
+      "size": "desktop",
+      "filename": "08-desktop--dashboard-services.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 240,
+        "y": 0,
+        "width": 1200,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/customers",
+      "size": "desktop",
+      "filename": "09-desktop--dashboard-customers.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 240,
+        "y": 0,
+        "width": 1200,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/analytics",
+      "size": "desktop",
+      "filename": "10-desktop--dashboard-analytics.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 240,
+        "y": 0,
+        "width": 1200,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/support",
+      "size": "desktop",
+      "filename": "11-desktop--dashboard-support.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 240,
+        "y": 0,
+        "width": 1200,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/profile",
+      "size": "desktop",
+      "filename": "12-desktop--dashboard-profile.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 240,
+        "y": 0,
+        "width": 1200,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/applications",
+      "size": "desktop",
+      "filename": "13-desktop--dashboard-applications.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 240,
+        "y": 0,
+        "width": 1200,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin",
+      "size": "desktop",
+      "filename": "14-desktop--admin.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/users",
+      "size": "desktop",
+      "filename": "15-desktop--admin-users.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/transactions",
+      "size": "desktop",
+      "filename": "16-desktop--admin-transactions.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/applications",
+      "size": "desktop",
+      "filename": "17-desktop--admin-applications.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/services",
+      "size": "desktop",
+      "filename": "18-desktop--admin-services.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/analytics",
+      "size": "desktop",
+      "filename": "19-desktop--admin-analytics.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/reports",
+      "size": "desktop",
+      "filename": "20-desktop--admin-reports.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/settings",
+      "size": "desktop",
+      "filename": "21-desktop--admin-settings.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/help",
+      "size": "desktop",
+      "filename": "22-desktop--admin-help.png",
+      "errors": [],
+      "width": 1440,
+      "scrollWidth": 1440,
+      "header": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 64
+      }
+    },
+    {
+      "route": "/",
+      "size": "mobile",
+      "filename": "23-mobile--.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65
+      }
+    },
+    {
+      "route": "/login",
+      "size": "mobile",
+      "filename": "24-mobile--login.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65
+      }
+    },
+    {
+      "route": "/register",
+      "size": "mobile",
+      "filename": "25-mobile--register.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65
+      }
+    },
+    {
+      "route": "/reset-password",
+      "size": "mobile",
+      "filename": "26-mobile--reset-password.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 65
+      }
+    },
+    {
+      "route": "/dashboard",
+      "size": "mobile",
+      "filename": "27-mobile--dashboard.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/wallet",
+      "size": "mobile",
+      "filename": "28-mobile--dashboard-wallet.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/recharge",
+      "size": "mobile",
+      "filename": "29-mobile--dashboard-recharge.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/services",
+      "size": "mobile",
+      "filename": "30-mobile--dashboard-services.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/customers",
+      "size": "mobile",
+      "filename": "31-mobile--dashboard-customers.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/analytics",
+      "size": "mobile",
+      "filename": "32-mobile--dashboard-analytics.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/support",
+      "size": "mobile",
+      "filename": "33-mobile--dashboard-support.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/profile",
+      "size": "mobile",
+      "filename": "34-mobile--dashboard-profile.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/dashboard/applications",
+      "size": "mobile",
+      "filename": "35-mobile--dashboard-applications.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin",
+      "size": "mobile",
+      "filename": "36-mobile--admin.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/users",
+      "size": "mobile",
+      "filename": "37-mobile--admin-users.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/transactions",
+      "size": "mobile",
+      "filename": "38-mobile--admin-transactions.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/applications",
+      "size": "mobile",
+      "filename": "39-mobile--admin-applications.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/services",
+      "size": "mobile",
+      "filename": "40-mobile--admin-services.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/analytics",
+      "size": "mobile",
+      "filename": "41-mobile--admin-analytics.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/reports",
+      "size": "mobile",
+      "filename": "42-mobile--admin-reports.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/settings",
+      "size": "mobile",
+      "filename": "43-mobile--admin-settings.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    },
+    {
+      "route": "/admin/help",
+      "size": "mobile",
+      "filename": "44-mobile--admin-help.png",
+      "errors": [],
+      "width": 390,
+      "scrollWidth": 390,
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64
+      }
+    }
+  ],
+  "pageErrors": []
+}

@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, LockKeyhole, ShieldCheck, X } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
-import { api, setSession } from "../lib/api";
+import { api } from "../lib/api";
 import SupportWidget from "../components/SupportWidget";
 
 interface Props { onLogin: (token: string, user: any) => void; }
 
 export default function Login({ onLogin }: Props) {
+  const location = useLocation();
   const navigate = useNavigate();
   const [form, setForm] = useState({ credential: "", password: "" });
   const [loading, setLoading] = useState(false);
@@ -40,27 +41,30 @@ export default function Login({ onLogin }: Props) {
     e.preventDefault(); setLoading(true); setError("");
     try {
       const data = await api<any>("/auth/login", { method: "POST", body: JSON.stringify(form) });
-      onLogin(data.token, data.user); navigate(data.user.role === "admin" ? "/admin" : "/dashboard");
+      onLogin(data.token, data.user);
+      const home = data.user.role === "admin" ? "/admin" : "/dashboard";
+      const from = location.state?.from;
+      navigate(typeof from === "string" && (from === home || from.startsWith(home + "/")) ? from : home, { replace: true });
     } catch (e: any) { setError(e.message || "Unable to sign in"); }
     finally { setLoading(false); }
   }
 
-  return <div className="min-h-screen bg-transparent flex">
+  return <div className="min-h-[calc(100dvh-4rem)] bg-transparent flex">
     <div className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-between relative overflow-hidden">
       <div className="absolute inset-0 bg-grid opacity-20"/><div className="absolute -right-20 top-1/3 w-96 h-96 bg-blue-600/20 blur-3xl rounded-full"/>
-      <div className="relative flex items-center gap-3"><img src={ldLogo} className="h-11 w-11 rounded-full"/><div><b className="text-white text-xl">LD SERVICE ZONE</b><p className="text-white/40 text-xs">Partner Portal</p></div></div>
+      <div className="relative flex items-center gap-3"><img src={ldLogo} alt="LD Service Zone" className="h-11 w-11 rounded-full"/><div><b className="text-white text-xl">LD SERVICE ZONE</b><p className="text-white/40 text-xs">Partner Portal</p></div></div>
       <div className="relative max-w-xl"><span className="inline-flex px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-semibold">SECURE PARTNER ACCESS</span><h2 className="font-display text-5xl font-extrabold text-white mt-5 leading-tight">Run every digital service from <span className="gradient-text">one place.</span></h2><p className="text-white/45 mt-5 leading-7">Applications, payments, commissions, customer records and government services — managed in a single professional workspace.</p><div className="grid grid-cols-2 gap-3 mt-8">{["Service applications", "Secure payments", "Live commissions", "Admin approval workflow"].map(x=><div key={x} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">✓ {x}</div>)}</div></div>
       <p className="relative text-white/25 text-xs">© 2026 LD SERVICE ZONE</p>
     </div>
     <div className="flex-1 flex items-center justify-center p-6"><div className="w-full max-w-md">
-      <div className="lg:hidden flex items-center gap-3 mb-7"><img src={ldLogo} className="h-9 w-9 rounded-full"/><b className="text-white">LD SERVICE ZONE</b></div>
+      <div className="lg:hidden flex items-center gap-3 mb-7"><img src={ldLogo} alt="LD Service Zone" className="h-9 w-9 rounded-full"/><b className="text-white">LD SERVICE ZONE</b></div>
       <div className="rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur p-8 shadow-2xl"><h1 className="text-3xl font-display font-bold text-white">Welcome back 👋</h1><p className="text-white/40 text-sm mt-1 mb-7">Sign in to your retailer or admin account.</p>
         {error && <div className="mb-4 rounded-xl border border-red-400/20 bg-red-500/10 text-red-300 px-4 py-3 text-sm">{error}</div>}
         <form onSubmit={submit} className="space-y-4"><Field label="Email or Mobile Number" placeholder="you@gmail.com or 9876543210" value={form.credential} onChange={v=>setForm({...form,credential:v})}/><div>
           <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-1.5">Password</label>
           <div className="relative">
             <LockKeyhole size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
-            <input required minLength={8} type={showPassword ? "text" : "password"} placeholder="Minimum 8 characters" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} className="w-full rounded-xl bg-white/5 border border-white/10 pl-11 pr-11 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/10"/>
+            <input aria-label="Password" autoComplete="current-password" required minLength={8} type={showPassword ? "text" : "password"} placeholder="Minimum 8 characters" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} className="w-full rounded-xl bg-white/5 border border-white/10 pl-11 pr-11 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/10"/>
             <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(v=>!v)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/35 hover:text-white">{showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
           </div>
         </div>
@@ -81,7 +85,7 @@ export default function Login({ onLogin }: Props) {
           <p className="text-white/60 text-sm leading-6">Enter the email used during signup. We will send a real password-reset link to that inbox.</p>
           {resetMessage && <div role="status" className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-300 px-3 py-2 text-xs">{resetMessage}</div>}
           <form onSubmit={async e=>{e.preventDefault();setResetLoading(true);setResetMessage("");try{const d=await api<any>("/auth/forgot-password",{method:"POST",body:JSON.stringify({email:resetEmail})});setResetMessage(d.message)}catch(err:any){setResetMessage(err.message||"Unable to send reset email")}finally{setResetLoading(false)}}} className="mt-5 space-y-3">
-            <input required type="email" value={resetEmail} onChange={e=>setResetEmail(e.target.value)} placeholder="you@gmail.com" className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/20 outline-none focus:border-blue-500/60"/>
+            <input aria-label="Recovery email" required type="email" value={resetEmail} onChange={e=>setResetEmail(e.target.value)} placeholder="you@gmail.com" className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/20 outline-none focus:border-blue-500/60"/>
             <button disabled={resetLoading} className="w-full rounded-xl bg-[#1D6FE0] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">{resetLoading?"Sending…":"Send Reset Link"}</button>
           </form>
         </div>
@@ -90,4 +94,4 @@ export default function Login({ onLogin }: Props) {
     <SupportWidget />
   </div>
 }
-function Field({label,placeholder,type="text",value,onChange}:{label:string;placeholder:string;type?:string;value:string;onChange:(v:string)=>void}){return <div><label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-1.5">{label}</label><input required type={type} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500/60"/></div>}
+function Field({label,placeholder,type="text",value,onChange}:{label:string;placeholder:string;type?:string;value:string;onChange:(v:string)=>void}){return <div><label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-1.5">{label}</label><input aria-label={label} required type={type} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500/60"/></div>}

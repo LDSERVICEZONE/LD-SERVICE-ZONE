@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import { AppProvider, useAuth } from "./context/AppContext";
 import Landing from "./pages/Landing";
@@ -26,9 +26,11 @@ import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminReports from "./pages/admin/AdminReports";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminHelpRequests from "./pages/admin/AdminHelpRequests";
+import PublicNav from "./components/layout/PublicNav";
 
 function AppRoutes() {
-  const { loggedIn, role, logout, authLoading, login } = useAuth();
+  const location = useLocation();
+  const { loggedIn, role, logout, authLoading, authError, refreshUser, login } = useAuth();
 
   if (authLoading) {
     return (
@@ -37,6 +39,12 @@ function AppRoutes() {
       </div>
     );
   }
+
+  if (authError) return <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#07111F] p-6 text-white">
+    <p role="alert">{authError}</p>
+    <button onClick={() => void refreshUser()} className="rounded-lg bg-blue-600 px-4 py-2">Retry</button>
+    <button onClick={() => void logout()}>Sign out</button>
+  </div>;
 
   return (
     <Routes>
@@ -61,6 +69,7 @@ function AppRoutes() {
           ) : (
             <div className="relative isolate min-h-screen bg-[#07111F]">
               <AnimatedBackground />
+              <PublicNav />
               <Login onLogin={login} />
             </div>
           )
@@ -71,6 +80,7 @@ function AppRoutes() {
         element={
           <div className="relative isolate min-h-screen bg-[#07111F]">
             <AnimatedBackground />
+            <PublicNav />
             <ResetPassword />
           </div>
         }
@@ -78,8 +88,10 @@ function AppRoutes() {
       <Route
         path="/register"
         element={
+          loggedIn ? <Navigate to={role === "admin" ? "/admin" : "/dashboard"} replace /> :
           <div className="relative isolate min-h-screen bg-[#07111F]">
             <AnimatedBackground />
+            <PublicNav />
             <Register />
           </div>
         }
@@ -90,9 +102,9 @@ function AppRoutes() {
         path="/dashboard"
         element={
           loggedIn ? (
-            <AppShell onLogout={logout} />
+            role === "retailer" ? <AppShell onLogout={logout} /> : <Navigate to="/admin" replace />
           ) : (
-            <Navigate to="/login" replace />
+            <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />
           )
         }
       >
@@ -118,7 +130,7 @@ function AppRoutes() {
               <Navigate to="/dashboard" replace />
             )
           ) : (
-            <Navigate to="/login" replace />
+            <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />
           )
         }
       >

@@ -23,8 +23,8 @@ export default function SupportPage() {
 
   const load = () =>
     Promise.all([
-      api<any>("/support/tickets").catch(() => ({ tickets: [] })),
-      api<any>("/help").catch(() => ({ helpRequests: [] })),
+      api<any>("/support/tickets"),
+      api<any>("/help"),
     ])
       .then(([t, h]) => {
         setTickets(t.tickets || []);
@@ -161,6 +161,7 @@ export default function SupportPage() {
                     </td>
                     <td className="px-6 py-4 font-medium text-[#0F172A]">
                       {t.subject}
+                      {t.adminReply && <p className="mt-2 text-xs font-normal text-blue-700">Support reply: {t.adminReply}</p>}
                     </td>
                     <td className="px-6 py-4 text-slate-600">{t.category}</td>
                     <td className="px-6 py-4 capitalize text-slate-700">

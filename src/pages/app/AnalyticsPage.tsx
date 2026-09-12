@@ -21,12 +21,13 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = useState<"7d" | "30d">("7d");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     setLoading(true);
     api<any>(`/analytics/summary?range=${period}`)
       .then(setData)
-      .catch(console.error)
+      .catch(e => setLoadError(e.message))
       .finally(() => setLoading(false));
   }, [period]);
 
@@ -37,6 +38,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1200px]">
+      {loadError && <p role="alert" className="text-red-600">{loadError}</p>}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="font-display text-2xl font-extrabold text-[#0F172A]">

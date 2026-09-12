@@ -5,6 +5,10 @@ export function getUser<T = any>(): T | null { try { return JSON.parse(localStor
 export function setSession(token: string, user: any) { localStorage.setItem("ld_token", token); localStorage.setItem("ld_user", JSON.stringify(user)); }
 export function clearSession() { localStorage.removeItem("ld_token"); localStorage.removeItem("ld_user"); }
 
+export class ApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
+
 export async function api<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData)) {
@@ -14,7 +18,13 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
   if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    if (res.status === 401 && token && getToken() === token && !path.startsWith("/auth/")) {
+      clearSession();
+      window.dispatchEvent(new Event("ld-session-expired"));
+    }
+    throw new ApiError(data.error || `Request failed (${res.status})`, res.status);
+  }
   return data;
 }
 

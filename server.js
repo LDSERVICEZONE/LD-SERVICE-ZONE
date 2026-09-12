@@ -4,10 +4,12 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 // Load the local .env BEFORE importing provider modules. ESM imports are evaluated first,
 // so loading .env after a static provider import makes process.env appear empty to that module.
 const envFile = path.join(path.dirname(fileURLToPath(import.meta.url)), ".env");
-if (fs.existsSync(envFile)) {
+if (process.env.LD_SKIP_ENV !== "true" && fs.existsSync(envFile)) {
   const envText = fs.readFileSync(envFile, "utf8");
   for (const line of envText.split(/\r?\n/)) {
     const match = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/i);
@@ -21,7 +23,7 @@ if (fs.existsSync(envFile)) {
 const { getProviders, getPlans, initiateRecharge, checkRechargeStatus, detectOperatorCircle, configured: pay2allConfigured } = await import("./server/services/rechargeProvider.js");
 
 const isVercel = Boolean(process.env.VERCEL);
-const dataDir = isVercel ? path.join("/tmp", "ld-data") : path.join(__dirname, "data");
+const dataDir = process.env.LD_DATA_DIR ? path.resolve(process.env.LD_DATA_DIR) : isVercel ? path.join("/tmp", "ld-data") : path.join(__dirname, "data");
 const uploadDir = path.join(dataDir, "uploads");
 const kycDir = path.join(dataDir, "kyc");
 const dbFile = path.join(dataDir, "db.json");
@@ -34,6 +36,9 @@ const SESSION_DAYS = 7;
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const DATA_STORE = String(process.env.DATA_STORE || "json").trim().toLowerCase();
+const SUPABASE_STATE_TABLE = String(process.env.SUPABASE_STATE_TABLE || "platform_state").trim();
+const SUPABASE_STORAGE_BUCKET = String(process.env.SUPABASE_STORAGE_BUCKET || "private-documents").trim();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "";
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "";
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || "";
@@ -47,15 +52,15 @@ const GOOGLE_SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "
 
 let dataEncryptionKey = process.env.DATA_ENCRYPTION_KEY;
 if (!dataEncryptionKey) {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY) {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.warn("NOTICE: DATA_ENCRYPTION_KEY not explicitly set. Deriving stable encryption key from Supabase credentials.");
     dataEncryptionKey = crypto.createHash("sha256").update(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY).digest("hex");
   } else if (process.env.NODE_ENV === "production") {
-    console.warn("NOTICE: Generating deterministic fallback encryption key for production.");
-    dataEncryptionKey = crypto.createHash("sha256").update("ld-service-zone-production-fallback-key-2026").digest("hex");
+    throw new Error("DATA_ENCRYPTION_KEY is required in production");
   } else {
-    console.warn("SECURITY WARNING: DATA_ENCRYPTION_KEY is not set. Generating temporary key.");
-    dataEncryptionKey = crypto.randomBytes(32).toString("hex");
+    const keyFile = path.join(dataDir, ".encryption-key");
+    if (!fs.existsSync(keyFile)) fs.writeFileSync(keyFile, crypto.randomBytes(32).toString("hex"), { mode: 0o600 });
+    dataEncryptionKey = fs.readFileSync(keyFile, "utf8").trim();
   }
 }
 const DATA_KEY = crypto.createHash("sha256").update(dataEncryptionKey).digest();
@@ -65,6 +70,7 @@ const PUBLIC_APP_URL = (isVercel && (!rawPublicUrl || rawPublicUrl.includes("loc
   : (rawPublicUrl || `http://localhost:${process.env.VITE_PORT || 8443}`);
 
 const rateLimits = new Map();
+const activeRecharges = new Set();
 function checkRateLimit(key, maxRequests = 10, windowMs = 60_000) {
   const nowTime = Date.now();
   const entry = rateLimits.get(key) || { count: 0, resetAt: nowTime + windowMs };
@@ -92,6 +98,9 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
   if (!SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
   console.warn(`AUTH WARNING: Supabase Auth is not fully configured. Missing env variables in Vercel: ${missing.join(", ")}`);
 }
+if (process.env.NODE_ENV === "production" && DATA_STORE !== "supabase") {
+  throw new Error("Production startup blocked: DATA_STORE=supabase is required; the JSON development store is not durable or safe for production");
+}
 
 const initialDb = {
   users: [],
@@ -110,24 +119,49 @@ const initialDb = {
   pendingSignups: [],
 };
 
-function loadDb() {
+async function loadDb() {
+  if (DATA_STORE === "supabase") {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error("Supabase database mode requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_STATE_TABLE}?id=eq.singleton&select=state`, {
+      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    });
+    if (!response.ok) throw new Error(`Supabase database read failed (${response.status}). Run supabase/schema.sql first.`);
+    const rows = await response.json();
+    if (rows[0]?.state) return { ...initialDb, ...rows[0].state };
+    const seed = { id: "singleton", state: initialDb };
+    const inserted = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_STATE_TABLE}`, { method: "POST", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(seed) });
+    if (!inserted.ok) throw new Error("Supabase database initialization failed. Run supabase/schema.sql first.");
+    return structuredClone(initialDb);
+  }
   if (!fs.existsSync(dbFile)) fs.writeFileSync(dbFile, JSON.stringify(initialDb, null, 2));
   try {
     const db = JSON.parse(fs.readFileSync(dbFile, "utf8"));
     return { ...initialDb, ...db };
-  } catch {
-    return structuredClone(initialDb);
+  } catch (error) {
+    throw new Error("Unable to read database; refusing to overwrite existing records", { cause: error });
   }
 }
+let persistQueue = Promise.resolve();
 function saveDb(db) {
-  try {
-    fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
-  } catch (err) {
-    console.error("saveDb write error:", err.message);
+  if (DATA_STORE === "supabase") {
+    const state = structuredClone(db);
+    persistQueue = persistQueue.then(async () => {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_STATE_TABLE}?on_conflict=id`, { method: "POST", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: "singleton", state, updated_at: new Date().toISOString() }) });
+      if (!response.ok) console.error(`Supabase database write failed (${response.status})`);
+    }).catch(error => console.error("Supabase persistence queue failed:", error.message));
+    return persistQueue;
   }
+  const temporaryFile = `${dbFile}.tmp`;
+  fs.writeFileSync(temporaryFile, JSON.stringify(db, null, 2));
+  fs.renameSync(temporaryFile, dbFile);
 }
 function id(prefix) { return `${prefix}-${crypto.randomBytes(5).toString("hex").toUpperCase()}`; }
 function now() { return new Date().toISOString(); }
+function safeEqual(expected, actual) {
+  const a = Buffer.from(String(expected));
+  const b = Buffer.from(String(actual || ""));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 function normalizeIndianMobile(value) {
   const digits = String(value || "").replace(/\D/g, "");
   const ten = digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
@@ -141,7 +175,7 @@ function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
 }
 function verifyPassword(password, stored) {
   const [salt, expected] = String(stored || "").split(":");
-  if (!salt || !expected) return false;
+  if (!salt || !/^[a-f0-9]{128}$/i.test(expected || "")) return false;
   const actual = crypto.scryptSync(password, salt, 64).toString("hex");
   return crypto.timingSafeEqual(Buffer.from(actual, "hex"), Buffer.from(expected, "hex"));
 }
@@ -163,7 +197,7 @@ function decrypt(value) {
 }
 function sanitizeUser(user) {
   if (!user) return null;
-  const { passwordHash, ...safe } = user;
+  const { passwordHash, kyc, ...safe } = user;
   return safe;
 }
 function publicApplication(app) {
@@ -183,24 +217,26 @@ function readRawBody(req, max = 8_000_000) {
 function parseJson(req) {
   return readRawBody(req).then(body => {
     if (!body) return {};
-    try { return JSON.parse(body); } catch { throw new Error("Invalid JSON"); }
+    try {
+      const input = JSON.parse(body);
+      if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error();
+      return input;
+    } catch { throw Object.assign(new Error("Invalid JSON object"), { status: 400 }); }
   });
 }
 function getCorsOrigin(res) {
   const req = res._req;
   const origin = req?.headers?.origin;
-  if (origin) {
-    if (origin.endsWith(".vercel.app") || origin.startsWith("http://localhost:") || origin === "https://ldservicezone.vercel.app") {
-      return origin;
-    }
-  }
   const configured = String(process.env.CORS_ORIGIN || "").trim().replace(/\/$/, "");
-  if (configured && !configured.includes("localhost")) return configured;
-  return origin || (isVercel ? "https://ldservicezone.vercel.app" : "*");
+  const allowed = new Set([PUBLIC_APP_URL, ...configured.split(",").map(x => x.trim())]);
+  if (process.env.NODE_ENV !== "production" && !isVercel && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin || "")) return origin;
+  return allowed.has(origin) ? origin : PUBLIC_APP_URL;
 }
 function send(res, status, payload, headers = {}) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Vary": "Origin",
     "Access-Control-Allow-Origin": getCorsOrigin(res),
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
@@ -219,7 +255,7 @@ function getAuth(req, db) {
   const session = db.sessions.find(s => s.tokenHash === tokenHash && new Date(s.expiresAt) > new Date());
   if (!session) return null;
   const user = db.users.find(u => u.id === session.userId);
-  return user ? { user, session } : null;
+  return user?.status === "active" ? { user, session } : null;
 }
 function requireAuth(req, res, db, role) {
   const auth = getAuth(req, db);
@@ -248,11 +284,8 @@ function seedAdmin(db) {
   }
 
   const email = envEmail || "admin@ldservicezone.in";
-  let password = envPassword;
-  if (!password) {
-    password = `Admin@${crypto.createHash("sha256").update(dataEncryptionKey || "default-admin-salt").digest("hex").slice(0, 8)}!A1`;
-    console.warn(`NOTICE: ADMIN_PASSWORD not configured. Initialized default admin account: ${email}`);
-  }
+  const password = envPassword;
+  if (!password) return;
 
   db.users.push({ id: id("USR"), supabaseUserId: "", name: "Super Admin", businessName: "LD SERVICE ZONE", email, mobile: "", role: "admin", status: "active", kycStatus: "verified", passwordHash: hashPassword(password), createdAt: now() });
   audit(db, null, "ADMIN_SEEDED", "user", db.users.at(-1).id);
@@ -353,6 +386,7 @@ function creditApplicationCommission(db, app) {
 function updateApplicationByAdmin(db, app, input, actor) {
   const allowed = ["submitted", "processing", "accepted", "rejected", "completed", "payment_pending"];
   if (input.status && !allowed.includes(input.status)) throw new Error("Invalid status");
+  if (input.status && ["submitted", "processing", "accepted", "completed"].includes(input.status) && Number(app.customerPrice) > 0 && !app.paymentId) throw new Error("Payment must be verified before processing this application");
   const previousStatus = app.status;
   if (input.status) app.status = input.status;
   if (typeof input.adminNote === "string") app.adminNote = input.adminNote;
@@ -361,11 +395,11 @@ function updateApplicationByAdmin(db, app, input, actor) {
 
   if (input.status === "completed" && !app.commissionCredited) {
     commissionCredited = creditApplicationCommission(db, app);
-  } else if (previousStatus === "completed" && input.status === "rejected" && app.commissionCredited) {
+  } else if (input.status === "rejected" && app.commissionCredited) {
     // Automatically reverse credited commission upon application rejection
     if (app.userCommission > 0) {
       const wallet = ensureWallet(app.userId);
-      wallet.balance = Math.max(0, Number((wallet.balance - app.userCommission).toFixed(2)));
+      wallet.balance = Number((wallet.balance - app.userCommission).toFixed(2));
       wallet.updatedAt = now();
       db.walletLedger.unshift({
         id: id("WL"),
@@ -397,7 +431,7 @@ function updateApplicationByAdmin(db, app, input, actor) {
   audit(db, actor, `APPLICATION_${String(input.status || "UPDATED").toUpperCase()}`, "application", app.applicationId, meta);
   return { previousStatus, commissionCredited, commissionReversed };
 }
-const db = loadDb();
+const db = await loadDb();
 function ensureWallet(userId) {
   if (!db.wallets[userId]) db.wallets[userId] = { userId, balance: 0, creditLimit: 0, pendingSettlement: 0, createdAt: now(), updatedAt: now() };
   return db.wallets[userId];
@@ -513,6 +547,28 @@ async function supabaseRequest(pathName, method = "GET", body, { admin = false }
   return data;
 }
 
+async function storePrivateFile(key, buffer, mimeType) {
+  if (DATA_STORE !== "supabase") {
+    const file = path.join(uploadDir, key);
+    fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, buffer);
+    return `local:${key}`;
+  }
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(SUPABASE_STORAGE_BUCKET)}/${key.split("/").map(encodeURIComponent).join("/")}`, { method: "POST", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": mimeType, "x-upsert": "true" }, body: buffer });
+  if (!response.ok) throw new Error(`Supabase Storage upload failed (${response.status})`);
+  return `supabase:${key}`;
+}
+
+async function readPrivateFile(storageName) {
+  if (String(storageName).startsWith("supabase:")) {
+    const key = String(storageName).slice(9);
+    const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(SUPABASE_STORAGE_BUCKET)}/${key.split("/").map(encodeURIComponent).join("/")}`, { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } });
+    if (!response.ok) return null;
+    return Buffer.from(await response.arrayBuffer());
+  }
+  const file = path.join(uploadDir, String(storageName).replace(/^local:/, ""));
+  return fs.existsSync(file) ? fs.readFileSync(file) : null;
+}
+
 async function supabaseAdminCreateUser({ email, password, name, businessName, mobile }) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error("Supabase service role key is not configured");
   const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
@@ -545,6 +601,8 @@ async function supabaseAdminFindUserByEmail(email) {
 
 function promotePendingSignup(db, pending, authUser) {
   if (!pending || !authUser?.id) return null;
+  if (!authUser.email_confirmed_at || authUser.id !== pending.supabaseUserId || String(authUser.email || "").toLowerCase() !== pending.email.toLowerCase()) return null;
+  if (db.users.some(u => normalizeIndianMobile(u.mobile) === normalizeIndianMobile(pending.mobile) && String(u.email).toLowerCase() !== pending.email.toLowerCase())) return null;
   const existing = db.users.find(u => u.supabaseUserId === authUser.id || String(u.email || "").toLowerCase() === pending.email.toLowerCase());
   if (existing) {
     existing.supabaseUserId = authUser.id;
@@ -582,6 +640,7 @@ async function razorpayRequest(endpoint, method, body) {
 }
 
 export async function handleRequest(req, res) {
+  let rechargeUserId;
   res._req = req;
   if (req.method === "OPTIONS") return send(res, 204, {});
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
@@ -591,7 +650,7 @@ export async function handleRequest(req, res) {
     if (pathName === "/api/health" && req.method === "GET") {
       return send(res, 200, {
         ok: true, service: "LD SERVICE ZONE API",
-        paymentMode: RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET ? "razorpay" : "demo",
+        paymentMode: RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET ? "razorpay" : "unavailable",
         integrations: { pay2all: Boolean(PAY2ALL_API_KEY), supabaseAuth: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_SERVICE_ROLE_KEY), googleSheets: Boolean(GOOGLE_SHEET_ID && GOOGLE_SERVICE_ACCOUNT_JSON), razorpay: Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) }
       });
     }
@@ -752,13 +811,15 @@ export async function handleRequest(req, res) {
       }
 
       let authenticatedWithSupabase = false;
-      if (SUPABASE_URL && SUPABASE_ANON_KEY && user?.email) {
+      if (user?.role === "retailer" && user.supabaseUserId) {
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return send(res, 503, { error: "Authentication service is not configured" });
         try {
           const authData = await supabasePasswordLogin(user.email, password);
-          if (authData?.user?.id && !user.supabaseUserId) { user.supabaseUserId = authData.user.id; saveDb(db); }
+          if (authData?.user?.id !== user.supabaseUserId) return send(res, 401, { error: "Invalid email or password" });
+          if (!authData.user.email_confirmed_at) return send(res, 403, { error: "Please verify your email before signing in" });
           authenticatedWithSupabase = true;
         } catch {
-          authenticatedWithSupabase = false;
+          return send(res, 401, { error: "Unable to sign in. Check your credentials and try again." });
         }
       }
 
@@ -783,6 +844,8 @@ export async function handleRequest(req, res) {
     }
 
     if (pathName === "/api/auth/forgot-password" && req.method === "POST") {
+      const limit = checkRateLimit(`recover:${getClientIp(req)}`, 3, 15 * 60_000);
+      if (limit.limited) return send(res, 429, { error: "Too many reset requests. Please try again later." });
       const input = await parseJson(req);
       const email = String(input.email || "").trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return send(res, 400, { error: "Enter a valid email address" });
@@ -796,6 +859,9 @@ export async function handleRequest(req, res) {
     }
 
     if (pathName === "/api/auth/reset-password" && req.method === "POST") {
+      const limit = checkRateLimit(`reset:${getClientIp(req)}`, 10, 15 * 60_000);
+      if (limit.limited) return send(res, 429, { error: "Too many reset attempts. Please try again later." });
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return send(res, 503, { error: "Password recovery is not configured" });
       const input = await parseJson(req);
       const accessToken = String(input.accessToken || "");
       const password = String(input.password || "");
@@ -803,6 +869,12 @@ export async function handleRequest(req, res) {
       const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, { method: "PUT", headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) return send(res, 400, { error: data?.msg || data?.message || data?.error_description || "Unable to reset password" });
+      const resetUser = db.users.find(u => u.supabaseUserId === data.id);
+      if (resetUser) {
+        delete resetUser.passwordHash;
+        db.sessions = db.sessions.filter(s => s.userId !== resetUser.id);
+        saveDb(db);
+      }
       return send(res, 200, { ok: true, message: "Password updated successfully. You can now sign in." });
     }
 
@@ -824,8 +896,8 @@ export async function handleRequest(req, res) {
       const allowed=["application/pdf","image/jpeg","image/png","image/webp"];
       const requiredDocs=["panCard","aadhaarCard","selfie","bankProof"];
       for(const name of requiredDocs){ const d=docs[name]; if(!d?.data || !allowed.includes(d.mimeType)) return send(res,400,{error:`${name} document is required`}); const raw=String(d.data).replace(/^data:[^;]+;base64,/,''); const buf=Buffer.from(raw,'base64'); if(buf.length>5*1024*1024)return send(res,413,{error:"Each KYC document must be 5 MB or smaller"}); }
-      const userDir=path.join(kycDir,auth.user.id); fs.mkdirSync(userDir,{recursive:true}); const storedDocs={};
-      for(const name of requiredDocs){ const d=docs[name]; const clean=String(d.fileName||name).replace(/[^a-zA-Z0-9._-]/g,"_"); const stored=`${crypto.randomBytes(6).toString("hex")}-${clean}`; fs.writeFileSync(path.join(userDir,stored),Buffer.from(String(d.data).replace(/^data:[^;]+;base64,/,'') ,'base64')); storedDocs[name]={fileName:clean,storageName:stored,mimeType:d.mimeType,size:fs.statSync(path.join(userDir,stored)).size,uploadedAt:now()}; }
+      const storedDocs={};
+      for(const name of requiredDocs){ const d=docs[name]; const clean=String(d.fileName||name).replace(/[^a-zA-Z0-9._-]/g,"_"); const buffer=Buffer.from(String(d.data).replace(/^data:[^;]+;base64,/,'') ,'base64'); const stored=await storePrivateFile(`kyc/${auth.user.id}/${crypto.randomBytes(6).toString("hex")}-${clean}`, buffer, d.mimeType); storedDocs[name]={fileName:clean,storageName:stored,mimeType:d.mimeType,size:buffer.length,uploadedAt:now()}; }
       auth.user.kyc={fullName,dob,aadhaar:encrypt(aadhaar),pan:encrypt(pan),address,city,state,pincode,bankAccount:encrypt(bankAccount),ifsc,accountHolder,documents:storedDocs,submittedAt:now(),reviewedAt:null,adminNote:""};
       auth.user.kycStatus="pending"; auth.user.updatedAt=now(); audit(db,auth.user,"KYC_SUBMITTED","user",auth.user.id); saveDb(db); syncSheet(GOOGLE_SHEET_TAB_USERS,sheetUser(auth.user));
       return send(res,201,{kyc:{...auth.user.kyc,aadhaar:aadhaar.replace(/\d(?=\d{4})/g,"*"),pan:"*****"+pan.slice(-1),bankAccount:"******"+bankAccount.slice(-4)},message:"KYC submitted successfully. Your documents are now under review."});
@@ -894,12 +966,13 @@ export async function handleRequest(req, res) {
     if (pathName === "/api/applications" && req.method === "POST") {
       const auth = requireAuth(req, res, db); if (!auth) return;
       const input = await parseJson(req);
-      if (!input.serviceId || !input.serviceName || !input.applicant) return send(res, 400, { error: "Service and applicant details are required" });
+      const service = db.services.find(s => s.id === input.serviceId && s.active !== false);
+      if (!service || !input.applicant || typeof input.applicant !== "object" || Array.isArray(input.applicant) || !Object.keys(input.applicant).length) return send(res, 400, { error: "A valid service and applicant details are required" });
       const applicant = Object.fromEntries(Object.entries(input.applicant).map(([k, v]) => [k, typeof v === "string" && /aadhaar/i.test(k) ? encrypt(v) : v]));
       const application = {
-        applicationId: id("APP"), userId: auth.user.id, retailerName: auth.user.name, serviceId: input.serviceId, serviceName: input.serviceName,
-        category: input.category || "Government", customerPrice: Number(input.customerPrice || 0), commission: Number(input.commission || 0), applicant,
-        documents: Array.isArray(input.documents) ? input.documents : [], status: "payment_pending", adminNote: "", createdAt: now(), updatedAt: now(), paymentId: null, orderId: null,
+        applicationId: id("APP"), userId: auth.user.id, retailerName: auth.user.name, serviceId: service.id, serviceName: service.name,
+        category: service.category, customerPrice: Number(service.customerPrice), commission: Number(service.commission || 0), applicant,
+        documents: (service.documents || []).map(name => ({ name })), status: "payment_pending", adminNote: "", createdAt: now(), updatedAt: now(), paymentId: null, orderId: null,
       };
       db.applications.unshift(application); audit(db, auth.user, "APPLICATION_CREATED", "application", application.applicationId); saveDb(db);
       syncSheet(GOOGLE_SHEET_TAB_APPLICATIONS, sheetApplication(application));
@@ -918,8 +991,8 @@ export async function handleRequest(req, res) {
       const raw = String(input.data).replace(/^data:[^;]+;base64,/, "");
       const buffer = Buffer.from(raw, "base64");
       if (buffer.length > 5 * 1024 * 1024) return send(res, 413, { error: "Each document must be 5 MB or smaller" });
-      const dir = path.join(uploadDir, app.applicationId); fs.mkdirSync(dir, { recursive: true });
-      const stored = `${crypto.randomBytes(4).toString("hex")}-${cleanName}`; fs.writeFileSync(path.join(dir, stored), buffer);
+      const storageKey = `applications/${app.applicationId}/${crypto.randomBytes(4).toString("hex")}-${cleanName}`;
+      const stored = await storePrivateFile(storageKey, buffer, input.mimeType);
       const doc = (app.documents || []).find(d => d.name === input.documentName);
       if (doc) { doc.fileName = cleanName; doc.storageName = stored; doc.mimeType = input.mimeType; doc.size = buffer.length; doc.uploadedAt = now(); }
       app.updatedAt = now(); audit(db, auth.user, "DOCUMENT_UPLOADED", "application", app.applicationId, { documentName: input.documentName }); saveDb(db);
@@ -933,10 +1006,10 @@ export async function handleRequest(req, res) {
       if (!app || (auth.user.role !== "admin" && app.userId !== auth.user.id)) return send(res, 404, { error: "Application not found" });
       const doc = (app.documents || []).find(d => d.name === docName && d.storageName);
       if (!doc) return send(res, 404, { error: "Document not found" });
-      const file = path.join(uploadDir, app.applicationId, doc.storageName);
-      if (!fs.existsSync(file)) return send(res, 404, { error: "Stored file not found" });
-      res.writeHead(200, { "Content-Type": doc.mimeType || "application/octet-stream", "Content-Disposition": `inline; filename="${doc.fileName}"`, "Access-Control-Allow-Origin": process.env.CORS_ORIGIN || "*" });
-      return fs.createReadStream(file).pipe(res);
+      const file = await readPrivateFile(doc.storageName);
+      if (!file) return send(res, 404, { error: "Stored file not found" });
+      res.writeHead(200, { "Content-Type": doc.mimeType || "application/octet-stream", "Content-Disposition": `inline; filename="${doc.fileName}"`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+      return res.end(file);
     }
 
     if (pathName.match(/^\/api\/applications\/[^/]+$/) && req.method === "PATCH") {
@@ -956,12 +1029,21 @@ export async function handleRequest(req, res) {
       const input = await parseJson(req);
       const app = db.applications.find(a => a.applicationId === input.applicationId && a.userId === auth.user.id);
       if (!app) return send(res, 404, { error: "Application not found" });
+      if (app.status !== "payment_pending") return send(res, 409, { error: "Application has already been submitted" });
+      if (app.documents.some(d => !d.storageName)) return send(res, 400, { error: "Upload all required documents before payment" });
       const amount = Math.round(Number(app.customerPrice) * 100);
       if (amount <= 0) {
         app.status = "submitted"; app.updatedAt = now(); saveDb(db);
         return send(res, 200, { mode: "free", application: publicApplication(app) });
       }
-      if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) return send(res, 503, { error: "Razorpay is not configured" });
+      if (String(process.env.DEMO_MODE).toLowerCase() === "true") {
+          app.status = "submitted"; app.paymentId = `DEMO-${id("PAY")}`; app.updatedAt = now();
+          audit(db, auth.user, "DEMO_APPLICATION_SUBMITTED", "application", app.applicationId); saveDb(db);
+          return send(res, 200, { mode: "demo", application: publicApplication(app), message: "Demo submission completed. Payment is disabled." });
+      }
+      if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+        return send(res, 503, { error: "Razorpay is not configured" });
+      }
       const order = await razorpayRequest("orders", "POST", { amount, currency: "INR", receipt: app.applicationId, notes: { applicationId: app.applicationId, userId: auth.user.id } });
       const paymentRecord = { paymentId: id("PAY"), applicationId: app.applicationId, userId: auth.user.id, amount: Number(app.customerPrice), mode: "razorpay", status: "created", orderId: order.id, createdAt: now() };
       db.payments.unshift(paymentRecord);
@@ -973,13 +1055,17 @@ export async function handleRequest(req, res) {
 
     if (pathName === "/api/payments/verify" && req.method === "POST") {
       const auth = requireAuth(req, res, db); if (!auth) return;
+      if (!RAZORPAY_KEY_SECRET) return send(res, 503, { error: "Razorpay is not configured" });
       const input = await parseJson(req);
       const app = db.applications.find(a => a.applicationId === input.applicationId && a.userId === auth.user.id);
       if (!app || !input.razorpay_order_id || !input.razorpay_payment_id || !input.razorpay_signature) return send(res, 400, { error: "Payment verification data is incomplete" });
-      const signature = crypto.createHmac("sha256", RAZORPAY_KEY_SECRET).update(`${input.razorpay_order_id}|${input.razorpay_payment_id}`).digest("hex");
-      if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(input.razorpay_signature))) return send(res, 400, { error: "Invalid payment signature" });
+      const payment = db.payments.find(p => p.orderId === input.razorpay_order_id && p.applicationId === app.applicationId && p.userId === auth.user.id && p.mode === "razorpay");
+      if (!payment || Number(payment.amount) !== Number(app.customerPrice)) return send(res, 400, { error: "Payment order does not match this application" });
+      const signature = crypto.createHmac("sha256", RAZORPAY_KEY_SECRET).update(`${payment.orderId}|${input.razorpay_payment_id}`).digest("hex");
+      if (!safeEqual(signature, input.razorpay_signature)) return send(res, 400, { error: "Invalid payment signature" });
+      if (payment.status === "paid") return send(res, 200, { application: publicApplication(app), message: "Payment already verified" });
       app.status = "submitted"; app.paymentId = input.razorpay_payment_id; app.orderId = input.razorpay_order_id; app.updatedAt = now();
-      const payment = db.payments.find(p => p.orderId === input.razorpay_order_id); if (payment) { payment.status = "paid"; payment.gatewayPaymentId = input.razorpay_payment_id; payment.paidAt = now(); }
+      payment.status = "paid"; payment.gatewayPaymentId = input.razorpay_payment_id; payment.paidAt = now();
       audit(db, auth.user, "PAYMENT_SUCCESS", "application", app.applicationId); saveDb(db);
       syncSheet(GOOGLE_SHEET_TAB_PAYMENTS, sheetPayment(payment || { paymentId: app.paymentId, applicationId: app.applicationId, userId: auth.user.id, amount: app.customerPrice, mode: "razorpay", status: "paid", orderId: app.orderId, gatewayPaymentId: app.paymentId, createdAt: now(), paidAt: now() }));
       syncSheet(GOOGLE_SHEET_TAB_APPLICATIONS, sheetApplication(app));
@@ -987,17 +1073,20 @@ export async function handleRequest(req, res) {
     }
 
     if (pathName === "/api/payments/webhook" && req.method === "POST") {
+      if (!RAZORPAY_WEBHOOK_SECRET) return send(res, 503, { error: "Payment webhook is not configured" });
       const rawBody = await readRawBody(req);
       const webhookSignature = req.headers["x-razorpay-signature"] || "";
       if (RAZORPAY_WEBHOOK_SECRET) {
         const expected = crypto.createHmac("sha256", RAZORPAY_WEBHOOK_SECRET).update(rawBody).digest("hex");
-        if (!webhookSignature || expected !== webhookSignature) return send(res, 400, { error: "Invalid webhook signature" });
+        if (!safeEqual(expected, webhookSignature)) return send(res, 400, { error: "Invalid webhook signature" });
       }
       const raw = JSON.parse(rawBody || "{}");
       if (raw.event === "payment.captured" && raw.payload?.payment?.entity?.order_id) {
         const orderId = raw.payload.payment.entity.order_id;
         const gatewayPaymentId = raw.payload.payment.entity.id;
         const payment = db.payments.find(p => p.orderId === orderId);
+        const entity = raw.payload.payment.entity;
+        if (payment && (entity.currency !== "INR" || Number(entity.amount) !== Math.round(Number(payment.amount) * 100))) return send(res, 400, { error: "Payment amount or currency mismatch" });
 
         if (payment && payment.status !== "paid") {
           payment.status = "paid";
@@ -1016,7 +1105,7 @@ export async function handleRequest(req, res) {
           }
 
           // Handle wallet top-up payment
-          if (payment.mode === "razorpay_wallet" || raw.payload.payment.entity.notes?.type === "wallet_topup") {
+          if (payment.mode === "razorpay_wallet") {
             const wallet = ensureWallet(payment.userId);
             wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2));
             wallet.updatedAt = now();
@@ -1064,7 +1153,7 @@ export async function handleRequest(req, res) {
       const auth = requireAuth(req, res, db); if (!auth) return;
       if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) return send(res, 503, { error: "Razorpay is not configured" });
       const input = await parseJson(req); const amount = Math.round(Number(input.amount || 0) * 100);
-      if (amount < 100) return send(res, 400, { error: "Minimum wallet top-up is ₹1" });
+      if (!Number.isSafeInteger(amount) || amount < 100) return send(res, 400, { error: "Minimum wallet top-up is ₹1" });
       const receipt = `WALLET-${auth.user.id}-${Date.now()}`;
       const order = await razorpayRequest("orders", "POST", { amount, currency: "INR", receipt, notes: { userId: auth.user.id, type: "wallet_topup" } });
       const payment = { paymentId: id("PAY"), applicationId: null, userId: auth.user.id, amount: amount/100, mode: "razorpay_wallet", status: "created", orderId: order.id, createdAt: now() };
@@ -1074,6 +1163,7 @@ export async function handleRequest(req, res) {
 
     if (pathName === "/api/wallet/verify" && req.method === "POST") {
       const auth = requireAuth(req, res, db); if (!auth) return;
+      if (!RAZORPAY_KEY_SECRET) return send(res, 503, { error: "Razorpay is not configured" });
       const input = await parseJson(req);
       if (!input.razorpay_order_id || !input.razorpay_payment_id || !input.razorpay_signature) return send(res, 400, { error: "Payment verification data is incomplete" });
       const signature = crypto.createHmac("sha256", RAZORPAY_KEY_SECRET).update(`${input.razorpay_order_id}|${input.razorpay_payment_id}`).digest("hex");
@@ -1133,7 +1223,10 @@ export async function handleRequest(req, res) {
       const input = await parseJson(req);
       const mobile = String(input.mobile || "").replace(/\D/g, ""); const amount = Number(input.amount || 0); const providerId = Number(input.providerId || 0);
       if (!/^\d{10,18}$/.test(mobile)) return send(res,400,{error:"Enter a valid mobile or DTH subscriber number"});
-      if (!providerId || amount <= 0) return send(res,400,{error:"Operator and a valid recharge amount are required"});
+      if (!Number.isSafeInteger(providerId) || providerId <= 0 || !Number.isFinite(amount) || amount <= 0) return send(res,400,{error:"Operator and a valid recharge amount are required"});
+      if (activeRecharges.has(auth.user.id)) return send(res, 409, { error: "Another recharge is in progress. Please wait." });
+      rechargeUserId = auth.user.id;
+      activeRecharges.add(rechargeUserId);
       const wallet = ensureWallet(auth.user.id);
       if (Number(wallet.balance) < amount) return send(res, 400, { error: "Insufficient wallet balance" });
       const providerResult = await initiateRecharge(mobile, input.operator, input.circle, amount, providerId, input.type, input.customerMobile);
@@ -1173,10 +1266,14 @@ export async function handleRequest(req, res) {
     }
 
     if (pathName === "/api/recharge/webhook" && req.method === "POST") {
-      const input = await parseJson(req); const clientId=String(input.client_id||"");
+      const notification = await parseJson(req); const clientId=String(notification.client_id||"");
       if (!clientId) return send(res,400,{error:"client_id is required"});
       const tx=db.rechargeTransactions.find(x=>x.clientId===clientId);
       if (!tx) return send(res,200,{received:true});
+      if (tx.status !== "pending") return send(res, 200, { received: true });
+      if (!process.env.PAY2ALL_STATUS_PATH) return send(res, 503, { error: "Configure authenticated provider status verification before processing recharge callbacks" });
+      const verified = await checkRechargeStatus(clientId);
+      const input = { ...(verified.data || {}), status_id: verified.status_id, message: verified.message };
       const next=Number(input.status_id)===1?"success":Number(input.status_id)===2?"failed":"pending";
       if (tx.status === "pending" && next !== "pending") {
         tx.status=next; tx.updatedAt=now(); tx.providerTxnId=input.txn_id||tx.providerTxnId; tx.message=input.message||tx.message;
@@ -1261,14 +1358,15 @@ export async function handleRequest(req, res) {
     if (pathName === "/api/admin/help" && req.method === "GET") {
       const auth = requireAuth(req, res, db, "admin"); if (!auth) return;
       const status = url.searchParams.get("status");
-      const helpRequests = db.helpRequests.filter(x => !status || x.status === status);
+      const tickets = db.supportTickets.map(x => ({ ...x, retailerName: db.users.find(u => u.id === x.userId)?.name || "Retailer", serviceName: x.category || "General Support", applicationId: null }));
+      const helpRequests = [...db.helpRequests, ...tickets].filter(x => !status || x.status === status).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       return send(res, 200, { helpRequests });
     }
 
     if (pathName.match(/^\/api\/admin\/help\/[^/]+$/) && req.method === "PATCH") {
       const auth = requireAuth(req, res, db, "admin"); if (!auth) return;
       const helpId = pathName.split("/").pop();
-      const help = db.helpRequests.find(x => x.id === helpId);
+      const help = db.helpRequests.find(x => x.id === helpId) || db.supportTickets.find(x => x.id === helpId);
       if (!help) return send(res, 404, { error: "Help request not found" });
       const input = await parseJson(req);
       if (input.status !== undefined && !["open", "in_progress", "resolved"].includes(input.status)) return send(res, 400, { error: "Invalid help request status" });
@@ -1311,8 +1409,19 @@ export async function handleRequest(req, res) {
       return send(res,200,{kyc:rows});
     }
 
+    if (pathName.match(/^\/api\/admin\/kyc\/[^/]+\/documents\/[^/]+$/) && req.method === "GET") {
+      const auth = requireAuth(req, res, db, "admin"); if (!auth) return;
+      const user = db.users.find(u => u.id === pathName.split("/")[4]);
+      const document = user?.kyc?.documents?.[decodeURIComponent(pathName.split("/")[6])];
+      if (!document?.storageName || path.basename(document.storageName) !== document.storageName) return send(res, 404, { error: "Document not found" });
+      const file = await readPrivateFile(document.storageName);
+      if (!file) return send(res, 404, { error: "Document not found" });
+      res.writeHead(200, { "Content-Type": document.mimeType, "Content-Disposition": `attachment; filename="${document.fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}"`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+      return res.end(file);
+    }
+
     if (pathName.match(/^\/api\/admin\/kyc\/[^/]+$/) && req.method === "PATCH") {
-      const auth=requireAuth(req,res,db,"admin"); if(!auth)return; const userId=pathName.split("/").pop(); const user=db.users.find(u=>u.id===userId && u.role==="retailer"); if(!user)return send(res,404,{error:"User not found"}); const input=await parseJson(req); if(!["verified","rejected","pending"].includes(input.status))return send(res,400,{error:"Invalid KYC status"}); user.kycStatus=input.status; user.kyc=user.kyc||{}; user.kyc.reviewedAt=now(); user.kyc.adminNote=String(input.adminNote||""); audit(db,auth.user,`KYC_${String(input.status).toUpperCase()}`,"user",user.id,{adminNote:user.kyc.adminNote}); saveDb(db); syncSheet(GOOGLE_SHEET_TAB_USERS,sheetUser(user)); return send(res,200,{user:sanitizeUser(user)});
+      const auth=requireAuth(req,res,db,"admin"); if(!auth)return; const userId=pathName.split("/").pop(); const user=db.users.find(u=>u.id===userId && u.role==="retailer"); if(!user)return send(res,404,{error:"User not found"}); const input=await parseJson(req); if (!user.kyc?.submittedAt) return send(res,400,{error:"No KYC submission to review"}); if(!["verified","rejected","pending"].includes(input.status))return send(res,400,{error:"Invalid KYC status"}); user.kycStatus=input.status; user.kyc=user.kyc||{}; user.kyc.reviewedAt=now(); user.kyc.adminNote=String(input.adminNote||""); audit(db,auth.user,`KYC_${String(input.status).toUpperCase()}`,"user",user.id,{adminNote:user.kyc.adminNote}); saveDb(db); syncSheet(GOOGLE_SHEET_TAB_USERS,sheetUser(user)); return send(res,200,{user:sanitizeUser(user)});
     }
 
     if (pathName === "/api/admin/users" && req.method === "GET") {
@@ -1328,13 +1437,15 @@ export async function handleRequest(req, res) {
     return send(res, 404, { error: "Not found" });
   } catch (error) {
     console.error(error);
-    return send(res, 500, { error: error?.message || "Internal server error" });
+    return send(res, error?.status || 500, { error: error?.status ? error.message : "The request could not be completed. Please try again or contact support." });
+  } finally {
+    if (rechargeUserId) activeRecharges.delete(rechargeUserId);
   }
 }
 
 const server = http.createServer(handleRequest);
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && process.env.LD_NO_LISTEN !== "true") {
   server.on("error", error => {
     console.error(`LD SERVICE ZONE API could not start on port ${PORT}: ${error.message}`);
     process.exit(1);
