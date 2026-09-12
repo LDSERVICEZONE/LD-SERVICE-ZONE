@@ -440,7 +440,7 @@ function ensureWallet(userId) {
 for (const user of db.users) ensureWallet(user.id);
 seedAdmin(db);
 seedServices(db);
-saveDb(db);
+await saveDb(db);
 
 
 let googleAccessToken = null;
@@ -682,7 +682,7 @@ export async function handleRequest(req, res) {
         if (!authExisting) {
           db.users = db.users.filter(u => u.id !== localUser?.id);
           db.sessions = db.sessions.filter(s => s.userId !== localUser?.id);
-          saveDb(db);
+          await saveDb(db);
         } else return send(res, 409, { error: "This email is already registered. Use Sign in or Forgot password." });
       }
       const localMobileExists = db.users.some(u => normalizeIndianMobile(u.mobile) === mobile);
@@ -693,7 +693,7 @@ export async function handleRequest(req, res) {
         let authPending;
         try { authPending = await supabaseAdminFindUserByEmail(email); }
         catch { return send(res, 503, { error: "Unable to check Supabase Auth. Please try again." }); }
-        if (!authPending) { db.pendingSignups = db.pendingSignups.filter(x => x.id !== pending?.id); saveDb(db); }
+        if (!authPending) { db.pendingSignups = db.pendingSignups.filter(x => x.id !== pending?.id); await saveDb(db); }
         else return send(res, 409, { error: "A signup is already pending for this email. Check your inbox for the confirmation link." });
       }
       try {
@@ -703,7 +703,7 @@ export async function handleRequest(req, res) {
 
         const pending = { id: id("PSU"), supabaseUserId: supabaseUser.id, name, businessName, email, mobile, passwordHash: hashPassword(password), createdAt: now(), emailVerified: false };
         db.pendingSignups.push(pending);
-        saveDb(db);
+        await saveDb(db);
 
         return send(res, 201, { pending: true, supabaseUserId: supabaseUser.id, email, message: "Account created. Check your email for the Supabase confirmation link, then return here to sign in." });
       } catch (error) {
@@ -715,7 +715,7 @@ export async function handleRequest(req, res) {
             if (existing?.id && !existing.email_confirmed_at) {
               const pending = { id: id("PSU"), supabaseUserId: existing.id, name, businessName, email, mobile, passwordHash: hashPassword(password), createdAt: now(), emailVerified: false };
               db.pendingSignups.push(pending);
-              saveDb(db);
+              await saveDb(db);
               try { await supabaseRequest("/auth/v1/resend", "POST", { type: "signup", email }); } catch (resendError) { console.error("Supabase confirmation resend:", String(resendError?.message || resendError)); }
               return send(res, 201, { pending: true, supabaseUserId: existing.id, email, message: "Your signup was restored. Check your email for a new confirmation link." });
             }
@@ -745,7 +745,7 @@ export async function handleRequest(req, res) {
       const authUser = authData?.user || (pending.supabaseUserId ? await supabaseAdminGetUser(pending.supabaseUserId) : null);
       const user = promotePendingSignup(db, pending, authUser);
       if (!user) return send(res, 400, { error: "Supabase email verification succeeded, but the account could not be linked locally. Contact admin." });
-      saveDb(db);
+      await saveDb(db);
       return send(res, 201, { user: sanitizeUser(user), message: "Email verified successfully. Your Supabase account is ready. You can now sign in." });
     }
 
@@ -777,7 +777,7 @@ export async function handleRequest(req, res) {
       const pending = db.pendingSignups.find(x => x.supabaseUserId === authData.id || x.email === String(authUser?.email || authData.email || "").toLowerCase());
       const user = promotePendingSignup(db, pending, authUser);
       if (!user) return send(res, 400, { error: "Email confirmed, but the pending signup could not be linked. Contact admin." });
-      saveDb(db);
+      await saveDb(db);
       return send(res, 200, { user: sanitizeUser(user), message: "Email verified successfully. You can now sign in." });
     }
 
@@ -791,7 +791,7 @@ export async function handleRequest(req, res) {
       try {
         const authExisting = await supabaseAdminFindUserByEmail(email);
         if (!authExisting) {
-          db.users = db.users.filter(x => x.id !== user.id); db.sessions = db.sessions.filter(s => s.userId !== user.id); saveDb(db);
+          db.users = db.users.filter(x => x.id !== user.id); db.sessions = db.sessions.filter(s => s.userId !== user.id); await saveDb(db);
           return send(res, 404, { error: "Your Auth account no longer exists. Please register again." });
         }
         await supabaseRequest("/auth/v1/magiclink", "POST", { email, redirect_to: `${PUBLIC_APP_URL}/login` });
@@ -816,7 +816,7 @@ export async function handleRequest(req, res) {
       const token = crypto.randomBytes(32).toString("hex");
       db.sessions = db.sessions.filter(s => new Date(s.expiresAt) > new Date());
       db.sessions.push({ id: id("SES"), userId: user.id, tokenHash: crypto.createHash("sha256").update(token).digest("hex"), createdAt: now(), expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000).toISOString() });
-      audit(db, user, "LOGIN_MAGIC_LINK", "user", user.id); saveDb(db);
+      audit(db, user, "LOGIN_MAGIC_LINK", "user", user.id); await saveDb(db);
       return send(res, 200, { token, user: sanitizeUser(user), authProvider: "supabase-magic-link" });
     }
 
@@ -840,7 +840,7 @@ export async function handleRequest(req, res) {
       db.sessions = db.sessions.filter(s => new Date(s.expiresAt) > new Date());
       db.sessions.push({ id: id("SES"), userId: user.id, tokenHash: crypto.createHash("sha256").update(token).digest("hex"), createdAt: now(), expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000).toISOString() });
       audit(db, user, "DEMO_LOGIN", "user", user.id);
-      saveDb(db);
+      await saveDb(db);
       return send(res, 200, { token, user: sanitizeUser(user), authProvider: "demo" });
     }
 
@@ -872,7 +872,7 @@ export async function handleRequest(req, res) {
           const confirmedUser = await supabaseAdminGetUser(pending.supabaseUserId);
           if (confirmedUser?.email_confirmed_at) {
             user = promotePendingSignup(db, pending, confirmedUser);
-            if (user) saveDb(db);
+            if (user) await saveDb(db);
           }
         } catch (error) {
           console.warn("Could not sync confirmed Supabase signup:", String(error?.message || error));
@@ -908,7 +908,7 @@ export async function handleRequest(req, res) {
       const token = crypto.randomBytes(32).toString("hex");
       db.sessions = db.sessions.filter(s => new Date(s.expiresAt) > new Date());
       db.sessions.push({ id: id("SES"), userId: user.id, tokenHash: crypto.createHash("sha256").update(token).digest("hex"), createdAt: now(), expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000).toISOString() });
-      audit(db, user, authenticatedWithSupabase ? "LOGIN_SUPABASE" : "LOGIN_LEGACY", "user", user.id); saveDb(db);
+      audit(db, user, authenticatedWithSupabase ? "LOGIN_SUPABASE" : "LOGIN_LEGACY", "user", user.id); await saveDb(db);
       return send(res, 200, { token, user: sanitizeUser(user), authProvider: authenticatedWithSupabase ? "supabase" : "legacy" });
     }
 
@@ -942,7 +942,7 @@ export async function handleRequest(req, res) {
       if (resetUser) {
         delete resetUser.passwordHash;
         db.sessions = db.sessions.filter(s => s.userId !== resetUser.id);
-        saveDb(db);
+        await saveDb(db);
       }
       return send(res, 200, { ok: true, message: "Password updated successfully. You can now sign in." });
     }
@@ -968,7 +968,7 @@ export async function handleRequest(req, res) {
       const storedDocs={};
       for(const name of requiredDocs){ const d=docs[name]; const clean=String(d.fileName||name).replace(/[^a-zA-Z0-9._-]/g,"_"); const buffer=Buffer.from(String(d.data).replace(/^data:[^;]+;base64,/,'') ,'base64'); const stored=await storePrivateFile(`kyc/${auth.user.id}/${crypto.randomBytes(6).toString("hex")}-${clean}`, buffer, d.mimeType); storedDocs[name]={fileName:clean,storageName:stored,mimeType:d.mimeType,size:buffer.length,uploadedAt:now()}; }
       auth.user.kyc={fullName,dob,aadhaar:encrypt(aadhaar),pan:encrypt(pan),address,city,state,pincode,bankAccount:encrypt(bankAccount),ifsc,accountHolder,documents:storedDocs,submittedAt:now(),reviewedAt:null,adminNote:""};
-      auth.user.kycStatus="pending"; auth.user.updatedAt=now(); audit(db,auth.user,"KYC_SUBMITTED","user",auth.user.id); saveDb(db); syncSheet(GOOGLE_SHEET_TAB_USERS,sheetUser(auth.user));
+      auth.user.kycStatus="pending"; auth.user.updatedAt=now(); audit(db,auth.user,"KYC_SUBMITTED","user",auth.user.id); await saveDb(db); syncSheet(GOOGLE_SHEET_TAB_USERS,sheetUser(auth.user));
       return send(res,201,{kyc:{...auth.user.kyc,aadhaar:aadhaar.replace(/\d(?=\d{4})/g,"*"),pan:"*****"+pan.slice(-1),bankAccount:"******"+bankAccount.slice(-4)},message:"KYC submitted successfully. Your documents are now under review."});
     }
 
@@ -978,7 +978,7 @@ export async function handleRequest(req, res) {
     }
 
     if (pathName === "/api/auth/logout" && req.method === "POST") {
-      const token = bearer(req); db.sessions = db.sessions.filter(s => s.tokenHash !== crypto.createHash("sha256").update(token).digest("hex")); saveDb(db); return send(res, 200, { ok: true });
+      const token = bearer(req); db.sessions = db.sessions.filter(s => s.tokenHash !== crypto.createHash("sha256").update(token).digest("hex")); await saveDb(db); return send(res, 200, { ok: true });
     }
 
     if (pathName === "/api/auth/activity" && req.method === "GET") {
@@ -1004,7 +1004,7 @@ export async function handleRequest(req, res) {
       if (db.services.some(s => s.id === service.id)) return send(res, 409, { error: "Service ID already exists" });
       db.services.unshift(service);
       audit(db, auth.user, "SERVICE_CREATED", "service", service.id, { name: service.name, category: service.category });
-      saveDb(db);
+      await saveDb(db);
       return send(res, 201, { service });
     }
 
@@ -1021,7 +1021,7 @@ export async function handleRequest(req, res) {
       if (!service.name || !service.category || !service.processingTime) return send(res, 400, { error: "Name, category and processing time are required" });
       service.updatedAt = now();
       audit(db, auth.user, "SERVICE_UPDATED", "service", service.id, { name: service.name, category: service.category });
-      saveDb(db);
+      await saveDb(db);
       return send(res, 200, { service });
     }
 
@@ -1043,7 +1043,7 @@ export async function handleRequest(req, res) {
         category: service.category, customerPrice: Number(service.customerPrice), commission: Number(service.commission || 0), applicant,
         documents: (service.documents || []).map(name => ({ name })), status: "payment_pending", adminNote: "", createdAt: now(), updatedAt: now(), paymentId: null, orderId: null,
       };
-      db.applications.unshift(application); audit(db, auth.user, "APPLICATION_CREATED", "application", application.applicationId); saveDb(db);
+      db.applications.unshift(application); audit(db, auth.user, "APPLICATION_CREATED", "application", application.applicationId); await saveDb(db);
       syncSheet(GOOGLE_SHEET_TAB_APPLICATIONS, sheetApplication(application));
       return send(res, 201, { application: publicApplication(application) });
     }
@@ -1064,7 +1064,7 @@ export async function handleRequest(req, res) {
       const stored = await storePrivateFile(storageKey, buffer, input.mimeType);
       const doc = (app.documents || []).find(d => d.name === input.documentName);
       if (doc) { doc.fileName = cleanName; doc.storageName = stored; doc.mimeType = input.mimeType; doc.size = buffer.length; doc.uploadedAt = now(); }
-      app.updatedAt = now(); audit(db, auth.user, "DOCUMENT_UPLOADED", "application", app.applicationId, { documentName: input.documentName }); saveDb(db);
+      app.updatedAt = now(); audit(db, auth.user, "DOCUMENT_UPLOADED", "application", app.applicationId, { documentName: input.documentName }); await saveDb(db);
       return send(res, 201, { document: { name: input.documentName, fileName: cleanName, size: buffer.length } });
     }
 
@@ -1088,7 +1088,7 @@ export async function handleRequest(req, res) {
       if (!app) return send(res, 404, { error: "Application not found" });
       const input = await parseJson(req);
       try { updateApplicationByAdmin(db, app, input, auth.user); } catch (error) { return send(res, 400, { error: error.message }); }
-      saveDb(db);
+      await saveDb(db);
       syncSheet(GOOGLE_SHEET_TAB_APPLICATIONS, sheetApplication(app));
       return send(res, 200, { application: publicApplication(app) });
     }
@@ -1102,12 +1102,12 @@ export async function handleRequest(req, res) {
       if (app.documents.some(d => !d.storageName)) return send(res, 400, { error: "Upload all required documents before payment" });
       const amount = Math.round(Number(app.customerPrice) * 100);
       if (amount <= 0) {
-        app.status = "submitted"; app.updatedAt = now(); saveDb(db);
+        app.status = "submitted"; app.updatedAt = now(); await saveDb(db);
         return send(res, 200, { mode: "free", application: publicApplication(app) });
       }
       if (String(process.env.DEMO_MODE).toLowerCase() === "true") {
           app.status = "submitted"; app.paymentId = `DEMO-${id("PAY")}`; app.updatedAt = now();
-          audit(db, auth.user, "DEMO_APPLICATION_SUBMITTED", "application", app.applicationId); saveDb(db);
+          audit(db, auth.user, "DEMO_APPLICATION_SUBMITTED", "application", app.applicationId); await saveDb(db);
           return send(res, 200, { mode: "demo", application: publicApplication(app), message: "Demo submission completed. Payment is disabled." });
       }
       if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
@@ -1117,7 +1117,7 @@ export async function handleRequest(req, res) {
       const paymentRecord = { paymentId: id("PAY"), applicationId: app.applicationId, userId: auth.user.id, amount: Number(app.customerPrice), mode: "razorpay", status: "created", orderId: order.id, createdAt: now() };
       db.payments.unshift(paymentRecord);
       syncSheet(GOOGLE_SHEET_TAB_PAYMENTS, sheetPayment(paymentRecord));
-      app.orderId = order.id; saveDb(db);
+      app.orderId = order.id; await saveDb(db);
       return send(res, 200, { mode: "razorpay", keyId: RAZORPAY_KEY_ID, orderId: order.id, amount: order.amount, currency: order.currency, application: publicApplication(app) });
     }
 
@@ -1135,7 +1135,7 @@ export async function handleRequest(req, res) {
       if (payment.status === "paid") return send(res, 200, { application: publicApplication(app), message: "Payment already verified" });
       app.status = "submitted"; app.paymentId = input.razorpay_payment_id; app.orderId = input.razorpay_order_id; app.updatedAt = now();
       payment.status = "paid"; payment.gatewayPaymentId = input.razorpay_payment_id; payment.paidAt = now();
-      audit(db, auth.user, "PAYMENT_SUCCESS", "application", app.applicationId); saveDb(db);
+      audit(db, auth.user, "PAYMENT_SUCCESS", "application", app.applicationId); await saveDb(db);
       syncSheet(GOOGLE_SHEET_TAB_PAYMENTS, sheetPayment(payment || { paymentId: app.paymentId, applicationId: app.applicationId, userId: auth.user.id, amount: app.customerPrice, mode: "razorpay", status: "paid", orderId: app.orderId, gatewayPaymentId: app.paymentId, createdAt: now(), paidAt: now() }));
       syncSheet(GOOGLE_SHEET_TAB_APPLICATIONS, sheetApplication(app));
       return send(res, 200, { application: publicApplication(app), message: "Payment verified successfully" });
@@ -1192,7 +1192,7 @@ export async function handleRequest(req, res) {
             audit(db, { id: payment.userId, name: "Webhook" }, "WALLET_TOPUP_WEBHOOK", "wallet", payment.userId, { amount: payment.amount });
           }
 
-          saveDb(db);
+          await saveDb(db);
           syncSheet(GOOGLE_SHEET_TAB_PAYMENTS, sheetPayment(payment));
         }
       }
@@ -1226,7 +1226,7 @@ export async function handleRequest(req, res) {
       const receipt = `WALLET-${auth.user.id}-${Date.now()}`;
       const order = await razorpayRequest("orders", "POST", { amount, currency: "INR", receipt, notes: { userId: auth.user.id, type: "wallet_topup" } });
       const payment = { paymentId: id("PAY"), applicationId: null, userId: auth.user.id, amount: amount/100, mode: "razorpay_wallet", status: "created", orderId: order.id, createdAt: now() };
-      db.payments.unshift(payment); saveDb(db); syncSheet(GOOGLE_SHEET_TAB_PAYMENTS, sheetPayment(payment));
+      db.payments.unshift(payment); await saveDb(db); syncSheet(GOOGLE_SHEET_TAB_PAYMENTS, sheetPayment(payment));
       return send(res, 200, { mode: "razorpay", keyId: RAZORPAY_KEY_ID, orderId: order.id, amount: order.amount, currency: order.currency, paymentId: payment.paymentId });
     }
 
@@ -1244,7 +1244,7 @@ export async function handleRequest(req, res) {
         payment.status = "paid"; payment.gatewayPaymentId = input.razorpay_payment_id; payment.paidAt = now();
         const wallet = ensureWallet(auth.user.id); wallet.balance += Number(payment.amount); wallet.updatedAt = now();
         db.walletLedger.unshift({ id:id("WL"), userId:auth.user.id, type:"credit", amount:Number(payment.amount), reference:payment.paymentId, description:"Razorpay wallet top-up", status:"success", createdAt:now(), balanceAfter:wallet.balance });
-        audit(db, auth.user, "WALLET_TOPUP", "wallet", auth.user.id, { amount: payment.amount, paymentId: payment.paymentId }); saveDb(db);
+        audit(db, auth.user, "WALLET_TOPUP", "wallet", auth.user.id, { amount: payment.amount, paymentId: payment.paymentId }); await saveDb(db);
         syncSheet(GOOGLE_SHEET_TAB_PAYMENTS, sheetPayment(payment));
       }
       return send(res, 200, { ok:true, wallet:ensureWallet(auth.user.id), payment });
@@ -1316,7 +1316,7 @@ export async function handleRequest(req, res) {
         tx.commissionCredited = true;
       }
       if (status === "failed") tx.refunded = true;
-      db.rechargeTransactions.unshift(tx); audit(db,auth.user,"RECHARGE_INITIATED","recharge",tx.id,{status,operator:tx.operator,amount}); saveDb(db);
+      db.rechargeTransactions.unshift(tx); audit(db,auth.user,"RECHARGE_INITIATED","recharge",tx.id,{status,operator:tx.operator,amount}); await saveDb(db);
       return send(res, 200, { transaction:tx, provider:providerResult, wallet });
     }
 
@@ -1362,7 +1362,7 @@ export async function handleRequest(req, res) {
           }
           tx.commissionCredited=true;
         }
-        saveDb(db);
+        await saveDb(db);
       }
       return send(res,200,{received:true});
     }
@@ -1398,7 +1398,7 @@ export async function handleRequest(req, res) {
     }
     if (pathName === "/api/support/tickets" && req.method === "POST") {
       const auth = requireAuth(req, res, db); if (!auth) return; const input=await parseJson(req); if(!input.subject||!input.message)return send(res,400,{error:"Subject and message are required"});
-      const ticket={id:id("TKT"),userId:auth.user.id,subject:String(input.subject),category:String(input.category||"General"),priority:String(input.priority||"medium"),status:"open",message:String(input.message),createdAt:now(),updatedAt:now()}; db.supportTickets.unshift(ticket);audit(db,auth.user,"SUPPORT_TICKET_CREATED","ticket",ticket.id);saveDb(db);return send(res,201,{ticket});
+      const ticket={id:id("TKT"),userId:auth.user.id,subject:String(input.subject),category:String(input.category||"General"),priority:String(input.priority||"medium"),status:"open",message:String(input.message),createdAt:now(),updatedAt:now()}; db.supportTickets.unshift(ticket);audit(db,auth.user,"SUPPORT_TICKET_CREATED","ticket",ticket.id);await saveDb(db);return send(res,201,{ticket});
     }
 
     if (pathName === "/api/help" && req.method === "POST") {
@@ -1415,7 +1415,7 @@ export async function handleRequest(req, res) {
       const help = { id: id("HLP"), userId: auth.user.id, retailerName: auth.user.name, applicationId: app?.applicationId || null, serviceName: String(input.serviceName || app?.serviceName || "General Support"), subject, message, status: "open", adminReply: "", createdAt: now(), updatedAt: now(), applicationSnapshot: applicationHelpSnapshot(app) };
       db.helpRequests.unshift(help);
       audit(db, auth.user, "HELP_REQUEST_CREATED", "helpRequest", help.id, { applicationId: help.applicationId, serviceName: help.serviceName });
-      saveDb(db);
+      await saveDb(db);
       return send(res, 201, { helpRequest: help });
     }
 
@@ -1450,7 +1450,7 @@ export async function handleRequest(req, res) {
       }
       help.updatedAt = now();
       audit(db, auth.user, "HELP_REQUEST_UPDATED", "helpRequest", help.id, { status: help.status, applicationId: help.applicationId, applicationUpdate });
-      saveDb(db);
+      await saveDb(db);
       if (help.applicationId) { const app = db.applications.find(a => a.applicationId === help.applicationId); if (app) syncSheet(GOOGLE_SHEET_TAB_APPLICATIONS, sheetApplication(app)); }
       return send(res, 200, { helpRequest: help, applicationUpdate });
     }
@@ -1490,7 +1490,7 @@ export async function handleRequest(req, res) {
     }
 
     if (pathName.match(/^\/api\/admin\/kyc\/[^/]+$/) && req.method === "PATCH") {
-      const auth=requireAuth(req,res,db,"admin"); if(!auth)return; const userId=pathName.split("/").pop(); const user=db.users.find(u=>u.id===userId && u.role==="retailer"); if(!user)return send(res,404,{error:"User not found"}); const input=await parseJson(req); if (!user.kyc?.submittedAt) return send(res,400,{error:"No KYC submission to review"}); if(!["verified","rejected","pending"].includes(input.status))return send(res,400,{error:"Invalid KYC status"}); user.kycStatus=input.status; user.kyc=user.kyc||{}; user.kyc.reviewedAt=now(); user.kyc.adminNote=String(input.adminNote||""); audit(db,auth.user,`KYC_${String(input.status).toUpperCase()}`,"user",user.id,{adminNote:user.kyc.adminNote}); saveDb(db); syncSheet(GOOGLE_SHEET_TAB_USERS,sheetUser(user)); return send(res,200,{user:sanitizeUser(user)});
+      const auth=requireAuth(req,res,db,"admin"); if(!auth)return; const userId=pathName.split("/").pop(); const user=db.users.find(u=>u.id===userId && u.role==="retailer"); if(!user)return send(res,404,{error:"User not found"}); const input=await parseJson(req); if (!user.kyc?.submittedAt) return send(res,400,{error:"No KYC submission to review"}); if(!["verified","rejected","pending"].includes(input.status))return send(res,400,{error:"Invalid KYC status"}); user.kycStatus=input.status; user.kyc=user.kyc||{}; user.kyc.reviewedAt=now(); user.kyc.adminNote=String(input.adminNote||""); audit(db,auth.user,`KYC_${String(input.status).toUpperCase()}`,"user",user.id,{adminNote:user.kyc.adminNote}); await saveDb(db); syncSheet(GOOGLE_SHEET_TAB_USERS,sheetUser(user)); return send(res,200,{user:sanitizeUser(user)});
     }
 
     if (pathName === "/api/admin/users" && req.method === "GET") {
@@ -1525,5 +1525,6 @@ if (!process.env.VERCEL && process.env.LD_NO_LISTEN !== "true") {
 }
 
 export default server;
+
 
 
