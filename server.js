@@ -672,11 +672,30 @@ export async function handleRequest(req, res) {
       if (!name || !businessName || !email || !mobile || password.length < 8) return send(res, 400, { error: "Full name, business name, email, Indian mobile number and an 8+ character password are required" });
       if (!isEmail(email)) return send(res, 400, { error: "Enter a valid Gmail/email address" });
       const localEmailExists = db.users.some(u => String(u.email || "").trim().toLowerCase() === email);
-      if (localEmailExists) return send(res, 409, { error: "This email is already registered. Use a different email." });
+      if (localEmailExists) {
+        // Auth is authoritative. If an Auth user was deleted manually, remove the
+        // orphaned local profile so the address can be registered again.
+        const localUser = db.users.find(u => String(u.email || "").trim().toLowerCase() === email);
+        let authExisting;
+        try { authExisting = await supabaseAdminFindUserByEmail(email); }
+        catch (error) { return send(res, 503, { error: "Unable to check Supabase Auth. Please try again." }); }
+        if (!authExisting) {
+          db.users = db.users.filter(u => u.id !== localUser?.id);
+          db.sessions = db.sessions.filter(s => s.userId !== localUser?.id);
+          saveDb(db);
+        } else return send(res, 409, { error: "This email is already registered. Use Sign in or Forgot password." });
+      }
       const localMobileExists = db.users.some(u => normalizeIndianMobile(u.mobile) === mobile);
       if (localMobileExists) return send(res, 409, { error: "This mobile number is already registered. Use a different number." });
       const pendingExists = db.pendingSignups.some(x => x.email === email || normalizeIndianMobile(x.mobile) === mobile);
-      if (pendingExists) return send(res, 409, { error: "A signup is already pending for this email. Check your inbox for the confirmation link." });
+      if (pendingExists) {
+        const pending = db.pendingSignups.find(x => x.email === email || normalizeIndianMobile(x.mobile) === mobile);
+        let authPending;
+        try { authPending = await supabaseAdminFindUserByEmail(email); }
+        catch { return send(res, 503, { error: "Unable to check Supabase Auth. Please try again." }); }
+        if (!authPending) { db.pendingSignups = db.pendingSignups.filter(x => x.id !== pending?.id); saveDb(db); }
+        else return send(res, 409, { error: "A signup is already pending for this email. Check your inbox for the confirmation link." });
+      }
       try {
         // Supabase sends the confirmation link using the project's configured email provider.
         let supabaseUser = await supabaseAdminCreateUser({ email, password, name, businessName, mobile });
@@ -770,7 +789,12 @@ export async function handleRequest(req, res) {
       if (!user) return send(res, 404, { error: "No verified account was found for this email" });
       if (!user.emailVerifiedAt) return send(res, 403, { error: "Verify your email from the signup confirmation link first" });
       try {
-        await supabaseRequest("/auth/v1/otp", "POST", { email, create_user: false, options: { email_redirect_to: `${PUBLIC_APP_URL}/login` } });
+        const authExisting = await supabaseAdminFindUserByEmail(email);
+        if (!authExisting) {
+          db.users = db.users.filter(x => x.id !== user.id); db.sessions = db.sessions.filter(s => s.userId !== user.id); saveDb(db);
+          return send(res, 404, { error: "Your Auth account no longer exists. Please register again." });
+        }
+        await supabaseRequest("/auth/v1/magiclink", "POST", { email, redirect_to: `${PUBLIC_APP_URL}/login` });
         return send(res, 200, { ok: true, message: "A magic sign-in link was sent to your email." });
       } catch (error) { return send(res, 400, { error: String(error?.message || error) }); }
     }
