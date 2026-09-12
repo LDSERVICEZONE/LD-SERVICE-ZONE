@@ -440,6 +440,9 @@ function ensureWallet(userId) {
 for (const user of db.users) ensureWallet(user.id);
 seedAdmin(db);
 seedServices(db);
+if (DATA_STORE === "supabase") {
+  for (const user of db.users) await persistRelationalUser(user);
+}
 await saveDb(db);
 
 
@@ -515,13 +518,8 @@ async function ensureGoogleTabs() {
 }
 
 async function syncSheet(tab, row) {
-  if (!GOOGLE_SHEET_ID || !GOOGLE_SERVICE_ACCOUNT_JSON) return;
-  try {
-    await ensureGoogleTabs();
-    await googleSheetsApi(`/values/${encodeURIComponent(tab)}!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", { values: [row] });
-  } catch (error) {
-    console.error(`Google Sheets sync failed (${tab}):`, error.message);
-  }
+  // Kept as a compatibility shim; Supabase is the sole application data backend.
+  return;
 }
 
 function sheetUser(user) {
@@ -601,7 +599,13 @@ async function supabaseAdminFindUserByEmail(email) {
   return users.find(u => String(u.email || "").trim().toLowerCase() === email.toLowerCase()) || null;
 }
 
-function promotePendingSignup(db, pending, authUser) {
+async function persistRelationalUser(user) {
+  if (DATA_STORE !== "supabase") return;
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/User?on_conflict=id`, { method: "POST", headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: user.id, email: user.email, mobile: user.mobile, passwordHash: user.passwordHash || null, name: user.name, businessName: user.businessName || null, role: String(user.role || "retailer").toUpperCase(), active: user.status === "active", emailVerifiedAt: user.emailVerifiedAt || null, supabaseUserId: user.supabaseUserId || null, createdAt: user.createdAt || now(), updatedAt: now() }) });
+  if (!response.ok) throw new Error(`Supabase User profile write failed (${response.status})`);
+}
+
+async function promotePendingSignup(db, pending, authUser) {
   if (!pending || !authUser?.id) return null;
   if (!authUser.email_confirmed_at || authUser.id !== pending.supabaseUserId || String(authUser.email || "").toLowerCase() !== pending.email.toLowerCase()) return null;
   if (db.users.some(u => normalizeIndianMobile(u.mobile) === normalizeIndianMobile(pending.mobile) && String(u.email).toLowerCase() !== pending.email.toLowerCase())) return null;
@@ -613,6 +617,7 @@ function promotePendingSignup(db, pending, authUser) {
     existing.name = existing.name || pending.name;
     existing.businessName = existing.businessName || pending.businessName;
     db.pendingSignups = db.pendingSignups.filter(x => x.id !== pending.id);
+    await persistRelationalUser(existing);
     return existing;
   }
   const user = { id: id("USR"), supabaseUserId: authUser.id, name: pending.name, businessName: pending.businessName, email: pending.email, mobile: normalizeIndianMobile(pending.mobile), role: "retailer", status: "active", kycStatus: "pending", passwordHash: pending.passwordHash, createdAt: now(), emailVerifiedAt: now() };
@@ -621,6 +626,7 @@ function promotePendingSignup(db, pending, authUser) {
   db.pendingSignups = db.pendingSignups.filter(x => x.id !== pending.id);
   audit(db, user, "SIGNUP_EMAIL_VERIFIED", "user", user.id);
   syncSheet(GOOGLE_SHEET_TAB_USERS, sheetUser(user));
+  await persistRelationalUser(user);
   return user;
 }
 
@@ -653,7 +659,7 @@ export async function handleRequest(req, res) {
       return send(res, 200, {
         ok: true, service: "LD SERVICE ZONE API",
         paymentMode: RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET ? "razorpay" : "unavailable",
-        integrations: { pay2all: Boolean(PAY2ALL_API_KEY), supabaseAuth: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_SERVICE_ROLE_KEY), googleSheets: Boolean(GOOGLE_SHEET_ID && GOOGLE_SERVICE_ACCOUNT_JSON), razorpay: Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) }
+        integrations: { pay2all: Boolean(PAY2ALL_API_KEY), supabaseAuth: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_SERVICE_ROLE_KEY), googleSheets: false, razorpay: Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) }
       });
     }
 
@@ -743,7 +749,7 @@ export async function handleRequest(req, res) {
       try { authData = await supabaseRequest("/auth/v1/verify", "POST", { type: "email", email, token: code }); }
       catch (error) { return send(res, 400, { error: String(error?.message || error) }); }
       const authUser = authData?.user || (pending.supabaseUserId ? await supabaseAdminGetUser(pending.supabaseUserId) : null);
-      const user = promotePendingSignup(db, pending, authUser);
+      const user = await promotePendingSignup(db, pending, authUser);
       if (!user) return send(res, 400, { error: "Supabase email verification succeeded, but the account could not be linked locally. Contact admin." });
       await saveDb(db);
       return send(res, 201, { user: sanitizeUser(user), message: "Email verified successfully. Your Supabase account is ready. You can now sign in." });
@@ -775,7 +781,7 @@ export async function handleRequest(req, res) {
       } catch (error) { return send(res, 400, { error: String(error?.message || error) }); }
       const authUser = await supabaseAdminGetUser(authData.id);
       const pending = db.pendingSignups.find(x => x.supabaseUserId === authData.id || x.email === String(authUser?.email || authData.email || "").toLowerCase());
-      const user = promotePendingSignup(db, pending, authUser);
+      const user = await promotePendingSignup(db, pending, authUser);
       if (!user) return send(res, 400, { error: "Email confirmed, but the pending signup could not be linked. Contact admin." });
       await saveDb(db);
       return send(res, 200, { user: sanitizeUser(user), message: "Email verified successfully. You can now sign in." });
@@ -871,7 +877,7 @@ export async function handleRequest(req, res) {
         try {
           const confirmedUser = await supabaseAdminGetUser(pending.supabaseUserId);
           if (confirmedUser?.email_confirmed_at) {
-            user = promotePendingSignup(db, pending, confirmedUser);
+            user = await promotePendingSignup(db, pending, confirmedUser);
             if (user) await saveDb(db);
           }
         } catch (error) {
@@ -1525,6 +1531,7 @@ if (!process.env.VERCEL && process.env.LD_NO_LISTEN !== "true") {
 }
 
 export default server;
+
 
 
 

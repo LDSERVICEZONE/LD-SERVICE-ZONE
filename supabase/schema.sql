@@ -39,10 +39,12 @@ CREATE TABLE IF NOT EXISTS "User" (
   "role" "UserRole" NOT NULL DEFAULT 'RETAILER',
   "active" BOOLEAN NOT NULL DEFAULT true,
   "emailVerifiedAt" TIMESTAMPTZ,
+  "supabaseUserId" TEXT UNIQUE,
   "mobileVerifiedAt" TIMESTAMPTZ,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "supabaseUserId" TEXT UNIQUE;
 
 CREATE TABLE IF NOT EXISTS "RetailerProfile" (
   "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
