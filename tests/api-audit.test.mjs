@@ -21,6 +21,7 @@ fs.writeFileSync(path.join(dataDir, "db.json"), JSON.stringify({
 }));
 Object.assign(process.env, {
   LD_SKIP_ENV: "true", LD_NO_LISTEN: "true", LD_DATA_DIR: dataDir,
+  DATA_STORE: "json",
   DATA_ENCRYPTION_KEY: "audit-only-encryption-key", SUPABASE_URL: "https://auth.example.test",
   SUPABASE_ANON_KEY: "audit-anon", SUPABASE_SERVICE_ROLE_KEY: "audit-service",
   RAZORPAY_KEY_ID: "audit", RAZORPAY_KEY_SECRET: "audit-payment-secret", RAZORPAY_WEBHOOK_SECRET: "audit-webhook-secret",

@@ -36,7 +36,7 @@ A local full-stack starter for LD SERVICE ZONE.
 - Role-based access: retailer/admin
 - AES-256-GCM encryption for Aadhaar fields at rest
 - Private document storage with authenticated download endpoint
-- JSON database for simple local setup
+- Supabase Auth, PostgreSQL state, and Storage in every environment
 - Audit log
 - Payment records
 - Razorpay order creation + payment signature verification
@@ -107,7 +107,7 @@ Keep `SUPABASE_SERVICE_ROLE_KEY`, `DATA_ENCRYPTION_KEY`, and `ADMIN_PASSWORD` as
 
 ## Important production upgrades
 
-This project is intentionally easy to install locally. Before handling real Aadhaar/PAN documents or money, move the data layer to PostgreSQL/MySQL, put the app behind HTTPS, use a managed secrets system, add rate limiting, malware scan uploads, private object storage, stronger session controls, notifications, reconciliation/refunds, monitoring and backups, and complete the applicable privacy/KYC/retention requirements.
+Local, preview, and production runs all use Supabase. Before handling real Aadhaar/PAN documents or money, put the app behind HTTPS, use a managed secrets system, add malware scanning, stronger session controls, notifications, reconciliation/refunds, monitoring and backups, and complete the applicable privacy/KYC/retention requirements.
 
 
 ## External integrations

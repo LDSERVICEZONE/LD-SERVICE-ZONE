@@ -36,7 +36,7 @@ const SESSION_DAYS = 7;
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const DATA_STORE = String(process.env.DATA_STORE || "json").trim().toLowerCase();
+const DATA_STORE = String(process.env.DATA_STORE || "supabase").trim().toLowerCase();
 const SUPABASE_STATE_TABLE = String(process.env.SUPABASE_STATE_TABLE || "platform_state").trim();
 const SUPABASE_STORAGE_BUCKET = String(process.env.SUPABASE_STORAGE_BUCKET || "private-documents").trim();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "";
@@ -91,15 +91,16 @@ function getClientIp(req) {
   return String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "127.0.0.1").split(",")[0].trim();
 }
 
+const testMode = String(process.env.LD_SKIP_ENV || "").toLowerCase() === "true";
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
   const missing = [];
   if (!SUPABASE_URL) missing.push("SUPABASE_URL");
   if (!SUPABASE_ANON_KEY) missing.push("SUPABASE_ANON_KEY");
   if (!SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
-  console.warn(`AUTH WARNING: Supabase Auth is not fully configured. Missing env variables in Vercel: ${missing.join(", ")}`);
+  if (!testMode) throw new Error(`Supabase is required in every environment. Missing env variables: ${missing.join(", ")}`);
 }
-if (process.env.NODE_ENV === "production" && DATA_STORE !== "supabase") {
-  throw new Error("Production startup blocked: DATA_STORE=supabase is required; the JSON development store is not durable or safe for production");
+if (!testMode && DATA_STORE !== "supabase") {
+  throw new Error("Startup blocked: DATA_STORE=supabase is required; local JSON storage is disabled");
 }
 
 const initialDb = {
