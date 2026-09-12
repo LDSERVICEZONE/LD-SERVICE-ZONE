@@ -1,4 +1,4 @@
-import http from "node:http";
+﻿import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -570,13 +570,14 @@ async function readPrivateFile(storageName) {
 }
 
 async function supabaseAdminCreateUser({ email, password, name, businessName, mobile }) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error("Supabase service role key is not configured");
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error("Supabase Auth is not configured");
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
     method: "POST",
-    headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+    headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({
-      email, password, email_confirm: false,
-      user_metadata: { name, businessName: businessName || name, mobile, role: "retailer" },
+      email, password,
+      data: { name, businessName: businessName || name, mobile, role: "retailer" },
+      options: { email_redirect_to: `${PUBLIC_APP_URL}/login` },
     }),
   });
   const data = await response.json().catch(() => ({}));
@@ -674,11 +675,9 @@ export async function handleRequest(req, res) {
       const localMobileExists = db.users.some(u => normalizeIndianMobile(u.mobile) === mobile);
       if (localMobileExists) return send(res, 409, { error: "This mobile number is already registered. Use a different number." });
       const pendingExists = db.pendingSignups.some(x => x.email === email || normalizeIndianMobile(x.mobile) === mobile);
-      if (pendingExists) return send(res, 409, { error: "A signup is already pending for this email. Check your inbox and enter the verification code." });
+      if (pendingExists) return send(res, 409, { error: "A signup is already pending for this email. Check your inbox for the confirmation link." });
       try {
-        // Create the real Auth user first, using the server-only service-role key.
-        // This avoids the previous failure mode where /auth/v1/signup created a Supabase
-        // user but the follow-up OTP request failed, leaving no local pending record.
+        // Supabase sends the confirmation link using the project's configured email provider.
         let supabaseUser = await supabaseAdminCreateUser({ email, password, name, businessName, mobile });
         if (!supabaseUser?.id) throw new Error("Supabase did not return a user id after account creation");
 
@@ -686,14 +685,7 @@ export async function handleRequest(req, res) {
         db.pendingSignups.push(pending);
         saveDb(db);
 
-        // Send the verification OTP after the Auth user and local pending record exist.
-        try {
-          await supabaseRequest("/auth/v1/otp", "POST", { email, create_user: false });
-          return send(res, 201, { pending: true, supabaseUserId: supabaseUser.id, email, message: "Account created in Supabase. A verification code was sent to your email. Enter the code from your Gmail inbox below." });
-        } catch (otpError) {
-          console.error("Supabase verification email:", String(otpError?.message || otpError));
-          return send(res, 201, { pending: true, supabaseUserId: supabaseUser.id, email, message: "Account created in Supabase, but the verification email could not be sent yet. Use Resend verification after checking your Supabase Email/SMTP settings." });
-        }
+        return send(res, 201, { pending: true, supabaseUserId: supabaseUser.id, email, message: "Account created. Check your email for the Supabase confirmation link, then return here to sign in." });
       } catch (error) {
         const message = String(error?.message || error);
         if (/already registered|already exists|user already exists|email.*taken/i.test(message)) {
@@ -704,8 +696,8 @@ export async function handleRequest(req, res) {
               const pending = { id: id("PSU"), supabaseUserId: existing.id, name, businessName, email, mobile, passwordHash: hashPassword(password), createdAt: now(), emailVerified: false };
               db.pendingSignups.push(pending);
               saveDb(db);
-              try { await supabaseRequest("/auth/v1/otp", "POST", { email, create_user: false }); } catch (otpError) { console.error("Supabase verification resend:", String(otpError?.message || otpError)); }
-              return send(res, 201, { pending: true, supabaseUserId: existing.id, email, message: "Your Supabase account already existed but was not verified. We restored the signup and sent a new verification code." });
+              try { await supabaseRequest("/auth/v1/resend", "POST", { type: "signup", email }); } catch (resendError) { console.error("Supabase confirmation resend:", String(resendError?.message || resendError)); }
+              return send(res, 201, { pending: true, supabaseUserId: existing.id, email, message: "Your signup was restored. Check your email for a new confirmation link." });
             }
           } catch (lookupError) {
             console.error("Supabase existing-user recovery:", String(lookupError?.message || lookupError));
@@ -747,8 +739,60 @@ export async function handleRequest(req, res) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return send(res, 400, { error: "Enter a valid email address" });
       const pending = db.pendingSignups.find(x => x.email === email);
       if (!pending) return send(res, 404, { error: "No pending signup found for this email" });
-      try { await supabaseRequest("/auth/v1/otp", "POST", { email, create_user: false }); return send(res, 200, { ok: true, message: "A new verification code was sent to your email. Check Gmail and spam." }); }
+      try { await supabaseRequest("/auth/v1/resend", "POST", { type: "signup", email }); return send(res, 200, { ok: true, message: "A new confirmation link was sent to your email. Check Gmail and spam." }); }
       catch (error) { return send(res, 400, { error: String(error?.message || error) }); }
+    }
+
+    if (pathName === "/api/auth/signup/confirm-link" && req.method === "POST") {
+      const input = await parseJson(req);
+      const accessToken = String(input.accessToken || "").trim();
+      if (!accessToken || accessToken.length < 20) return send(res, 400, { error: "The confirmation link is missing or expired. Request a new link." });
+      let authData;
+      try {
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` } });
+        authData = await response.json().catch(() => ({}));
+        if (!response.ok || !authData?.id) throw new Error("The confirmation link is invalid or expired");
+      } catch (error) { return send(res, 400, { error: String(error?.message || error) }); }
+      const authUser = await supabaseAdminGetUser(authData.id);
+      const pending = db.pendingSignups.find(x => x.supabaseUserId === authData.id || x.email === String(authUser?.email || authData.email || "").toLowerCase());
+      const user = promotePendingSignup(db, pending, authUser);
+      if (!user) return send(res, 400, { error: "Email confirmed, but the pending signup could not be linked. Contact admin." });
+      saveDb(db);
+      return send(res, 200, { user: sanitizeUser(user), message: "Email verified successfully. You can now sign in." });
+    }
+
+    if (pathName === "/api/auth/magic-link" && req.method === "POST") {
+      const input = await parseJson(req);
+      const email = String(input.email || "").trim().toLowerCase();
+      if (!isEmail(email)) return send(res, 400, { error: "Enter a valid email address" });
+      const user = db.users.find(x => String(x.email || "").toLowerCase() === email && x.role === "retailer");
+      if (!user) return send(res, 404, { error: "No verified account was found for this email" });
+      if (!user.emailVerifiedAt) return send(res, 403, { error: "Verify your email from the signup confirmation link first" });
+      try {
+        await supabaseRequest("/auth/v1/otp", "POST", { email, create_user: false, options: { email_redirect_to: `${PUBLIC_APP_URL}/login` } });
+        return send(res, 200, { ok: true, message: "A magic sign-in link was sent to your email." });
+      } catch (error) { return send(res, 400, { error: String(error?.message || error) }); }
+    }
+
+    if (pathName === "/api/auth/magic-link/consume" && req.method === "POST") {
+      const input = await parseJson(req); const accessToken = String(input.accessToken || "").trim();
+      if (!accessToken || accessToken.length < 20) return send(res, 400, { error: "The magic link is missing or expired. Request a new link." });
+      let authData;
+      try {
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` } });
+        authData = await response.json().catch(() => ({}));
+        if (!response.ok || !authData?.id) throw new Error("The magic link is invalid or expired");
+      } catch (error) { return send(res, 400, { error: String(error?.message || error) }); }
+      const authUser = await supabaseAdminGetUser(authData.id);
+      let user = db.users.find(x => x.supabaseUserId === authData.id || String(x.email || "").toLowerCase() === String(authUser?.email || authData.email || "").toLowerCase());
+      if (!user) return send(res, 404, { error: "This magic link is not linked to an application account" });
+      if (user.role !== "retailer" || !user.emailVerifiedAt || !authUser?.email_confirmed_at) return send(res, 403, { error: "Verify your signup email before using a magic link" });
+      if (user.status !== "active") return send(res, 403, { error: `Account is ${user.status}` });
+      const token = crypto.randomBytes(32).toString("hex");
+      db.sessions = db.sessions.filter(s => new Date(s.expiresAt) > new Date());
+      db.sessions.push({ id: id("SES"), userId: user.id, tokenHash: crypto.createHash("sha256").update(token).digest("hex"), createdAt: now(), expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000).toISOString() });
+      audit(db, user, "LOGIN_MAGIC_LINK", "user", user.id); saveDb(db);
+      return send(res, 200, { token, user: sanitizeUser(user), authProvider: "supabase-magic-link" });
     }
 
     if (pathName === "/api/auth/demo-login" && req.method === "POST") {
@@ -791,7 +835,7 @@ export async function handleRequest(req, res) {
         ? String(u.email || "").trim().toLowerCase() === credentialEmail
         : normalizeIndianMobile(u.mobile) === credentialMobile);
 
-      // If the user clicked the Supabase confirmation link instead of entering the OTP,
+      // If the user clicked the Supabase confirmation link,
       // promote the pending signup automatically once Supabase marks the email confirmed.
       const pending = !user && credentialEmail
         ? db.pendingSignups.find(x => String(x.email || "").toLowerCase() === credentialEmail)
@@ -827,7 +871,7 @@ export async function handleRequest(req, res) {
         if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) return send(res, 401, { error: "Invalid email or password" });
       }
       if (!user) return send(res, 401, { error: "Invalid email or password" });
-      if (user.role === "retailer" && !user.emailVerifiedAt) return send(res, 403, { error: "Please verify your email from the verification code sent to your Gmail before signing in" });
+      if (user.role === "retailer" && !user.emailVerifiedAt) return send(res, 403, { error: "Please verify your email from the confirmation link sent to your inbox before signing in" });
       if (user.role === "retailer" && authenticatedWithSupabase) {
         try {
           const authCheck = await supabaseRequest(`/auth/v1/admin/users/${user.supabaseUserId}`, "GET", undefined, { admin: true });
@@ -1153,7 +1197,7 @@ export async function handleRequest(req, res) {
       const auth = requireAuth(req, res, db); if (!auth) return;
       if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) return send(res, 503, { error: "Razorpay is not configured" });
       const input = await parseJson(req); const amount = Math.round(Number(input.amount || 0) * 100);
-      if (!Number.isSafeInteger(amount) || amount < 100) return send(res, 400, { error: "Minimum wallet top-up is ₹1" });
+      if (!Number.isSafeInteger(amount) || amount < 100) return send(res, 400, { error: "Minimum wallet top-up is â‚¹1" });
       const receipt = `WALLET-${auth.user.id}-${Date.now()}`;
       const order = await razorpayRequest("orders", "POST", { amount, currency: "INR", receipt, notes: { userId: auth.user.id, type: "wallet_topup" } });
       const payment = { paymentId: id("PAY"), applicationId: null, userId: auth.user.id, amount: amount/100, mode: "razorpay_wallet", status: "created", orderId: order.id, createdAt: now() };
@@ -1219,7 +1263,7 @@ export async function handleRequest(req, res) {
 
     if (pathName === "/api/recharge" && req.method === "POST") {
       const auth = requireAuth(req, res, db); if (!auth) return;
-      if (!pay2allConfigured()) return send(res, 503, { error: "Recharge service is not configured — contact admin" });
+      if (!pay2allConfigured()) return send(res, 503, { error: "Recharge service is not configured â€” contact admin" });
       const input = await parseJson(req);
       const mobile = String(input.mobile || "").replace(/\D/g, ""); const amount = Number(input.amount || 0); const providerId = Number(input.providerId || 0);
       if (!/^\d{10,18}$/.test(mobile)) return send(res,400,{error:"Enter a valid mobile or DTH subscriber number"});
@@ -1456,3 +1500,5 @@ if (!process.env.VERCEL && process.env.LD_NO_LISTEN !== "true") {
 }
 
 export default server;
+
+
