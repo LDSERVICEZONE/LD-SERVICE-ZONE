@@ -57,7 +57,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUserState] = useState<UserProfile | null>(() =>
     getUser<UserProfile>()
   );
-  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [authLoading, setAuthLoading] = useState<boolean>(false);
 
   const [wallet, setWalletState] = useState<WalletState | null>(null);
   const [walletLoading, setWalletLoading] = useState<boolean>(false);

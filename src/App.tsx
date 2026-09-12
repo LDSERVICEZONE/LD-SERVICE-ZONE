@@ -28,7 +28,7 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import AdminHelpRequests from "./pages/admin/AdminHelpRequests";
 
 function AppRoutes() {
-  const { loggedIn, role, logout, authLoading } = useAuth();
+  const { loggedIn, role, logout, authLoading, login } = useAuth();
 
   if (authLoading) {
     return (
@@ -43,19 +43,27 @@ function AppRoutes() {
       <Route
         path="/"
         element={
-          <div className="relative isolate min-h-screen bg-[#07111F]">
-            <AnimatedBackground />
-            <Landing onLogin={() => {}} />
-          </div>
+          loggedIn ? (
+            <Navigate to={role === "admin" ? "/admin" : "/dashboard"} replace />
+          ) : (
+            <div className="relative isolate min-h-screen bg-[#07111F]">
+              <AnimatedBackground />
+              <Landing onLogin={login} />
+            </div>
+          )
         }
       />
       <Route
         path="/login"
         element={
-          <div className="relative isolate min-h-screen bg-[#07111F]">
-            <AnimatedBackground />
-            <Login onLogin={() => {}} />
-          </div>
+          loggedIn ? (
+            <Navigate to={role === "admin" ? "/admin" : "/dashboard"} replace />
+          ) : (
+            <div className="relative isolate min-h-screen bg-[#07111F]">
+              <AnimatedBackground />
+              <Login onLogin={login} />
+            </div>
+          )
         }
       />
       <Route
@@ -103,8 +111,12 @@ function AppRoutes() {
       <Route
         path="/admin"
         element={
-          loggedIn && role === "admin" ? (
-            <AdminShell onLogout={logout} />
+          loggedIn ? (
+            role === "admin" ? (
+              <AdminShell onLogout={logout} />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
           ) : (
             <Navigate to="/login" replace />
           )

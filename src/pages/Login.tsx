@@ -5,7 +5,7 @@ import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
 import { api, setSession } from "../lib/api";
 import SupportWidget from "../components/SupportWidget";
 
-interface Props { onLogin: (role: "retailer" | "admin") => void; }
+interface Props { onLogin: (token: string, user: any) => void; }
 
 export default function Login({ onLogin }: Props) {
   const navigate = useNavigate();
@@ -27,8 +27,7 @@ export default function Login({ onLogin }: Props) {
     setLoading(true); setError("");
     try {
       const data = await api<any>("/auth/demo-login", { method: "POST" });
-      setSession(data.token, data.user);
-      onLogin(data.user.role);
+      onLogin(data.token, data.user);
       navigate("/dashboard");
     } catch (e: any) {
       setError(e.message || "Unable to open demo account");
@@ -41,7 +40,7 @@ export default function Login({ onLogin }: Props) {
     e.preventDefault(); setLoading(true); setError("");
     try {
       const data = await api<any>("/auth/login", { method: "POST", body: JSON.stringify(form) });
-      setSession(data.token, data.user); onLogin(data.user.role); navigate(data.user.role === "admin" ? "/admin" : "/dashboard");
+      onLogin(data.token, data.user); navigate(data.user.role === "admin" ? "/admin" : "/dashboard");
     } catch (e: any) { setError(e.message || "Unable to sign in"); }
     finally { setLoading(false); }
   }

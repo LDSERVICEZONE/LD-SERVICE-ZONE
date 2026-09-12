@@ -6,7 +6,7 @@ import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
 import SupportWidget from "../components/SupportWidget";
 
 interface Props {
-  onLogin: (role: "retailer" | "admin") => void;
+  onLogin: (token: string, user: any) => void;
 }
 
 const services: Array<{ icon: LucideIcon; name: string; desc: string; color: string }> = [
