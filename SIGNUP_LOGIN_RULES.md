@@ -18,17 +18,12 @@
 - Mobile login accepts 10-digit, `91XXXXXXXXXX`, or `+91XXXXXXXXXX` input.
 - The password is verified through Supabase for retailer accounts.
 - A successful login creates the app session and routes the retailer to `/dashboard`.
-- After verification, the retailer can sign in with the password or request a Supabase magic sign-in link by email.
-- Mobile numbers remain supported for password login only. If a mobile number is entered for magic-link login, the UI asks for the account email.
+- After verification, the retailer signs in with the password.
+- Mobile numbers are supported for password login.
 
 ## Email confirmation link
 
 Supabase sends a confirmation link after registration. Opening the link at `/login` confirms the Supabase user and promotes the pending signup into the local profile. The registration UI does not ask for an OTP.
-
-## Magic-link login
-
-- Magic links are sent only to an existing, verified retailer email.
-- Opening the link at `/login` creates the application session and routes the retailer to the dashboard.
 
 
 ## Current authentication behavior

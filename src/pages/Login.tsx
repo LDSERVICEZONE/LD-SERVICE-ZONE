@@ -19,9 +19,6 @@ export default function Login({ onLogin }: Props) {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
   const [confirmationMessage, setConfirmationMessage] = useState("");
-  const [magicEmail, setMagicEmail] = useState("");
-  const [magicOpen, setMagicOpen] = useState(false);
-  const [magicLoading, setMagicLoading] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const accessToken = params.get("access_token");
@@ -36,13 +33,6 @@ export default function Login({ onLogin }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
-  async function sendMagicLink(requestedEmail?: string) {
-    const email = (requestedEmail || magicEmail || form.credential).trim().toLowerCase();
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) return setError("Enter your registered email to receive a magic link");
-    setMagicLoading(true); setError(""); setConfirmationMessage("");
-    try { const data = await api<any>("/auth/magic-link", { method: "POST", body: JSON.stringify({ email }) }); setConfirmationMessage(data.message || "A magic sign-in link was sent to your email."); }
-    catch (e: any) { setError(e.message || "Unable to send magic link"); } finally { setMagicLoading(false); }
-  }
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setResetOpen(false); };
     window.addEventListener("keydown", onKeyDown);
@@ -95,8 +85,6 @@ export default function Login({ onLogin }: Props) {
           </div>
         </div>
           <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3.5 text-white font-semibold shadow-lg shadow-blue-900/20 hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition">{loading ? "Signing in…" : "Sign In →"}</button>
-          <div className="flex items-center gap-3 py-1"><div className="h-px flex-1 bg-white/10"/><span className="text-[11px] uppercase tracking-wider text-white/25">or</span><div className="h-px flex-1 bg-white/10"/></div>
-          <button type="button" disabled={magicLoading} onClick={()=>/^\S+@\S+\.\S+$/.test(form.credential.trim()) ? sendMagicLink(form.credential) : setMagicOpen(true)} className="w-full rounded-xl border border-blue-400/25 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-blue-300 disabled:opacity-60">{magicLoading ? "Sending…" : "Send magic sign-in link"}</button>
           <button type="button" onClick={()=>{setResetOpen(true);setResetMessage("");setError("")}} className="w-full text-center text-xs text-blue-300 hover:text-blue-200">Forgot password?</button>
           <a href="https://wa.me/916370892501?text=Hello%20LD%20SERVICE%20ZONE%2C%20I%20need%20help%20with%20login." target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/5 px-4 py-2.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/10 transition-colors">
             <span>WhatsApp Login Support</span><span className="text-emerald-200/50">63708 92501</span>
@@ -119,7 +107,6 @@ export default function Login({ onLogin }: Props) {
         </div>
       </div>
     )}
-    {magicOpen && <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={()=>setMagicOpen(false)}><div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#07111F] p-6 shadow-2xl" onClick={e=>e.stopPropagation()}><h2 className="text-white font-semibold">Enter your email</h2><p className="text-white/50 text-sm mt-2">Magic links can only be sent by email. Enter the email linked to your verified account.</p><input autoFocus aria-label="Magic link email" type="email" placeholder="you@example.com" value={magicEmail} onChange={e=>setMagicEmail(e.target.value)} className="mt-4 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/20 outline-none focus:border-blue-500/60"/><div className="flex gap-3 mt-4"><button type="button" onClick={()=>setMagicOpen(false)} className="flex-1 rounded-xl border border-white/10 px-4 py-3 text-sm text-white/60">Cancel</button><button type="button" disabled={magicLoading} onClick={async()=>{await sendMagicLink(magicEmail);setMagicOpen(false)}} className="flex-1 rounded-xl bg-[#1D6FE0] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">{magicLoading?"Sending…":"Send link"}</button></div></div></div>}
     <SupportWidget />
   </div>
 }
