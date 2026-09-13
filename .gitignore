@@ -11,6 +11,8 @@ vite.config.*.timestamp-*
 logs/
 *.log
 data/
+!server/data/
+!server/data/serviceCatalog.js
 .claude-replay.*
 .tmp-*
 
