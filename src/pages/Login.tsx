@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, LockKeyhole, ShieldCheck, X } from "lucide-react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
 import { api } from "@/shared/api/client";
 import SupportWidget from "../components/SupportWidget";
 
@@ -67,12 +66,10 @@ export default function Login({ onLogin }: Props) {
   return <div className="min-h-[calc(100dvh-4rem)] bg-transparent flex">
     <div className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-between relative overflow-hidden">
       <div className="absolute inset-0 bg-grid opacity-20"/><div className="absolute -right-20 top-1/3 w-96 h-96 bg-blue-600/20 blur-3xl rounded-full"/>
-      <div className="relative flex items-center gap-3"><img src={ldLogo} alt="LD Service Zone" className="h-11 w-11 rounded-full"/><div><b className="text-white text-xl">LD SERVICE ZONE</b><p className="text-white/40 text-xs">Partner Portal</p></div></div>
       <div className="relative max-w-xl"><span className="inline-flex px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-semibold">SECURE PARTNER ACCESS</span><h2 className="font-display text-5xl font-extrabold text-white mt-5 leading-tight">Run every digital service from <span className="gradient-text">one place.</span></h2><p className="text-white/45 mt-5 leading-7">Applications, payments, commissions, customer records and government services — managed in a single professional workspace.</p><div className="grid grid-cols-2 gap-3 mt-8">{["Service applications", "Secure payments", "Live commissions", "Admin approval workflow"].map(x=><div key={x} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">✓ {x}</div>)}</div></div>
       <p className="relative text-white/25 text-xs">© 2026 LD SERVICE ZONE</p>
     </div>
     <div className="flex-1 flex items-center justify-center p-6"><div className="w-full max-w-md">
-      <div className="lg:hidden flex items-center gap-3 mb-7"><img src={ldLogo} alt="LD Service Zone" className="h-9 w-9 rounded-full"/><b className="text-white">LD SERVICE ZONE</b></div>
       <div className="rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur p-8 shadow-2xl"><h1 className="text-3xl font-display font-bold text-white">Welcome back 👋</h1><p className="text-white/40 text-sm mt-1 mb-7">Sign in to your retailer or admin account.</p>
         {error && <div className="mb-4 rounded-xl border border-red-400/20 bg-red-500/10 text-red-300 px-4 py-3 text-sm">{error}</div>}
         {confirmationMessage && <div role="status" className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-300 px-4 py-3 text-sm">{confirmationMessage}</div>}

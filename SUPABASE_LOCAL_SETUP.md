@@ -28,19 +28,14 @@ SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOi..."
    - Set **Site URL** to your frontend URL (e.g., `http://localhost:8443` or production domain).
    - Add `http://localhost:8443/login` and `http://localhost:8443/reset-password` to **Redirect URLs**.
 
-## 3. Database Schema Migration (Prisma on Supabase)
+## 3. Database Schema Setup
 
-Generate the Prisma client and push the schema directly to your Supabase PostgreSQL instance:
+Apply the SQL schema and row-level security policies directly in the Supabase SQL Editor:
 
 ```bash
-# Push Prisma schema to Supabase Postgres
-npm run db:push
-
-# Or run Prisma migrations:
-npm run db:migrate
-
-# Open visual Prisma Studio to inspect tables:
-npm run db:studio
+# Run these files in Supabase Dashboard -> SQL Editor:
+# 1. supabase/schema.sql
+# 2. supabase/rls.sql
 ```
 
 ## 4. Encryption & Security
