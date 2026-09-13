@@ -16,7 +16,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
-import { useAuth, useWallet } from "../../context/AppContext";
+import { useAuth, useWallet } from "@/features/session/AppContext";
 
 interface Props {
   onLogout?: () => void;

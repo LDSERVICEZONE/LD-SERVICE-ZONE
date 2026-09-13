@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api } from "../lib/api";
+import { api } from "@/shared/api/client";
 
 export default function ApplicationCheckout({ application, onComplete }: { application: any; onComplete: () => void }) {
   const [files, setFiles] = useState<Record<string, File>>({});

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, downloadAuthenticatedFile } from "../lib/api";
+import { api, downloadAuthenticatedFile } from "@/shared/api/client";
 
 export default function KycReview({ onUpdated }: { onUpdated: () => void }) {
   const [rows, setRows] = useState<any[]>([]);

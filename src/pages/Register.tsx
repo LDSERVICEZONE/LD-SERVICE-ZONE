@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CheckCircle2, Eye, EyeOff, MailCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
-import { api } from "../lib/api";
+import { api } from "@/shared/api/client";
 
 export default function Register() {
   const navigate=useNavigate(); const [form,setForm]=useState({name:"",businessName:"",email:"",mobile:"",password:"",confirm:""});

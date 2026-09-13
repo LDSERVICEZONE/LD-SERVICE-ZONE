@@ -1,27 +1,25 @@
 import { spawn } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const isWin = process.platform === "win32";
-const npm = isWin ? "npm.cmd" : "npm";
-const pnpm = isWin ? "pnpm.cmd" : "pnpm";
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 // Figma Make may reserve PORT/API_PORT for the preview server.
 // Keep the API on its own port so the backend cannot collide with Vite.
 const apiEnv = { ...process.env, API_PORT: process.env.LD_API_PORT || "8787" };
 
-const api = spawn(process.execPath, ["server.js"], {
+const api = spawn(process.execPath, [path.join(rootDir, "server.js")], {
   stdio: "inherit",
+  cwd: rootDir,
   env: apiEnv,
 });
 
-// Run Vite with the same package manager used by the caller when possible.
-// This makes `npm run dev:all` work without requiring pnpm to be installed.
-const userAgent = process.env.npm_config_user_agent || "";
-const packageManager = userAgent.startsWith("pnpm/") ? pnpm : npm;
-const viteArgs = ["run", "dev"];
-
-const vite = spawn(packageManager, viteArgs, {
+// Launch Vite through Node so this works consistently on Windows, where .cmd
+// files cannot be spawned directly without invoking a shell.
+const viteCli = path.join(rootDir, "node_modules", "vite", "bin", "vite.js");
+const vite = spawn(process.execPath, [viteCli, "--host", "0.0.0.0"], {
   stdio: "inherit",
-  shell: false,
+  cwd: rootDir,
   env: process.env,
 });
 

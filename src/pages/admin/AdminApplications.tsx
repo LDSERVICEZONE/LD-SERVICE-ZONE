@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, downloadAuthenticatedFile } from "../../lib/api";
+import { api, downloadAuthenticatedFile } from "@/shared/api/client";
 import { Download, FileText, RefreshCw, X } from "lucide-react";
 
 const STATUS = ["all","payment_pending","submitted","processing","accepted","rejected","completed"];

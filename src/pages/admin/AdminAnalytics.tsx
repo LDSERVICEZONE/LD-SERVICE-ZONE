@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../../lib/api";
+import { api } from "@/shared/api/client";
 import { BarChart3 } from "lucide-react";
 
 export default function AdminAnalytics() {

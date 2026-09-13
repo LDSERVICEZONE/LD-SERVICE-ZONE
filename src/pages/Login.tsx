@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, LockKeyhole, ShieldCheck, X } from "lucide-react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
-import { api } from "../lib/api";
+import { api } from "@/shared/api/client";
 import SupportWidget from "../components/SupportWidget";
 
 interface Props { onLogin: (token: string, user: any) => void; }

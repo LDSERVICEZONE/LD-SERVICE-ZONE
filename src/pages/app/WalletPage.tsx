@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api } from "../../lib/api";
-import { useWallet } from "../../context/AppContext";
+import { api } from "@/shared/api/client";
+import { useWallet } from "@/features/session/AppContext";
 
 declare global {
   interface Window {

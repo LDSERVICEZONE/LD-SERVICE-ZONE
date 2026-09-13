@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../../lib/api";
-import { useAuth, useWallet } from "../../context/AppContext";
+import { api } from "@/shared/api/client";
+import { useAuth, useWallet } from "@/features/session/AppContext";
 
 const STATES = [
   "Andhra Pradesh",

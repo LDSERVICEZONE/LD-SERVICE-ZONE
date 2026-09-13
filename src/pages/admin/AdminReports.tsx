@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import { api } from "@/shared/api/client";
 import { ClipboardList, Download } from "lucide-react";
 
 export default function AdminReports() {

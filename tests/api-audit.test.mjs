@@ -70,6 +70,14 @@ test("application price and documents come from server catalogue", async () => {
   assert.equal((await request("/payments/create-order", { token: "retailer", body: { applicationId: result.data.application.applicationId } })).status, 400);
 });
 test("unknown service rejected", async () => assert.equal((await request("/applications", { token: "retailer", body: { serviceId: "fake", applicant: { name: "Test" } } })).status, 400));
+test("unknown application documents are rejected before storage", async () => {
+  const created = await request("/applications", { token: "retailer", body: { serviceId: "PAN-NEW", applicant: { "Full Name": "Upload Audit" } } });
+  assert.equal(created.status, 201);
+  const applicationId = created.data.application.applicationId;
+  const uploaded = await request(`/applications/${applicationId}/documents`, { token: "retailer", body: { documentName: "Not Required", fileName: "unknown.png", mimeType: "image/png", data: "data:image/png;base64,AA==" } });
+  assert.equal(uploaded.status, 400);
+  assert.equal(fs.existsSync(path.join(dataDir, "uploads", "applications", applicationId)), false);
+});
 test("demo application submission records without payment", async () => {
   const created = await request("/applications", { token: "retailer", body: { serviceId: "PAN-NEW", applicant: { "Full Name": "Demo Applicant", "Date of Birth": "2000-01-01", "Mobile Number": "9876543210", "Father's Name": "Parent" } } });
   assert.equal(created.status, 201);
@@ -106,6 +114,20 @@ test("support tickets reach admin and replies reach their owner", async () => {
 });
 test("KYC cannot be approved before submission", async () => assert.equal((await request("/admin/kyc/retailer", { token: "admin", method: "PATCH", body: { status: "verified" } })).status, 400));
 test("KYC documents require admin authorization", async () => assert.equal((await request("/admin/kyc/retailer/documents/aadhaar", { token: "other" })).status, 403));
+test("admin can download submitted KYC documents", async () => {
+  const document = { fileName: "proof.png", mimeType: "image/png", data: "data:image/png;base64,AA==" };
+  const submitted = await request("/kyc", { token: "retailer", body: {
+    fullName: "Audit Retailer", dob: "1990-01-01", pan: "ABCDE1234F", aadhaar: "123456789012",
+    address: "Audit Street", city: "Pune", state: "Maharashtra", pincode: "411001",
+    bankAccount: "1234567890", ifsc: "SBIN0001234", accountHolder: "Audit Retailer",
+    documents: { panCard: document, aadhaarCard: document, selfie: document, bankProof: document },
+  } });
+  assert.equal(submitted.status, 201);
+  const response = await fetch(`${base}/admin/kyc/retailer/documents/panCard`, { headers: { Authorization: "Bearer admin" } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "image/png");
+  assert.equal((await response.arrayBuffer()).byteLength, 1);
+});
 test("admin cannot complete unpaid application", async () => assert.equal((await request("/applications/second", { token: "admin", method: "PATCH", body: { status: "completed" } })).status, 400));
 test("signed webhook with wrong amount is rejected", async () => {
   const body = { event: "payment.captured", payload: { payment: { entity: { id: "another", order_id: "order-first", amount: 1, currency: "INR" } } } };

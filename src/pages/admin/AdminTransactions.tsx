@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../../lib/api";
+import { api } from "@/shared/api/client";
 
 export default function AdminTransactions() {
   const [rows, setRows] = useState<any[]>([]);

@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { api } from "../../lib/api";
+import { api } from "@/shared/api/client";
 
 const COLORS = ["#1D56D8", "#4F46E5", "#06B6D4", "#10B981", "#F59E0B"];
 

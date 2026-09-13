@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, NavLink } from "react-router-dom";
 import { BarChart3, ClipboardList, CreditCard, Menu, FileText, LayoutDashboard, LogOut, Settings, Users, Building2, ShieldCheck, Receipt, LifeBuoy } from "lucide-react";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
-import { api } from "../../lib/api";
+import { api } from "@/shared/api/client";
 
 interface Props { onLogout: () => void; }
 

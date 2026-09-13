@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../../lib/api";
+import { api } from "@/shared/api/client";
 
 const BASE_CATEGORIES = ["All", "Government", "PAN", "Tax", "Certificate", "Recharge", "Bills", "Other"];
 

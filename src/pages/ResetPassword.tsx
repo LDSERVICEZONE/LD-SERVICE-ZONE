@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
-import { api } from "../lib/api";
-import { useAuth } from "../context/AppContext";
+import { api } from "@/shared/api/client";
+import { useAuth } from "@/features/session/AppContext";
 
 function accessTokenFromHash() { const params = new URLSearchParams(window.location.hash.replace(/^#/, "")); return params.get("access_token") || ""; }
 export default function ResetPassword() {

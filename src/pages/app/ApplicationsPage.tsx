@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, downloadAuthenticatedFile } from "../../lib/api";
+import { api, downloadAuthenticatedFile } from "@/shared/api/client";
 import { Download, FileText, LifeBuoy, X } from "lucide-react";
 import ApplicationCheckout from "../../components/ApplicationCheckout";
 

@@ -8,7 +8,7 @@ import {
   Save,
   X,
 } from "lucide-react";
-import { api } from "../../lib/api";
+import { api } from "@/shared/api/client";
 
 type Service = {
   id: string;

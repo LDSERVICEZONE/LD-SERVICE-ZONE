@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import { api } from "@/shared/api/client";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);

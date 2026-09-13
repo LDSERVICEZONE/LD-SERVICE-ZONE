@@ -9,8 +9,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { api } from "../../lib/api";
-import { useAuth, useWallet } from "../../context/AppContext";
+import { api } from "@/shared/api/client";
+import { useAuth, useWallet } from "@/features/session/AppContext";
 
 function KpiCard({
   label,
