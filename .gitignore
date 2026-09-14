@@ -10,6 +10,7 @@ vite.config.*.timestamp-*
 *-debug.log*
 logs/
 *.log
+audit/
 data/
 !server/data/
 !server/data/serviceCatalog.js

@@ -21,4 +21,8 @@ Before going live:
 
 For the current basic test scope, `DATA_STORE=supabase` now persists the API state in the protected `platform_state` PostgreSQL table, and private KYC/application files use the `private-documents` Supabase Storage bucket. Run the added definitions in `supabase/schema.sql`, set the Supabase environment variables, and the server will refuse to use the local JSON store in production. Payments and recharge remain explicitly deferred as requested.
 
-The relational SQL schema and RLS policies remain available for the next migration. The state adapter is suitable for a basic shared test environment, but it is not the final relational production design.
+The relational SQL schema and RLS policies are available for the migration. Use
+`npm run db:migrate-state` to copy an existing `platform_state` snapshot into
+the relational tables. The script is idempotent and preserves the legacy table;
+runtime cutover still requires verification and domain-by-domain repository
+changes.

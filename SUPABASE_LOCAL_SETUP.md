@@ -38,6 +38,23 @@ Apply the SQL schema and row-level security policies directly in the Supabase SQ
 # 2. supabase/rls.sql
 ```
 
+If an existing environment contains data in the legacy `platform_state` table,
+run the idempotent migration after applying the schema:
+
+```bash
+npm run db:migrate-state
+```
+
+Verify the copy before changing runtime persistence:
+
+```bash
+npm run db:verify-relational
+```
+
+The script preserves `platform_state` and only copies records into relational
+tables. Do not remove `platform_state` or switch runtime reads until row counts
+and sample records have been verified.
+
 ## 4. Encryption & Security
 
 - Generate a 32-byte secure key for `DATA_ENCRYPTION_KEY` in `.env` (`openssl rand -hex 32`). This key protects Aadhaar, PAN, and Bank details with AES-256-GCM.
