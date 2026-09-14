@@ -123,6 +123,61 @@ export function createStateRepository(config) {
           updatedAt: service.updatedAt,
         }))
       }
+      const relationalApplications = await fetch(
+        `${supabaseUrl}/rest/v1/Application?select=*`,
+        { headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` } },
+      )
+      const relationalDocuments = await fetch(
+        `${supabaseUrl}/rest/v1/ApplicationDocument?select=*`,
+        { headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` } },
+      )
+      if (!relationalApplications.ok || !relationalDocuments.ok) {
+        throw new Error("Supabase relational application read failed")
+      }
+      const applicationRows = await relationalApplications.json()
+      const documentRows = await relationalDocuments.json()
+      if (applicationRows.length) {
+        const usersById = new Map(state.users.map((user) => [user.id, user]))
+        const servicesById = new Map(state.services.map((service) => [service.id, service]))
+        const docsByApplication = new Map()
+        for (const document of documentRows) {
+          const documents = docsByApplication.get(document.applicationId) || []
+          documents.push({
+            name: document.documentType || document.originalName,
+            fileName: document.originalName,
+            storageName: document.storageKey,
+            mimeType: document.mimeType,
+            size: document.sizeBytes,
+            uploadedAt: document.createdAt,
+          })
+          docsByApplication.set(document.applicationId, documents)
+        }
+        state.applications = applicationRows.map((application) => {
+          const service = servicesById.get(application.serviceId) || {}
+          const user = usersById.get(application.userId) || {}
+          const required = Array.isArray(service.documents) ? service.documents : []
+          const uploaded = docsByApplication.get(application.id) || []
+          const uploadedByName = new Map(uploaded.map((document) => [document.name, document]))
+          return {
+            applicationId: application.id,
+            userId: application.userId,
+            retailerName: user.name || "Retailer",
+            serviceId: application.serviceId,
+            serviceName: service.name || "Service",
+            category: service.category || "General",
+            customerPrice: Number(application.amount || service.customerPrice || 0),
+            commission: Number(service.commission || 0),
+            applicant: application.customerData || {},
+            documents: required.map((name) => uploadedByName.get(name) || { name }),
+            status: String(application.status || "SUBMITTED").toLowerCase(),
+            adminNote: application.rejectionReason || "",
+            createdAt: application.createdAt,
+            updatedAt: application.updatedAt,
+            paymentId: null,
+            orderId: null,
+          }
+        })
+      }
       return state
 
       const responseToSeed = await fetch(
@@ -248,6 +303,49 @@ export function createStateRepository(config) {
               body: JSON.stringify(services),
             })
             if (!serviceResponse.ok) throw new Error(`Supabase Service sync failed (${serviceResponse.status})`)
+          }
+          const applications = (snapshot.applications || []).map((application) => ({
+            id: application.applicationId || application.id,
+            userId: application.userId,
+            serviceId: application.serviceId,
+            status: String(application.status || "submitted").toUpperCase(),
+            amount: Number(application.customerPrice || application.amount || 0),
+            customerData: application.applicant || application.customerData || {},
+            rejectionReason: application.adminNote || application.rejectionReason || null,
+            createdAt: application.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }))
+          if (applications.length) {
+            const applicationResponse = await fetch(`${supabaseUrl}/rest/v1/Application?on_conflict=id`, {
+              method: "POST",
+              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+              body: JSON.stringify(applications),
+            })
+            if (!applicationResponse.ok) throw new Error(`Supabase Application sync failed (${applicationResponse.status})`)
+          }
+          const documents = []
+          for (const application of snapshot.applications || []) {
+            for (const document of application.documents || []) {
+              if (!document.storageName) continue
+              documents.push({
+                id: document.id || `${application.applicationId}_${document.name}`,
+                applicationId: application.applicationId || application.id,
+                documentType: document.name,
+                storageKey: document.storageName,
+                originalName: document.fileName || document.name,
+                mimeType: document.mimeType || "application/octet-stream",
+                sizeBytes: Number(document.size || 0),
+                createdAt: document.uploadedAt || new Date().toISOString(),
+              })
+            }
+          }
+          if (documents.length) {
+            const documentResponse = await fetch(`${supabaseUrl}/rest/v1/ApplicationDocument?on_conflict=id`, {
+              method: "POST",
+              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+              body: JSON.stringify(documents),
+            })
+            if (!documentResponse.ok) throw new Error(`Supabase ApplicationDocument sync failed (${documentResponse.status})`)
           }
           const response = await fetch(
             `${supabaseUrl}/rest/v1/${supabaseStateTable}?on_conflict=id`,

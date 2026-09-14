@@ -136,6 +136,7 @@ for (const app of state.applications || []) {
     appDocuments.push({
       id: document.id || `${applicationId}_${document.name}`,
       applicationId,
+      documentType: document.name,
       storageKey: document.storageName || document.fileName,
       originalName: document.fileName || document.name,
       mimeType: document.mimeType || "application/octet-stream",

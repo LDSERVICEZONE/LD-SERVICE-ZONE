@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS "ApplicationDocument" (
   "sizeBytes" INTEGER NOT NULL,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE "ApplicationDocument" ADD COLUMN IF NOT EXISTS "documentType" TEXT;
 
 CREATE TABLE IF NOT EXISTS "ApplicationStatusHistory" (
   "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
