@@ -233,6 +233,16 @@ CREATE TABLE IF NOT EXISTS "RechargeTransaction" (
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "clientId" TEXT;
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "providerTxnId" TEXT;
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "providerId" INTEGER;
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "type" TEXT;
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "providerCommission" DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "userCommission" DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "adminCommission" DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "commissionCredited" BOOLEAN DEFAULT false;
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "message" TEXT;
+ALTER TABLE "RechargeTransaction" ADD COLUMN IF NOT EXISTS "refunded" BOOLEAN DEFAULT false;
 CREATE INDEX IF NOT EXISTS "recharge_user_created_idx" ON "RechargeTransaction"("userId", "createdAt");
 
 CREATE TABLE IF NOT EXISTS "RechargeStatusHistory" (

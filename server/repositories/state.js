@@ -232,6 +232,22 @@ export function createStateRepository(config) {
           status: entry.status || "success", balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt,
         }))
       }
+      const relationalRecharges = await fetch(`${supabaseUrl}/rest/v1/RechargeTransaction?select=*`, {
+        headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
+      })
+      if (!relationalRecharges.ok) throw new Error("Supabase relational recharge read failed")
+      const rechargeRows = await relationalRecharges.json()
+      if (rechargeRows.length) {
+        state.rechargeTransactions = rechargeRows.map((row) => ({
+          id: row.id, clientId: row.clientId || row.externalRef, providerTxnId: row.providerTxnId || row.externalRef,
+          userId: row.userId, mobile: row.mobile, operator: row.operator, circle: row.circle || "",
+          providerId: row.providerId, type: row.type || "MOBILE", amount: Number(row.amount || 0),
+          providerCommission: Number(row.providerCommission || row.commission || 0), userCommission: Number(row.userCommission || 0),
+          adminCommission: Number(row.adminCommission || 0), commission: Number(row.commission || 0),
+          commissionCredited: row.commissionCredited === true, status: String(row.status || "PENDING").toLowerCase(),
+          message: row.message || "", refunded: row.refunded === true, createdAt: row.createdAt, updatedAt: row.updatedAt,
+        }))
+      }
       return state
     }
 
@@ -417,6 +433,23 @@ export function createStateRepository(config) {
               method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(ledgerRows),
             })
             if (!ledgerResponse.ok) throw new Error(`Supabase WalletLedger sync failed (${ledgerResponse.status})`)
+          }
+          const rechargeRows = (snapshot.rechargeTransactions || []).map((transaction) => ({
+            id: transaction.id, clientId: transaction.clientId || null, externalRef: transaction.clientId || null,
+            providerTxnId: transaction.providerTxnId || null, userId: transaction.userId, provider: transaction.provider || "pay2all",
+            providerId: transaction.providerId || null, mobile: transaction.mobile, operator: transaction.operator,
+            circle: transaction.circle || null, type: transaction.type || "MOBILE", amount: Number(transaction.amount || 0),
+            status: String(transaction.status || "pending").toUpperCase(), commission: Number(transaction.commission || 0),
+            providerCommission: Number(transaction.providerCommission || 0), userCommission: Number(transaction.userCommission || 0),
+            adminCommission: Number(transaction.adminCommission || 0), commissionCredited: transaction.commissionCredited === true,
+            message: transaction.message || null, refunded: transaction.refunded === true,
+            createdAt: transaction.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+          }))
+          if (rechargeRows.length) {
+            const rechargeResponse = await fetch(`${supabaseUrl}/rest/v1/RechargeTransaction?on_conflict=id`, {
+              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rechargeRows),
+            })
+            if (!rechargeResponse.ok) throw new Error(`Supabase RechargeTransaction sync failed (${rechargeResponse.status})`)
           }
           const response = await fetch(
             `${supabaseUrl}/rest/v1/${supabaseStateTable}?on_conflict=id`,
