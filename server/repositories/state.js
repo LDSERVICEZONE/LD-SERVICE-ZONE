@@ -67,6 +67,19 @@ export function createStateRepository(config) {
       }
       const userRows = await relationalUsers.json()
       const sessionRows = await relationalSessions.json()
+      const relationalCategories = await fetch(
+        `${supabaseUrl}/rest/v1/ServiceCategory?select=*`,
+        { headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` } },
+      )
+      const relationalServices = await fetch(
+        `${supabaseUrl}/rest/v1/Service?select=*`,
+        { headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` } },
+      )
+      if (!relationalCategories.ok || !relationalServices.ok) {
+        throw new Error("Supabase relational catalog read failed")
+      }
+      const categoryRows = await relationalCategories.json()
+      const serviceRows = await relationalServices.json()
       if (userRows.length) {
         state.users = userRows.map((user) => ({
           id: user.id,
@@ -92,6 +105,24 @@ export function createStateRepository(config) {
         expiresAt: session.expiresAt,
         revokedAt: session.revokedAt,
       }))
+      if (serviceRows.length) {
+        const categoryNames = new Map(categoryRows.map((category) => [category.id, category.name]))
+        state.services = serviceRows.map((service) => ({
+          id: service.id,
+          category: categoryNames.get(service.categoryId) || "General",
+          name: service.name,
+          slug: service.slug,
+          description: service.description || "",
+          customerPrice: Number(service.customerPrice || 0),
+          commission: Number(service.retailerCommission || 0),
+          processingDays: service.processingDays,
+          active: service.active !== false,
+          formSchema: service.formSchema || null,
+          documents: service.requiredDocuments || [],
+          createdAt: service.createdAt,
+          updatedAt: service.updatedAt,
+        }))
+      }
       return state
 
       const responseToSeed = await fetch(
@@ -180,6 +211,43 @@ export function createStateRepository(config) {
               body: JSON.stringify(sessions),
             })
             if (!sessionResponse.ok) throw new Error(`Supabase Session sync failed (${sessionResponse.status})`)
+          }
+          const categoryIds = new Map()
+          for (const service of snapshot.services || []) {
+            const name = service.category || "General"
+            if (!categoryIds.has(name)) categoryIds.set(name, `cat_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`)
+          }
+          const categoryRows = [...categoryIds].map(([name, id]) => ({ id, name, active: true }))
+          if (categoryRows.length) {
+            const categoryResponse = await fetch(`${supabaseUrl}/rest/v1/ServiceCategory?on_conflict=id`, {
+              method: "POST",
+              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+              body: JSON.stringify(categoryRows),
+            })
+            if (!categoryResponse.ok) throw new Error(`Supabase ServiceCategory sync failed (${categoryResponse.status})`)
+          }
+          const services = (snapshot.services || []).map((service) => ({
+            id: service.id,
+            categoryId: categoryIds.get(service.category || "General"),
+            name: service.name,
+            slug: service.slug || service.id,
+            description: service.description || null,
+            customerPrice: Number(service.customerPrice || 0),
+            retailerCommission: Number(service.commission || service.retailerCommission || 0),
+            processingDays: Number.parseInt(String(service.processingDays || "0"), 10) || null,
+            active: service.active !== false,
+            formSchema: service.formSchema || null,
+            requiredDocuments: service.documents || service.requiredDocuments || [],
+            createdAt: service.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }))
+          if (services.length) {
+            const serviceResponse = await fetch(`${supabaseUrl}/rest/v1/Service?on_conflict=id`, {
+              method: "POST",
+              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+              body: JSON.stringify(services),
+            })
+            if (!serviceResponse.ok) throw new Error(`Supabase Service sync failed (${serviceResponse.status})`)
           }
           const response = await fetch(
             `${supabaseUrl}/rest/v1/${supabaseStateTable}?on_conflict=id`,
