@@ -198,6 +198,9 @@ export async function handleRechargeRoutes(context) {
         createdAt: now(),
         updatedAt: now(),
       }
+      db.rechargeStatusHistory.unshift({
+        id: createId("RSH"), transactionId: transaction.id, status, payload: providerResult, createdAt: now(),
+      })
       if (status === "success" || status === "pending") {
         wallet.balance -= amount
         wallet.updatedAt = now()
@@ -317,6 +320,9 @@ export async function handleRechargeRoutes(context) {
     transaction.updatedAt = now()
     transaction.providerTxnId = input.txn_id || transaction.providerTxnId
     transaction.message = input.message || transaction.message
+    db.rechargeStatusHistory.unshift({
+      id: createId("RSH"), transactionId: transaction.id, status: nextStatus, payload: input, createdAt: now(),
+    })
     if (nextStatus === "failed" && !transaction.refunded) {
       const wallet = ensureWallet(transaction.userId)
       wallet.balance += transaction.amount

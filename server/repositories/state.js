@@ -11,6 +11,7 @@ export const EMPTY_STATE = {
   wallets: {},
   walletLedger: [],
   rechargeTransactions: [],
+  rechargeStatusHistory: [],
   commissionLedger: [],
   supportTickets: [],
   helpRequests: [],
@@ -237,6 +238,11 @@ export function createStateRepository(config) {
       })
       if (!relationalRecharges.ok) throw new Error("Supabase relational recharge read failed")
       const rechargeRows = await relationalRecharges.json()
+      const relationalRechargeHistory = await fetch(`${supabaseUrl}/rest/v1/RechargeStatusHistory?select=*`, {
+        headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
+      })
+      if (!relationalRechargeHistory.ok) throw new Error("Supabase recharge history read failed")
+      const rechargeHistoryRows = await relationalRechargeHistory.json()
       if (rechargeRows.length) {
         state.rechargeTransactions = rechargeRows.map((row) => ({
           id: row.id, clientId: row.clientId || row.externalRef, providerTxnId: row.providerTxnId || row.externalRef,
@@ -246,6 +252,12 @@ export function createStateRepository(config) {
           adminCommission: Number(row.adminCommission || 0), commission: Number(row.commission || 0),
           commissionCredited: row.commissionCredited === true, status: String(row.status || "PENDING").toLowerCase(),
           message: row.message || "", refunded: row.refunded === true, createdAt: row.createdAt, updatedAt: row.updatedAt,
+        }))
+      }
+      if (rechargeHistoryRows.length) {
+        state.rechargeStatusHistory = rechargeHistoryRows.map((row) => ({
+          id: row.id, transactionId: row.transactionId, status: String(row.status || "PENDING").toLowerCase(),
+          payload: row.payload || null, createdAt: row.createdAt,
         }))
       }
       return state
@@ -450,6 +462,16 @@ export function createStateRepository(config) {
               method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rechargeRows),
             })
             if (!rechargeResponse.ok) throw new Error(`Supabase RechargeTransaction sync failed (${rechargeResponse.status})`)
+          }
+          const rechargeHistory = (snapshot.rechargeStatusHistory || []).map((entry) => ({
+            id: entry.id, transactionId: entry.transactionId, status: String(entry.status || "pending").toUpperCase(),
+            payload: entry.payload || null, createdAt: entry.createdAt || new Date().toISOString(),
+          }))
+          if (rechargeHistory.length) {
+            const historyResponse = await fetch(`${supabaseUrl}/rest/v1/RechargeStatusHistory?on_conflict=id`, {
+              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rechargeHistory),
+            })
+            if (!historyResponse.ok) throw new Error(`Supabase RechargeStatusHistory sync failed (${historyResponse.status})`)
           }
           const response = await fetch(
             `${supabaseUrl}/rest/v1/${supabaseStateTable}?on_conflict=id`,
