@@ -51,7 +51,48 @@ export function createStateRepository(config) {
         )
       }
       const rows = await response.json()
-      if (rows[0]?.state) return { ...EMPTY_STATE, ...rows[0].state }
+      const state = rows[0]?.state ? { ...EMPTY_STATE, ...rows[0].state } : structuredClone(EMPTY_STATE)
+      // Authentication records are read from relational tables. The snapshot
+      // remains available for domains that have not been migrated yet.
+      const relationalUsers = await fetch(
+        `${supabaseUrl}/rest/v1/User?select=*`,
+        { headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` } },
+      )
+      const relationalSessions = await fetch(
+        `${supabaseUrl}/rest/v1/Session?select=*`,
+        { headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` } },
+      )
+      if (!relationalUsers.ok || !relationalSessions.ok) {
+        throw new Error("Supabase relational authentication read failed")
+      }
+      const userRows = await relationalUsers.json()
+      const sessionRows = await relationalSessions.json()
+      if (userRows.length) {
+        state.users = userRows.map((user) => ({
+          id: user.id,
+          email: user.email,
+          mobile: user.mobile,
+          passwordHash: user.passwordHash,
+          name: user.name,
+          businessName: user.businessName,
+          role: String(user.role || "RETAILER").toLowerCase(),
+          status: user.active === false ? "suspended" : "active",
+          emailVerifiedAt: user.emailVerifiedAt,
+          mobileVerifiedAt: user.mobileVerifiedAt,
+          supabaseUserId: user.supabaseUserId,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        }))
+      }
+      state.sessions = sessionRows.map((session) => ({
+        id: session.id,
+        userId: session.userId,
+        tokenHash: session.tokenHash,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        revokedAt: session.revokedAt,
+      }))
+      return state
 
       const responseToSeed = await fetch(
         `${supabaseUrl}/rest/v1/${supabaseStateTable}`,
@@ -93,6 +134,53 @@ export function createStateRepository(config) {
       const snapshot = structuredClone(state)
       persistQueue = persistQueue
         .then(async () => {
+          const authHeaders = {
+            apikey: supabaseServiceRoleKey,
+            Authorization: `Bearer ${supabaseServiceRoleKey}`,
+            "Content-Type": "application/json",
+          }
+          const users = (snapshot.users || []).map((user) => ({
+            id: user.id,
+            email: user.email || null,
+            mobile: user.mobile || null,
+            passwordHash: user.passwordHash || null,
+            name: user.name || "Unknown user",
+            businessName: user.businessName || null,
+            role: String(user.role || "retailer").toUpperCase(),
+            active: user.status !== "suspended",
+            emailVerifiedAt: user.emailVerifiedAt || null,
+            mobileVerifiedAt: user.mobileVerifiedAt || null,
+            supabaseUserId: user.supabaseUserId || null,
+            createdAt: user.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }))
+          if (users.length) {
+            const userResponse = await fetch(`${supabaseUrl}/rest/v1/User?on_conflict=id`, {
+              method: "POST",
+              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+              body: JSON.stringify(users),
+            })
+            if (!userResponse.ok) throw new Error(`Supabase User sync failed (${userResponse.status})`)
+          }
+          await fetch(`${supabaseUrl}/rest/v1/Session?id=not.is.null`, {
+            method: "DELETE", headers: { ...authHeaders, Prefer: "return=minimal" },
+          })
+          const sessions = (snapshot.sessions || []).map((session) => ({
+            id: session.id,
+            userId: session.userId,
+            tokenHash: session.tokenHash,
+            expiresAt: session.expiresAt,
+            revokedAt: session.revokedAt || null,
+            createdAt: session.createdAt || new Date().toISOString(),
+          }))
+          if (sessions.length) {
+            const sessionResponse = await fetch(`${supabaseUrl}/rest/v1/Session?on_conflict=id`, {
+              method: "POST",
+              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+              body: JSON.stringify(sessions),
+            })
+            if (!sessionResponse.ok) throw new Error(`Supabase Session sync failed (${sessionResponse.status})`)
+          }
           const response = await fetch(
             `${supabaseUrl}/rest/v1/${supabaseStateTable}?on_conflict=id`,
             {
