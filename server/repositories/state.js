@@ -51,6 +51,22 @@ export function createStateRepository(config) {
         )
       }
       const rows = await response.json()
+      if (!rows[0]?.state) {
+        const seedResponse = await fetch(`${supabaseUrl}/rest/v1/${supabaseStateTable}`, {
+          method: "POST",
+          headers: {
+            apikey: supabaseServiceRoleKey,
+            Authorization: `Bearer ${supabaseServiceRoleKey}`,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({ id: "singleton", state: EMPTY_STATE }),
+        })
+        if (!seedResponse.ok) {
+          throw new Error("Supabase database initialization failed. Run supabase/schema.sql first.")
+        }
+        return structuredClone(EMPTY_STATE)
+      }
       const state = rows[0]?.state ? { ...EMPTY_STATE, ...rows[0].state } : structuredClone(EMPTY_STATE)
       // Authentication records are read from relational tables. The snapshot
       // remains available for domains that have not been migrated yet.
@@ -178,27 +194,45 @@ export function createStateRepository(config) {
           }
         })
       }
-      return state
-
-      const responseToSeed = await fetch(
-        `${supabaseUrl}/rest/v1/${supabaseStateTable}`,
-        {
-          method: "POST",
-          headers: {
-            apikey: supabaseServiceRoleKey,
-            Authorization: `Bearer ${supabaseServiceRoleKey}`,
-            "Content-Type": "application/json",
-            Prefer: "return=minimal",
-          },
-          body: JSON.stringify({ id: "singleton", state: EMPTY_STATE }),
-        },
-      )
-      if (!responseToSeed.ok) {
-        throw new Error(
-          "Supabase database initialization failed. Run supabase/schema.sql first.",
-        )
+      const relationalPayments = await fetch(`${supabaseUrl}/rest/v1/Payment?select=*`, {
+        headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
+      })
+      const relationalWallets = await fetch(`${supabaseUrl}/rest/v1/Wallet?select=*`, {
+        headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
+      })
+      const relationalLedger = await fetch(`${supabaseUrl}/rest/v1/WalletLedger?select=*`, {
+        headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
+      })
+      if (!relationalPayments.ok || !relationalWallets.ok || !relationalLedger.ok) {
+        throw new Error("Supabase relational payment read failed")
       }
-      return structuredClone(EMPTY_STATE)
+      const paymentRows = await relationalPayments.json()
+      const walletRows = await relationalWallets.json()
+      const ledgerRows = await relationalLedger.json()
+      if (paymentRows.length) {
+        state.payments = paymentRows.map((payment) => ({
+          paymentId: payment.id, applicationId: payment.applicationId || null, userId: payment.userId,
+          amount: Number(payment.amount || 0), mode: payment.mode || "razorpay",
+          status: String(payment.status || "CREATED").toLowerCase(), orderId: payment.providerOrderId || null,
+          gatewayPaymentId: payment.gatewayPaymentId || payment.providerPaymentId || null,
+          createdAt: payment.createdAt, paidAt: payment.paidAt || null, updatedAt: payment.updatedAt,
+        }))
+      }
+      if (walletRows.length) {
+        state.wallets = Object.fromEntries(walletRows.map((wallet) => [wallet.userId, {
+          id: wallet.id, userId: wallet.userId, balance: Number(wallet.balance || 0),
+          creditLimit: Number(wallet.creditLimit || 0), pendingSettlement: Number(wallet.pendingSettlement || 0),
+          createdAt: wallet.createdAt, updatedAt: wallet.updatedAt,
+        }]))
+      }
+      if (ledgerRows.length) {
+        state.walletLedger = ledgerRows.map((entry) => ({
+          id: entry.id, userId: entry.userId, type: String(entry.type || "ADJUSTMENT").toLowerCase(),
+          amount: Number(entry.amount || 0), reference: entry.reference, description: entry.description || "",
+          status: entry.status || "success", balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt,
+        }))
+      }
+      return state
     }
 
     if (!fs.existsSync(dbFile)) {
@@ -346,6 +380,43 @@ export function createStateRepository(config) {
               body: JSON.stringify(documents),
             })
             if (!documentResponse.ok) throw new Error(`Supabase ApplicationDocument sync failed (${documentResponse.status})`)
+          }
+          const payments = (snapshot.payments || []).map((payment) => ({
+            id: payment.paymentId || payment.id, applicationId: payment.applicationId || null, userId: payment.userId,
+            provider: payment.provider || "razorpay", providerOrderId: payment.orderId || null,
+            providerPaymentId: payment.gatewayPaymentId || payment.providerPaymentId || null,
+            amount: Number(payment.amount || 0), status: String(payment.status || "created").toUpperCase(),
+            mode: payment.mode || "razorpay", gatewayPaymentId: payment.gatewayPaymentId || null,
+            paidAt: payment.paidAt || null, createdAt: payment.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+          }))
+          if (payments.length) {
+            const paymentResponse = await fetch(`${supabaseUrl}/rest/v1/Payment?on_conflict=id`, {
+              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(payments),
+            })
+            if (!paymentResponse.ok) throw new Error(`Supabase Payment sync failed (${paymentResponse.status})`)
+          }
+          const walletRows = Object.values(snapshot.wallets || {}).map((wallet) => ({
+            id: wallet.id || `wallet_${wallet.userId}`, userId: wallet.userId, balance: Number(wallet.balance || 0),
+            creditLimit: Number(wallet.creditLimit || 0), pendingSettlement: Number(wallet.pendingSettlement || 0),
+            createdAt: wallet.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+          }))
+          if (walletRows.length) {
+            const walletResponse = await fetch(`${supabaseUrl}/rest/v1/Wallet?on_conflict=userId`, {
+              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(walletRows),
+            })
+            if (!walletResponse.ok) throw new Error(`Supabase Wallet sync failed (${walletResponse.status})`)
+          }
+          const ledgerRows = (snapshot.walletLedger || []).map((entry) => ({
+            id: entry.id, userId: entry.userId, walletId: snapshot.wallets?.[entry.userId]?.id || `wallet_${entry.userId}`,
+            type: String(entry.type || "adjustment").toUpperCase(), amount: Number(entry.amount || 0),
+            reference: entry.reference || entry.id, description: entry.description || null, status: entry.status || "success",
+            balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt || new Date().toISOString(),
+          }))
+          if (ledgerRows.length) {
+            const ledgerResponse = await fetch(`${supabaseUrl}/rest/v1/WalletLedger?on_conflict=id`, {
+              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(ledgerRows),
+            })
+            if (!ledgerResponse.ok) throw new Error(`Supabase WalletLedger sync failed (${ledgerResponse.status})`)
           }
           const response = await fetch(
             `${supabaseUrl}/rest/v1/${supabaseStateTable}?on_conflict=id`,

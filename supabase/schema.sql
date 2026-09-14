@@ -164,6 +164,8 @@ CREATE TABLE IF NOT EXISTS "Wallet" (
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE "Wallet" ADD COLUMN IF NOT EXISTS "creditLimit" DECIMAL(14,2) NOT NULL DEFAULT 0;
+ALTER TABLE "Wallet" ADD COLUMN IF NOT EXISTS "pendingSettlement" DECIMAL(14,2) NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS "WalletLedger" (
   "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -174,6 +176,9 @@ CREATE TABLE IF NOT EXISTS "WalletLedger" (
   "description" TEXT,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE "WalletLedger" ADD COLUMN IF NOT EXISTS "userId" TEXT;
+ALTER TABLE "WalletLedger" ADD COLUMN IF NOT EXISTS "status" TEXT;
+ALTER TABLE "WalletLedger" ADD COLUMN IF NOT EXISTS "balanceAfter" DECIMAL(14,2);
 CREATE INDEX IF NOT EXISTS "wallet_ledger_idx" ON "WalletLedger"("walletId", "createdAt");
 
 -- 7. Payments & Transactions
@@ -188,6 +193,10 @@ CREATE TABLE IF NOT EXISTS "Payment" (
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "applicationId" TEXT;
+ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "mode" TEXT;
+ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "gatewayPaymentId" TEXT;
+ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "paidAt" TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS "payment_user_created_idx" ON "Payment"("userId", "createdAt");
 
 CREATE TABLE IF NOT EXISTS "PaymentEvent" (
