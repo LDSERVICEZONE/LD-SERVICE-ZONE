@@ -84,6 +84,15 @@ export function createStateRepository(config) {
       }
       const userRows = await relationalUsers.json()
       const sessionRows = await relationalSessions.json()
+      const relationalKyc = await fetch(`${supabaseUrl}/rest/v1/KycProfile?select=*`, {
+        headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
+      })
+      const relationalKycDocuments = await fetch(`${supabaseUrl}/rest/v1/KycDocument?select=*`, {
+        headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
+      })
+      if (!relationalKyc.ok || !relationalKycDocuments.ok) throw new Error("Supabase relational KYC read failed")
+      const kycRows = await relationalKyc.json()
+      const kycDocumentRows = await relationalKycDocuments.json()
       const relationalCategories = await fetch(
         `${supabaseUrl}/rest/v1/ServiceCategory?select=*`,
         { headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` } },
@@ -113,6 +122,20 @@ export function createStateRepository(config) {
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         }))
+        const kycByUser = new Map(kycRows.map((kyc) => [kyc.userId, kyc]))
+        const docsByKyc = new Map()
+        for (const document of kycDocumentRows) {
+          const docs = docsByKyc.get(document.kycId) || {}
+          docs[document.type] = { fileName: document.originalName, storageName: document.storageKey, mimeType: document.mimeType, size: document.sizeBytes, uploadedAt: document.createdAt }
+          docsByKyc.set(document.kycId, docs)
+        }
+        for (const user of state.users) {
+          const kyc = kycByUser.get(user.id)
+          if (!kyc) continue
+          const details = typeof kyc.encryptedData === "string" ? JSON.parse(kyc.encryptedData || "{}") : (kyc.encryptedData || {})
+          user.kyc = { ...details, documents: docsByKyc.get(kyc.id) || {}, reviewedAt: kyc.reviewedAt, adminNote: kyc.rejectionReason || details.adminNote || "" }
+          user.kycStatus = String(kyc.status || "PENDING").toLowerCase() === "approved" ? "verified" : String(kyc.status || "PENDING").toLowerCase()
+        }
       }
       state.sessions = sessionRows.map((session) => ({
         id: session.id,
@@ -309,6 +332,30 @@ export function createStateRepository(config) {
               body: JSON.stringify(users),
             })
             if (!userResponse.ok) throw new Error(`Supabase User sync failed (${userResponse.status})`)
+          }
+          const kycProfiles = (snapshot.users || []).filter((user) => user.kyc).map((user) => ({
+            id: `kyc_${user.id}`, userId: user.id,
+            status: user.kycStatus === "verified" ? "APPROVED" : String(user.kycStatus || "pending").toUpperCase(),
+            encryptedData: JSON.stringify({ ...user.kyc, documents: undefined }),
+            rejectionReason: user.kyc.adminNote || null, reviewedAt: user.kyc.reviewedAt || null,
+            createdAt: user.kyc.submittedAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+          }))
+          if (kycProfiles.length) {
+            const kycResponse = await fetch(`${supabaseUrl}/rest/v1/KycProfile?on_conflict=userId`, {
+              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(kycProfiles),
+            })
+            if (!kycResponse.ok) throw new Error(`Supabase KycProfile sync failed (${kycResponse.status})`)
+          }
+          const kycDocuments = []
+          for (const user of snapshot.users || []) for (const [type, document] of Object.entries(user.kyc?.documents || {})) {
+            if (!document.storageName) continue
+            kycDocuments.push({ id: `kycdoc_${user.id}_${type}`, kycId: `kyc_${user.id}`, type, storageKey: document.storageName, originalName: document.fileName || type, mimeType: document.mimeType || "application/octet-stream", sizeBytes: Number(document.size || 0), createdAt: document.uploadedAt || new Date().toISOString() })
+          }
+          if (kycDocuments.length) {
+            const kycDocResponse = await fetch(`${supabaseUrl}/rest/v1/KycDocument?on_conflict=id`, {
+              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(kycDocuments),
+            })
+            if (!kycDocResponse.ok) throw new Error(`Supabase KycDocument sync failed (${kycDocResponse.status})`)
           }
           await fetch(`${supabaseUrl}/rest/v1/Session?id=not.is.null`, {
             method: "DELETE", headers: { ...authHeaders, Prefer: "return=minimal" },
