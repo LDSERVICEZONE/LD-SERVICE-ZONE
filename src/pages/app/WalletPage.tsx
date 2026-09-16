@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/shared/api/client";
-import { useWallet } from "@/features/session/AppContext";
+import { useAuth, useWallet } from "@/features/session/AppContext";
 
 declare global {
   interface Window {
@@ -20,6 +20,7 @@ function loadRazorpay() {
 }
 
 export default function WalletPage() {
+  const { user } = useAuth();
   const { wallet, refreshWallet, updateBalance } = useWallet();
   const [ledger, setLedger] = useState<any[]>([]);
   const [amount, setAmount] = useState("");
@@ -48,21 +49,47 @@ export default function WalletPage() {
     setBusy(true);
 
     try {
-      const ok = await loadRazorpay();
-      if (!ok) throw new Error("Unable to load Razorpay Checkout");
-
       const order = await api<any>("/wallet/create-order", {
         method: "POST",
         body: JSON.stringify({ amount: Number(amount) }),
       });
+
+      if (order.mode === "demo") {
+        const verified = await api<any>("/wallet/verify", {
+          method: "POST",
+          body: JSON.stringify({ mode: "demo", razorpay_order_id: order.orderId }),
+        });
+        if (verified.wallet?.balance !== undefined) {
+          updateBalance(verified.wallet.balance);
+        } else {
+          await refreshWallet();
+        }
+        setMessage(`₹${Number(amount).toLocaleString("en-IN")} added successfully (Demo Mode).`);
+        setOpen(false);
+        setAmount("");
+        await loadLedger();
+        setBusy(false);
+        return;
+      }
+
+      const ok = await loadRazorpay();
+      if (!ok) throw new Error("Unable to load Razorpay Checkout");
 
       const rzp = new window.Razorpay({
         key: order.keyId,
         amount: order.amount,
         currency: order.currency,
         name: "LD SERVICE ZONE",
-        description: "Wallet top-up",
+        description: `Wallet Load - ${user?.username ? `ID: ${user.username}` : user?.name || "Retailer"}`,
         order_id: order.orderId,
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+          contact: user?.mobile || "",
+        },
+        theme: {
+          color: "#1D56D8",
+        },
         handler: async (response: any) => {
           try {
             const verified = await api<any>("/wallet/verify", {
@@ -230,11 +257,11 @@ export default function WalletPage() {
               className="w-full mt-2 px-4 py-3 rounded-xl border border-[#E2E8F0]"
             />
             <div className="flex gap-2 mt-2">
-              {[500, 1000, 2000, 5000].map((x) => (
+              {[100, 500, 1000, 2000, 5000].map((x) => (
                 <button
                   key={x}
                   onClick={() => setAmount(String(x))}
-                  className="flex-1 py-2 rounded-lg bg-[#F1F4F9] hover:bg-[#E2E8F0] text-xs transition-colors"
+                  className="flex-1 py-2 rounded-lg bg-[#F1F4F9] hover:bg-[#E2E8F0] text-xs font-semibold transition-colors"
                 >
                   ₹{x}
                 </button>

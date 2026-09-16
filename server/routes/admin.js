@@ -1,7 +1,9 @@
+import { parseJson } from "../lib/http.js"
+import { createId, now } from "../lib/ids.js"
 import { sanitizeUser } from "../lib/security.js"
 
 export async function handleAdminRoutes(context) {
-  const { req, res, pathName, db, send, requireAuth, ensureWallet } = context
+  const { req, res, pathName, db, send, saveDb, audit, requireAuth, ensureWallet } = context
   if (!pathName.startsWith("/api/admin/")) return false
 
   const auth = requireAuth(req, res, db, "admin")
@@ -98,6 +100,66 @@ export async function handleAdminRoutes(context) {
         ...sanitizeUser(user),
         wallet: ensureWallet(user.id).balance,
       })),
+    })
+  }
+
+  if (pathName === "/api/admin/wallet/adjust" && req.method === "POST") {
+    const input = await parseJson(req)
+    const { userId, type, amount, reason, note } = input || {}
+    const targetUser = db.users.find((u) => u.id === userId)
+    if (!targetUser) return respond(404, { error: "User not found" })
+    const numAmount = Number(amount || 0)
+    if (!Number.isFinite(numAmount) || numAmount <= 0) {
+      return respond(400, { error: "Amount must be greater than zero" })
+    }
+    if (type !== "credit" && type !== "debit") {
+      return respond(400, { error: "Adjustment type must be 'credit' or 'debit'" })
+    }
+    const wallet = ensureWallet(targetUser.id)
+    if (type === "debit" && Number(wallet.balance) < numAmount) {
+      return respond(400, {
+        error: `Insufficient balance for debit. Current balance is ₹${Number(wallet.balance).toFixed(2)}`,
+      })
+    }
+
+    if (type === "credit") {
+      wallet.balance = Number((wallet.balance + numAmount).toFixed(2))
+    } else {
+      wallet.balance = Number((wallet.balance - numAmount).toFixed(2))
+    }
+    wallet.updatedAt = now()
+
+    const adjRef = `ADJ-${Date.now()}`
+    const ledgerEntry = {
+      id: createId("WL"),
+      userId: targetUser.id,
+      type,
+      amount: numAmount,
+      reference: adjRef,
+      description: `Admin adjustment: ${reason || (type === "credit" ? "Credit" : "Debit")}${note ? ` (${note})` : ""}`,
+      status: "success",
+      createdAt: now(),
+      balanceAfter: wallet.balance,
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    if (audit) {
+      audit(db, auth.user, "ADMIN_WALLET_ADJUST", "wallet", targetUser.id, {
+        type,
+        amount: numAmount,
+        reason,
+        balanceAfter: wallet.balance,
+      })
+    }
+    if (saveDb) {
+      await saveDb(db)
+    }
+
+    return respond(200, {
+      ok: true,
+      message: `Wallet ${type === "credit" ? "credited" : "debited"} successfully`,
+      wallet,
+      ledgerEntry,
     })
   }
 

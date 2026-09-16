@@ -16,6 +16,7 @@ import {
 
 export interface UserProfile {
   id: string
+  username?: string
   name: string
   businessName?: string
   email: string

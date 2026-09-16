@@ -67,19 +67,49 @@ export async function handleWalletRoutes(context) {
   }
 
   if (pathName === "/api/wallet/create-order" && req.method === "POST") {
-    if (!config.razorpayKeyId || !config.razorpayKeySecret) {
-      return respond(503, { error: "Razorpay is not configured" })
-    }
     const input = await parseJson(req)
     const amount = Math.round(Number(input.amount || 0) * 100)
     if (!Number.isSafeInteger(amount) || amount < 100) {
       return respond(400, { error: "Minimum wallet top-up is ₹1" })
     }
+
+    if (
+      String(process.env.DEMO_MODE).toLowerCase() === "true" ||
+      (!config.razorpayKeyId || !config.razorpayKeySecret)
+    ) {
+      const orderId = `DEMO-WALLET-${createId("ORD")}`
+      const payment = {
+        paymentId: createId("PAY"),
+        applicationId: null,
+        userId: auth.user.id,
+        amount: amount / 100,
+        mode: "demo_wallet",
+        status: "created",
+        orderId,
+        createdAt: now(),
+      }
+      db.payments.unshift(payment)
+      await saveDb(db)
+      syncPayment(payment)
+      return respond(200, {
+        mode: "demo",
+        orderId,
+        amount,
+        currency: "INR",
+        paymentId: payment.paymentId,
+        message: "Demo top-up ready",
+      })
+    }
+
     const order = await razorpayRequest("orders", "POST", {
       amount,
       currency: "INR",
       receipt: `WALLET-${auth.user.id}-${Date.now()}`,
-      notes: { userId: auth.user.id, type: "wallet_topup" },
+      notes: {
+        userId: auth.user.id,
+        memberId: auth.user.username || auth.user.id,
+        type: "wallet_topup",
+      },
     })
     const payment = {
       paymentId: createId("PAY"),
@@ -105,10 +135,56 @@ export async function handleWalletRoutes(context) {
   }
 
   if (pathName === "/api/wallet/verify" && req.method === "POST") {
+    const input = await parseJson(req)
+
+    // Handle demo/test verification
+    if (
+      input.mode === "demo" ||
+      (typeof input.razorpay_order_id === "string" &&
+        input.razorpay_order_id.startsWith("DEMO-"))
+    ) {
+      const payment = db.payments.find(
+        (candidate) =>
+          candidate.orderId === input.razorpay_order_id &&
+          candidate.userId === auth.user.id &&
+          candidate.mode === "demo_wallet",
+      )
+      if (!payment) return respond(404, { error: "Demo wallet payment not found" })
+      if (payment.status !== "paid") {
+        payment.status = "paid"
+        payment.gatewayPaymentId = `DEMO-GW-${createId("GW")}`
+        payment.paidAt = now()
+        const wallet = ensureWallet(auth.user.id)
+        wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2))
+        wallet.updatedAt = now()
+        db.walletLedger.unshift({
+          id: createId("WL"),
+          userId: auth.user.id,
+          type: "credit",
+          amount: Number(payment.amount),
+          reference: payment.paymentId,
+          description: "Demo wallet top-up",
+          status: "success",
+          createdAt: now(),
+          balanceAfter: wallet.balance,
+        })
+        audit(db, auth.user, "WALLET_TOPUP_DEMO", "wallet", auth.user.id, {
+          amount: payment.amount,
+          paymentId: payment.paymentId,
+        })
+        await saveDb(db)
+        syncPayment(payment)
+      }
+      return respond(200, {
+        ok: true,
+        wallet: ensureWallet(auth.user.id),
+        payment,
+      })
+    }
+
     if (!config.razorpayKeySecret) {
       return respond(503, { error: "Razorpay is not configured" })
     }
-    const input = await parseJson(req)
     if (
       !input.razorpay_order_id ||
       !input.razorpay_payment_id ||
@@ -135,7 +211,7 @@ export async function handleWalletRoutes(context) {
       payment.gatewayPaymentId = input.razorpay_payment_id
       payment.paidAt = now()
       const wallet = ensureWallet(auth.user.id)
-      wallet.balance += Number(payment.amount)
+      wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2))
       wallet.updatedAt = now()
       db.walletLedger.unshift({
         id: createId("WL"),

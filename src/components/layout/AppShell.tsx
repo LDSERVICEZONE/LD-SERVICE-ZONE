@@ -143,7 +143,7 @@ export default function AppShell({ onLogout }: Props) {
                   {user?.name || "User"}
                 </p>
                 <p className="text-white/30 text-[10px] truncate">
-                  {user?.email || ""}
+                  {user?.username ? `ID: ${user.username}` : user?.email || ""}
                 </p>
               </div>
             )}

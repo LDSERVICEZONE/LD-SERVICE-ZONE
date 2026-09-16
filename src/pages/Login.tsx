@@ -12,12 +12,26 @@ export default function Login({ onLogin }: Props) {
   const [form, setForm] = useState({ credential: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
   const [confirmationMessage, setConfirmationMessage] = useState("");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("ld_remember_credential");
+      if (saved) {
+        setForm(f => ({ ...f, credential: saved }));
+        setRemember(true);
+      }
+    } catch {
+      // ignore storage access errors
+    }
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const accessToken = params.get("access_token");
@@ -54,7 +68,16 @@ export default function Login({ onLogin }: Props) {
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setLoading(true); setError("");
     try {
-      const data = await api<any>("/auth/login", { method: "POST", body: JSON.stringify(form) });
+      try {
+        if (remember) {
+          localStorage.setItem("ld_remember_credential", form.credential.trim());
+        } else {
+          localStorage.removeItem("ld_remember_credential");
+        }
+      } catch {
+        // ignore storage access errors
+      }
+      const data = await api<any>("/auth/login", { method: "POST", body: JSON.stringify({ ...form, remember }) });
       onLogin(data.token, data.user);
       const home = data.user.role === "admin" ? "/admin" : "/dashboard";
       const from = location.state?.from;
@@ -73,22 +96,41 @@ export default function Login({ onLogin }: Props) {
       <div className="rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur p-8 shadow-2xl"><h1 className="text-3xl font-display font-bold text-white">Welcome back 👋</h1><p className="text-white/40 text-sm mt-1 mb-7">Sign in to your retailer or admin account.</p>
         {error && <div className="mb-4 rounded-xl border border-red-400/20 bg-red-500/10 text-red-300 px-4 py-3 text-sm">{error}</div>}
         {confirmationMessage && <div role="status" className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-300 px-4 py-3 text-sm">{confirmationMessage}</div>}
-        <form onSubmit={submit} className="space-y-4"><Field label="Email or Mobile Number" placeholder="you@gmail.com or 9876543210" value={form.credential} onChange={v=>setForm({...form,credential:v})}/><div>
-          <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-1.5">Password</label>
-          <div className="relative">
-            <LockKeyhole size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
-            <input aria-label="Password" autoComplete="current-password" required minLength={8} type={showPassword ? "text" : "password"} placeholder="Minimum 8 characters" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} className="w-full rounded-xl bg-white/5 border border-white/10 pl-11 pr-11 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/10"/>
-            <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(v=>!v)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/35 hover:text-white">{showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+        <form onSubmit={submit} className="space-y-4">
+          <Field label="Username / Email / Mobile Number" placeholder="Enter username, email or mobile" value={form.credential} onChange={v=>setForm({...form,credential:v})}/>
+          <div>
+            <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-1.5">Password</label>
+            <div className="relative">
+              <LockKeyhole size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
+              <input aria-label="Password" autoComplete="current-password" required minLength={8} type={showPassword ? "text" : "password"} placeholder="Minimum 8 characters" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} className="w-full rounded-xl bg-white/5 border border-white/10 pl-11 pr-11 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/10"/>
+              <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(v=>!v)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/35 hover:text-white">{showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+            </div>
           </div>
-        </div>
+          <div className="flex items-center justify-between text-xs pt-1">
+            <label className="flex items-center gap-2 cursor-pointer text-white/70 hover:text-white select-none">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={e => setRemember(e.target.checked)}
+                className="w-4 h-4 rounded bg-white/5 border border-white/20 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-blue-600"
+              />
+              <span>Remember me</span>
+            </label>
+            <button
+              type="button"
+              onClick={()=>{setResetOpen(true);setResetMessage("");setError("")}}
+              className="text-blue-300 hover:text-blue-200 font-medium"
+            >
+              Forgot password?
+            </button>
+          </div>
           <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3.5 text-white font-semibold shadow-lg shadow-blue-900/20 hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition">{loading ? "Signing in…" : "Sign In →"}</button>
-          <button type="button" onClick={()=>{setResetOpen(true);setResetMessage("");setError("")}} className="w-full text-center text-xs text-blue-300 hover:text-blue-200">Forgot password?</button>
           <a href="https://wa.me/916370892501?text=Hello%20LD%20SERVICE%20ZONE%2C%20I%20need%20help%20with%20login." target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/5 px-4 py-2.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/10 transition-colors">
             <span>WhatsApp Login Support</span><span className="text-emerald-200/50">63708 92501</span>
           </a>
         </form>
         <p className="text-center text-white/40 text-sm mt-6">New partner? <Link to="/register" className="text-blue-400 font-semibold">Create an account</Link></p>
-        <div className="mt-6 pt-5 border-t border-white/10 text-xs text-white/30 text-center">Use your registered Gmail/email or Indian mobile number with your password. Mobile OTP can be enabled later when an SMS provider is configured.</div>
+        <div className="mt-6 pt-5 border-t border-white/10 text-xs text-white/30 text-center">Use your Member ID / Username, registered Gmail/email, or Indian mobile number with your password.</div>
       </div>
     </div></div>
     {resetOpen && (

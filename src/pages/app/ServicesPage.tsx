@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/shared/api/client";
+import { useWallet } from "@/features/session/AppContext";
 
 const BASE_CATEGORIES = ["All", "Government", "PAN", "Tax", "Certificate", "Recharge", "Bills", "Other"];
 
@@ -70,6 +71,7 @@ export default function ServicesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const { wallet, refreshWallet, updateBalance } = useWallet();
 
   useEffect(() => { api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([])).finally(() => setCatalogLoading(false)); }, []);
 
@@ -137,29 +139,35 @@ export default function ServicesPage() {
         });
         await api(`/applications/${application.applicationId}/documents`, { method: "POST", body: JSON.stringify({ documentName: doc, fileName: file.name, mimeType: file.type, data: dataUrl }) });
       }
-      const payment = await api<any>("/payments/create-order", { method: "POST", body: JSON.stringify({ applicationId: application.applicationId }) });
-      if (payment.mode === "free" || payment.mode === "demo") {
-        setSubmitMessage(`Application ${application.applicationId} submitted successfully.`); setForm({}); setFiles({}); setSelectedFiles({}); return;
+      const price = Number(selectedService.customerPrice || 0);
+      if (price <= 0) {
+        setSubmitMessage(`Application ${application.applicationId} submitted successfully.`);
+        setForm({}); setFiles({}); setSelectedFiles({});
+        return;
       }
-      await new Promise<void>((resolve, reject) => {
-        const openCheckout = () => {
-          const Razorpay = (window as any).Razorpay;
-          if (!Razorpay) return reject(new Error("Razorpay Checkout could not load"));
-          const checkout = new Razorpay({
-            key: payment.keyId, amount: payment.amount, currency: payment.currency, name: "LD SERVICE ZONE",
-            description: application.serviceName, order_id: payment.orderId,
-            prefill: { name: form["Full Name"], email: form["Email Address"], contact: form["Mobile Number"] },
-            theme: { color: "#4F46E5" },
-            handler: async (response: any) => {
-              try {
-                const verified = await api<any>("/payments/verify", { method: "POST", body: JSON.stringify({ applicationId: application.applicationId, ...response }) });
-                setSubmitMessage(`Payment successful. Application ${verified.application.applicationId} is now submitted to admin.`); setForm({}); setFiles({}); setSelectedFiles({}); resolve();
-              } catch (e: any) { reject(e); }
-            }, modal: { ondismiss: () => reject(new Error("Payment window closed")) },
-          }); checkout.open();
-        };
-        if ((window as any).Razorpay) openCheckout(); else { const script=document.createElement("script"); script.src="https://checkout.razorpay.com/v1/checkout.js"; script.onload=openCheckout; script.onerror=()=>reject(new Error("Could not load Razorpay Checkout")); document.body.appendChild(script); }
+
+      const currentBalance = Number(wallet?.balance || 0);
+      if (currentBalance < price) {
+        setSubmitMessage(
+          `Application ${application.applicationId} saved! Insufficient LD Wallet balance (Available: ₹${currentBalance.toFixed(2)}, Required: ₹${price.toFixed(2)}). Under platform policy, all services are paid from your wallet. Please top up your wallet in the Wallet page or Applications tab to complete payment.`
+        );
+        setForm({}); setFiles({}); setSelectedFiles({});
+        return;
+      }
+
+      const res = await api<any>("/payments/pay-wallet", {
+        method: "POST",
+        body: JSON.stringify({ applicationId: application.applicationId }),
       });
+      if (res.wallet?.balance !== undefined) {
+        updateBalance(res.wallet.balance);
+      } else {
+        await refreshWallet();
+      }
+      setSubmitMessage(
+        `Application ${application.applicationId} submitted successfully! ₹${price} paid from your LD Wallet. Remaining balance: ₹${Number(res.wallet?.balance || 0).toFixed(2)}.`
+      );
+      setForm({}); setFiles({}); setSelectedFiles({});
     } catch (e: any) { setSubmitMessage(e.message || "Unable to submit application"); }
     finally { setSubmitting(false); }
   };
@@ -346,10 +354,19 @@ export default function ServicesPage() {
 
               <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 flex gap-3"><span className="text-lg">🛡️</span><div><p className="text-xs font-bold text-blue-900">Important</p><p className="text-[10px] text-blue-700 mt-1">Use valid customer details and clear documents. Your application is stored by the backend and visible to authorized admin users.</p></div></div>
 
+              {selectedService.customerPrice > 0 && (
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-700">LD Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
+
               {submitMessage && <div className={`rounded-2xl p-4 text-sm font-semibold ${submitMessage.includes("successfully") ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-rose-50 text-rose-700 border border-rose-100"}`}>{submitMessage}</div>}
 
               <button type="button" disabled={submitting} onClick={submitApplication} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#1D56D8] to-[#6D5DFB] hover:from-[#1849C0] hover:to-[#5B4CE0] disabled:opacity-60 text-white font-bold shadow-lg shadow-blue-200 transition-all">
-                {submitting ? "Processing…" : selectedService.customerPrice > 0 ? "Submit & Pay Securely →" : "Submit Application →"}
+                {submitting ? "Processing…" : selectedService.customerPrice > 0 ? `Pay ₹${selectedService.customerPrice} from Wallet & Submit →` : "Submit Application →"}
               </button>
               <p className="text-center text-[10px] text-[#94A3B8]">🔒 Form data is sent to your local /api/applications backend.</p>
             </div>

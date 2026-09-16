@@ -249,6 +249,91 @@ export async function handleApplicationRoutes(context) {
     return respond(200, { application: publicApplication(application) })
   }
 
+  if (pathName === "/api/payments/pay-wallet" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+    const input = await parseJson(req)
+    const application = db.applications.find(
+      (candidate) =>
+        candidate.applicationId === input.applicationId &&
+        candidate.userId === auth.user.id,
+    )
+    if (!application) return respond(404, { error: "Application not found" })
+    if (application.status !== "payment_pending") {
+      return respond(409, { error: "Application has already been submitted" })
+    }
+    if (application.documents.some((document) => !document.storageName)) {
+      return respond(400, {
+        error: "Upload all required documents before payment",
+      })
+    }
+    const cost = Number(application.customerPrice || 0)
+    const wallet = ensureWallet(auth.user.id)
+    if (Number(wallet.balance) < cost) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Available: ₹${Number(wallet.balance).toFixed(2)}, Required: ₹${cost.toFixed(2)}`,
+        availableBalance: wallet.balance,
+        requiredAmount: cost,
+      })
+    }
+
+    wallet.balance = Number((wallet.balance - cost).toFixed(2))
+    wallet.updatedAt = now()
+
+    const payment = {
+      paymentId: createId("PAY"),
+      applicationId: application.applicationId,
+      userId: auth.user.id,
+      amount: cost,
+      mode: "wallet",
+      status: "paid",
+      orderId: `WALLET-${application.applicationId}`,
+      gatewayPaymentId: `WLT-${Date.now()}`,
+      createdAt: now(),
+      paidAt: now(),
+    }
+    db.payments.unshift(payment)
+
+    db.walletLedger.unshift({
+      id: createId("WL"),
+      userId: auth.user.id,
+      type: "debit",
+      amount: cost,
+      reference: application.applicationId,
+      description: `Application fee - ${application.serviceName}`,
+      status: "success",
+      createdAt: now(),
+      balanceAfter: wallet.balance,
+    })
+
+    application.status = "submitted"
+    application.paymentId = payment.paymentId
+    application.orderId = payment.orderId
+    application.updatedAt = now()
+
+    audit(
+      db,
+      auth.user,
+      "PAYMENT_WALLET_SUCCESS",
+      "application",
+      application.applicationId,
+      { amount: cost, paymentId: payment.paymentId, balanceAfter: wallet.balance },
+    )
+
+    await saveDb(db)
+    syncPayment(payment)
+    syncApplication(application)
+
+    return respond(200, {
+      ok: true,
+      mode: "wallet",
+      application: publicApplication(application),
+      payment,
+      wallet: ensureWallet(auth.user.id),
+      message: "Payment completed successfully using wallet balance",
+    })
+  }
+
   if (pathName === "/api/payments/create-order" && req.method === "POST") {
     const auth = requireAuth(req, res, db)
     if (!auth) return true
@@ -406,7 +491,11 @@ export async function handleApplicationRoutes(context) {
     })
   }
 
-  if (pathName === "/api/payments/webhook" && req.method === "POST") {
+  if (
+    (pathName === "/api/payments/webhook" ||
+      pathName === "/api/wallet/webhook") &&
+    req.method === "POST"
+  ) {
     if (!config.razorpayWebhookSecret) {
       return respond(503, { error: "Payment webhook is not configured" })
     }
@@ -420,20 +509,40 @@ export async function handleApplicationRoutes(context) {
       return respond(400, { error: "Invalid webhook signature" })
     }
     const event = JSON.parse(rawBody || "{}")
-    if (
-      event.event !== "payment.captured" ||
-      !event.payload?.payment?.entity?.order_id
-    ) {
+    if (event.event === "payment.failed") {
+      const entity = event.payload?.payment?.entity
+      const orderId = entity?.order_id
+      if (orderId) {
+        const payment = db.payments.find((candidate) => candidate.orderId === orderId)
+        if (payment && payment.status === "created") {
+          payment.status = "failed"
+          payment.failedReason = entity.error_description || entity.error_code || "Payment failed"
+          payment.updatedAt = now()
+          await saveDb(db)
+        }
+      }
       return respond(200, { received: true })
     }
 
-    const entity = event.payload.payment.entity
+    const isPaymentCaptured = event.event === "payment.captured"
+    const isOrderPaid = event.event === "order.paid"
+    if (!isPaymentCaptured && !isOrderPaid) {
+      return respond(200, { received: true })
+    }
+
+    const entity = event.payload?.payment?.entity || event.payload?.order?.entity
+    const orderId = entity?.order_id || (isOrderPaid ? entity?.id : null)
+    if (!orderId) {
+      return respond(200, { received: true })
+    }
+
     const payment = db.payments.find(
-      (candidate) => candidate.orderId === entity.order_id,
+      (candidate) => candidate.orderId === orderId,
     )
     if (
       payment &&
-      (entity.currency !== "INR" ||
+      entity.amount &&
+      ((entity.currency && entity.currency !== "INR") ||
         Number(entity.amount) !== Math.round(Number(payment.amount) * 100))
     ) {
       return respond(400, { error: "Payment amount or currency mismatch" })

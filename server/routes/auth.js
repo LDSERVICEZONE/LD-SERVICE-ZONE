@@ -148,8 +148,10 @@ export async function handleAuthRoutes(context) {
         )
       }
 
+      const generatedUsername = `LD${Math.floor(10000 + Math.random() * 90000)}`
       db.pendingSignups.push({
         id: id("PSU"),
+        username: generatedUsername,
         supabaseUserId: supabaseUser.id,
         name,
         businessName,
@@ -164,8 +166,9 @@ export async function handleAuthRoutes(context) {
         pending: true,
         supabaseUserId: supabaseUser.id,
         email,
+        username: generatedUsername,
         message:
-          "Account created. Check your email for the Supabase confirmation link, then return here to sign in.",
+          `Account created with Member ID ${generatedUsername}. Check your email for the Supabase confirmation link, then return here to sign in.`,
       })
     } catch (error) {
       const message = String(error?.message || error)
@@ -177,8 +180,10 @@ export async function handleAuthRoutes(context) {
         try {
           const existing = await supabaseAdminFindUserByEmail(email)
           if (existing?.id && !existing.email_confirmed_at) {
+            const restoredUsername = `LD${Math.floor(10000 + Math.random() * 90000)}`
             db.pendingSignups.push({
               id: id("PSU"),
+              username: restoredUsername,
               supabaseUserId: existing.id,
               name,
               businessName,
@@ -204,8 +209,9 @@ export async function handleAuthRoutes(context) {
               pending: true,
               supabaseUserId: existing.id,
               email,
+              username: restoredUsername,
               message:
-                "Your signup was restored. Check your email for a new confirmation link.",
+                `Your signup was restored with Member ID ${restoredUsername}. Check your email for a new confirmation link.`,
             })
           }
         } catch (lookupError) {
@@ -551,32 +557,46 @@ export async function handleAuthRoutes(context) {
     const password = String(input.password || "")
     if (!credential || !password) {
       return respond(400, {
-        error: "Email/mobile number and password are required",
+        error: "Username/email/mobile and password are required",
       })
     }
     const credentialEmail = isEmail(credential) ? credential.toLowerCase() : ""
     const credentialMobile = credentialEmail
       ? ""
       : normalizeIndianMobile(credential)
-    if (!credentialEmail && !credentialMobile) {
-      return respond(400, {
-        error: "Enter a valid email or 10-digit Indian mobile number",
-      })
-    }
-    let user = db.users.find((candidate) =>
-      credentialEmail
-        ? String(candidate.email || "")
+    const credentialUsername =
+      !credentialEmail && !credentialMobile ? credential.toLowerCase().trim() : ""
+
+    let user = db.users.find((candidate) => {
+      if (credentialEmail) {
+        return (
+          String(candidate.email || "")
             .trim()
             .toLowerCase() === credentialEmail
-        : normalizeIndianMobile(candidate.mobile) === credentialMobile,
-    )
+        )
+      }
+      if (credentialMobile) {
+        return normalizeIndianMobile(candidate.mobile) === credentialMobile
+      }
+      return (
+        String(candidate.username || "").toLowerCase() === credentialUsername ||
+        String(candidate.id || "").toLowerCase() === credentialUsername ||
+        String(candidate.name || "").toLowerCase() === credentialUsername
+      )
+    })
 
     const pending = !user
-      ? db.pendingSignups.find((signup) =>
-          credentialEmail
-            ? String(signup.email || "").toLowerCase() === credentialEmail
-            : normalizeIndianMobile(signup.mobile) === credentialMobile,
-        )
+      ? db.pendingSignups.find((signup) => {
+          if (credentialEmail) {
+            return String(signup.email || "").toLowerCase() === credentialEmail
+          }
+          if (credentialMobile) {
+            return normalizeIndianMobile(signup.mobile) === credentialMobile
+          }
+          return (
+            String(signup.username || "").toLowerCase() === credentialUsername
+          )
+        })
       : null
     if (
       !user &&
@@ -667,13 +687,14 @@ export async function handleAuthRoutes(context) {
     db.sessions = db.sessions.filter(
       (session) => new Date(session.expiresAt) > new Date(),
     )
+    const sessionDays = input.remember ? 30 : config.sessionDays
     db.sessions.push({
       id: id("SES"),
       userId: user.id,
       tokenHash: crypto.createHash("sha256").update(token).digest("hex"),
       createdAt: now(),
       expiresAt: new Date(
-        Date.now() + config.sessionDays * 86_400_000,
+        Date.now() + sessionDays * 86_400_000,
       ).toISOString(),
     })
     audit(

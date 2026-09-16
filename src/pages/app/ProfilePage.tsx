@@ -188,6 +188,7 @@ export default function ProfilePage() {
         </h3>
         <div className="grid sm:grid-cols-2 gap-4">
           {[
+            ["Member ID / Username", user?.username || user?.id],
             ["Full Name", user?.name],
             ["Business Name", user?.businessName],
             ["Mobile", user?.mobile],

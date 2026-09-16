@@ -61,6 +61,12 @@ test("retailers cannot access any admin endpoint", async () => {
 test("suspended users cannot reuse existing sessions", async () => assert.equal((await request("/wallet", { token: "suspended" })).status, 401));
 test("failed Supabase login cannot fall back to old local password", async () => assert.equal((await request("/auth/login", { body: { credential: users[0].email, password } })).status, 401));
 test("local admin login remains available", async () => assert.equal((await request("/auth/login", { body: { credential: users[3].email, password } })).status, 200));
+test("login by username and remember-me works", async () => {
+  const res = await request("/auth/login", { body: { credential: "admin", password, remember: true } });
+  assert.equal(res.status, 200);
+  assert.ok(res.data.token);
+  assert.equal(res.data.user.role, "admin");
+});
 test("application price and documents come from server catalogue", async () => {
   const result = await request("/applications", { token: "retailer", body: { serviceId: "PAN-NEW", serviceName: "Tampered", customerPrice: 0, commission: 999999, documents: [], applicant: { "Full Name": "Test Applicant" } } });
   assert.equal(result.status, 201);
@@ -134,6 +140,113 @@ test("signed webhook with wrong amount is rejected", async () => {
   const signature = crypto.createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET).update(JSON.stringify(body)).digest("hex");
   assert.equal((await request("/payments/webhook", { body, headers: { "x-razorpay-signature": signature } })).status, 400);
 });
+
+test("admin can adjust user wallet balance with credit and debit", async () => {
+  const creditRes = await request("/admin/wallet/adjust", {
+    token: "admin",
+    body: { userId: "retailer", type: "credit", amount: 500, reason: "Cash deposit" },
+  });
+  assert.equal(creditRes.status, 200);
+  assert.equal(creditRes.data.ok, true);
+  assert.equal(creditRes.data.wallet.balance, 500);
+
+  const debitRes = await request("/admin/wallet/adjust", {
+    token: "admin",
+    body: { userId: "retailer", type: "debit", amount: 150, reason: "Test debit" },
+  });
+  assert.equal(debitRes.status, 200);
+  assert.equal(debitRes.data.ok, true);
+  assert.equal(debitRes.data.wallet.balance, 350);
+});
+
+test("retailers cannot adjust wallet balances", async () => {
+  const res = await request("/admin/wallet/adjust", {
+    token: "retailer",
+    body: { userId: "retailer", type: "credit", amount: 1000 },
+  });
+  assert.equal(res.status, 403);
+});
+
+test("retailer can pay for application using wallet balance", async () => {
+  const created = await request("/applications", {
+    token: "retailer",
+    body: {
+      serviceId: "PAN-NEW",
+      applicant: { "Full Name": "Wallet Pay Applicant", "Date of Birth": "1995-05-05", "Mobile Number": "9988776655", "Father's Name": "Parent" },
+    },
+  });
+  assert.equal(created.status, 201);
+  const applicationId = created.data.application.applicationId;
+  for (const document of created.data.application.documents) {
+    await request(`/applications/${applicationId}/documents`, {
+      token: "retailer",
+      body: { documentName: document.name, fileName: `${document.name}.png`, mimeType: "image/png", data: "data:image/png;base64,AA==" },
+    });
+  }
+
+  const walletBefore = (await request("/wallet", { token: "retailer" })).data.wallet.balance;
+  const price = created.data.application.customerPrice;
+
+  const paid = await request("/payments/pay-wallet", {
+    token: "retailer",
+    body: { applicationId },
+  });
+  assert.equal(paid.status, 200);
+  assert.equal(paid.data.ok, true);
+  assert.equal(paid.data.application.status, "submitted");
+  assert.equal(paid.data.mode, "wallet");
+
+  const walletAfter = (await request("/wallet", { token: "retailer" })).data.wallet.balance;
+  assert.equal(Number(walletAfter.toFixed(2)), Number((walletBefore - price).toFixed(2)));
+});
+
+test("retailer cannot pay for application with insufficient wallet balance", async () => {
+  const created = await request("/applications", {
+    token: "other",
+    body: {
+      serviceId: "PAN-NEW",
+      applicant: { "Full Name": "Broke Applicant", "Date of Birth": "1995-05-05", "Mobile Number": "9988776655", "Father's Name": "Parent" },
+    },
+  });
+  assert.equal(created.status, 201);
+  const applicationId = created.data.application.applicationId;
+  for (const document of created.data.application.documents) {
+    await request(`/applications/${applicationId}/documents`, {
+      token: "other",
+      body: { documentName: document.name, fileName: `${document.name}.png`, mimeType: "image/png", data: "data:image/png;base64,AA==" },
+    });
+  }
+
+  const paid = await request("/payments/pay-wallet", {
+    token: "other",
+    body: { applicationId },
+  });
+  assert.equal(paid.status, 400);
+  assert.match(paid.data.error, /Insufficient wallet balance/i);
+});
+
+test("demo wallet top-up adds funds to wallet and ledger", async () => {
+  const created = await request("/wallet/create-order", {
+    token: "other",
+    body: { amount: 250 },
+  });
+  assert.equal(created.status, 200);
+  assert.equal(created.data.mode, "demo");
+
+  const verified = await request("/wallet/verify", {
+    token: "other",
+    body: { mode: "demo", razorpay_order_id: created.data.orderId },
+  });
+  assert.equal(verified.status, 200);
+  assert.equal(verified.data.ok, true);
+  assert.equal(verified.data.wallet.balance, 250);
+
+  const ledger = await request("/wallet/ledger", { token: "other" });
+  assert.equal(ledger.status, 200);
+  assert.ok(ledger.data.ledger.length > 0);
+  assert.equal(ledger.data.ledger[0].amount, 250);
+});
+
 test("password reset revokes existing local sessions", async () => {
   assert.equal((await request("/auth/reset-password", { body: { accessToken: "audit-reset", password: "NewAuditPassword123!" } })).status, 200);
   assert.equal((await request("/auth/me", { token: "retailer" })).status, 401);

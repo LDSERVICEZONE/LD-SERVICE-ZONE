@@ -1,4 +1,4 @@
-﻿import http from "node:http"
+import http from "node:http"
 import fs from "node:fs"
 import path from "node:path"
 import crypto from "node:crypto"
@@ -20,11 +20,13 @@ import { handleAdminRoutes } from "./server/routes/admin.js"
 import { handleApplicationRoutes } from "./server/routes/applications.js"
 import { handleWalletRoutes } from "./server/routes/wallet.js"
 import { handleRechargeRoutes } from "./server/routes/recharge.js"
+import { handlePanMitraRoutes } from "./server/routes/panmitra.js"
 import { createStateRepository } from "./server/repositories/state.js"
 import { SERVICE_SEED } from "./server/data/serviceCatalog.js"
 import { createRazorpayClient } from "./server/services/razorpay.js"
 import { sheetSync } from "./server/services/sheetSync.js"
 import { createSupabaseService } from "./server/services/supabase.js"
+import { createPanMitraClient } from "./server/services/panmitraProvider.js"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // Load the local .env BEFORE importing provider modules. ESM imports are evaluated first,
 // so loading .env after a static provider import makes process.env appear empty to that module.
@@ -85,6 +87,8 @@ const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || ""
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || ""
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || ""
 const PAY2ALL_API_KEY = process.env.PAY2ALL_API_KEY || ""
+const PANMITRA_API_KEY = process.env.PANMITRA_API_KEY || ""
+const PANMITRA_BASE_URL = process.env.PANMITRA_BASE_URL || "https://panmitra.com/apiekyc"
 let dataEncryptionKey = process.env.DATA_ENCRYPTION_KEY
 if (!dataEncryptionKey) {
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -131,6 +135,10 @@ const supabase = createSupabaseService({
 const razorpayRequest = createRazorpayClient({
   keyId: RAZORPAY_KEY_ID,
   keySecret: RAZORPAY_KEY_SECRET,
+})
+const panmitra = createPanMitraClient({
+  apiKey: PANMITRA_API_KEY,
+  baseUrl: PANMITRA_BASE_URL,
 })
 const {
   request: supabaseRequest,
@@ -190,6 +198,7 @@ function seedAdmin(db) {
     ? process.env.ADMIN_PASSWORD.trim()
     : ""
   if (adminUser) {
+    if (!adminUser.username) adminUser.username = "admin"
     if (envEmail && adminUser.email !== envEmail) {
       adminUser.email = envEmail
     }
@@ -203,6 +212,7 @@ function seedAdmin(db) {
   if (!password) return
   db.users.push({
     id: id("USR"),
+    username: "admin",
     supabaseUserId: "",
     name: "Super Admin",
     businessName: "LD SERVICE ZONE",
@@ -390,7 +400,17 @@ function ensureWallet(userId) {
     }
   return db.wallets[userId]
 }
-for (const user of db.users) ensureWallet(user.id)
+for (const user of db.users) {
+  if (!user.username) {
+    user.username =
+      user.role === "admin"
+        ? "admin"
+        : user.name && !user.name.includes(" ")
+          ? user.name.toLowerCase()
+          : `LD${String(user.id || "").replace(/\D/g, "").slice(-5) || Math.floor(10000 + Math.random() * 90000)}`
+  }
+  ensureWallet(user.id)
+}
 seedAdmin(db)
 seedServices(db)
 if (DATA_STORE === "supabase") {
@@ -420,6 +440,9 @@ async function promotePendingSignup(db, pending, authUser) {
       String(u.email || "").toLowerCase() === pending.email.toLowerCase(),
   )
   if (existing) {
+    if (!existing.username) {
+      existing.username = pending.username || `LD${Math.floor(10000 + Math.random() * 90000)}`
+    }
     existing.supabaseUserId = authUser.id
     existing.emailVerifiedAt = existing.emailVerifiedAt || now()
     existing.mobile = normalizeIndianMobile(existing.mobile || pending.mobile)
@@ -431,6 +454,7 @@ async function promotePendingSignup(db, pending, authUser) {
   }
   const user = {
     id: id("USR"),
+    username: pending.username || `LD${Math.floor(10000 + Math.random() * 90000)}`,
     supabaseUserId: authUser.id,
     name: pending.name,
     businessName: pending.businessName,
@@ -468,6 +492,7 @@ export async function handleRequest(req, res) {
           RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET ? "razorpay" : "unavailable",
         integrations: {
           pay2all: Boolean(PAY2ALL_API_KEY),
+          panmitra: panmitra.configured(),
           supabaseAuth: Boolean(
             SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_SERVICE_ROLE_KEY,
           ),
@@ -561,10 +586,23 @@ export async function handleRequest(req, res) {
       pathName,
       db,
       send,
+      saveDb,
+      audit,
       requireAuth,
       ensureWallet,
     })
     if (adminHandled) return
+    const panmitraHandled = await handlePanMitraRoutes({
+      req,
+      res,
+      pathName,
+      url,
+      db,
+      send,
+      requireAuth,
+      provider: panmitra,
+    })
+    if (panmitraHandled) return
     const applicationHandled = await handleApplicationRoutes({
       req,
       res,
