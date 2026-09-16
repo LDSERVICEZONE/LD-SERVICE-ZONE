@@ -400,19 +400,24 @@ function ensureWallet(userId) {
     }
   return db.wallets[userId]
 }
-for (const user of db.users) {
-  if (!user.username) {
-    user.username =
-      user.role === "admin"
-        ? "admin"
-        : user.name && !user.name.includes(" ")
-          ? user.name.toLowerCase()
-          : `LD${String(user.id || "").replace(/\D/g, "").slice(-5) || Math.floor(10000 + Math.random() * 90000)}`
+function normalizeDb(db) {
+  for (const user of db.users) {
+    if (!user.username) {
+      if (user.role === "admin") {
+        user.username = "admin"
+      } else if (user.email === "dibyakanta.co@gmail.com") {
+        user.username = "LD45666"
+      } else {
+        const digits = String(user.mobile || user.id || "").replace(/\D/g, "")
+        user.username = digits.length >= 5 ? `LD${digits.slice(-5)}` : "LD10001"
+      }
+    }
+    ensureWallet(user.id)
   }
-  ensureWallet(user.id)
+  seedAdmin(db)
+  seedServices(db)
 }
-seedAdmin(db)
-seedServices(db)
+normalizeDb(db)
 if (DATA_STORE === "supabase") {
   for (const user of db.users) await persistRelationalUser(user)
 }
@@ -483,7 +488,10 @@ export async function handleRequest(req, res) {
   try {
     // Refresh the shared snapshot on every request so warm serverless instances
     // cannot validate sessions against stale Supabase state.
-    if (DATA_STORE === "supabase") db = await loadDb()
+    if (DATA_STORE === "supabase") {
+      db = await loadDb()
+      normalizeDb(db)
+    }
     if (pathName === "/api/health" && req.method === "GET") {
       return send(res, 200, {
         ok: true,

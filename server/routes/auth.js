@@ -581,7 +581,8 @@ export async function handleAuthRoutes(context) {
       return (
         String(candidate.username || "").toLowerCase() === credentialUsername ||
         String(candidate.id || "").toLowerCase() === credentialUsername ||
-        String(candidate.name || "").toLowerCase() === credentialUsername
+        String(candidate.name || "").toLowerCase() === credentialUsername ||
+        (candidate.role === "admin" && credentialUsername === "admin")
       )
     })
 
@@ -638,7 +639,7 @@ export async function handleAuthRoutes(context) {
         authenticatedWithSupabase = true
       } catch {
         return respond(401, {
-          error: "Unable to sign in. Check your credentials and try again.",
+          error: "Invalid email or password",
         })
       }
     }
