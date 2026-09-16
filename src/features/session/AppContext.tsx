@@ -22,6 +22,7 @@ export interface UserProfile {
   email: string
   mobile: string
   role: "retailer" | "admin"
+  adminRole?: "super_admin" | "verification_agent" | "support_staff"
   status: string
   kycStatus: string
   emailVerifiedAt?: string

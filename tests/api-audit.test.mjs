@@ -255,3 +255,43 @@ test("logout invalidates session", async () => {
   assert.equal((await request("/auth/logout", { token: "other", body: {} })).status, 200);
   assert.equal((await request("/auth/me", { token: "other" })).status, 401);
 });
+
+test("super admin can create staff accounts and assign sub-admin roles", async () => {
+  const res = await request("/admin/staff", {
+    token: "admin",
+    body: {
+      name: "Support Staff Agent",
+      email: "support.audit@example.test",
+      mobile: "9876543210",
+      password: "AuditPassword123!",
+      adminRole: "support_staff",
+    },
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.user.role, "admin");
+  assert.equal(res.data.user.adminRole, "support_staff");
+});
+
+test("super admin can authorize and change user roles", async () => {
+  const res = await request("/admin/users/retailer/role", {
+    token: "admin",
+    method: "PATCH",
+    body: {
+      role: "admin",
+      adminRole: "verification_agent",
+    },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.user.role, "admin");
+  assert.equal(res.data.user.adminRole, "verification_agent");
+});
+
+test("retailers cannot create staff accounts or authorize roles", async () => {
+  const loginRes = await request("/auth/login", { body: { credential: "other@example.test", password } });
+  const retailerToken = loginRes.data.token;
+  assert.equal((await request("/admin/staff", { token: retailerToken, body: { name: "Fake", email: "fake@test.com", password: "pwd", adminRole: "super_admin" } })).status, 403);
+  assert.equal((await request("/admin/users/other/role", { token: retailerToken, method: "PATCH", body: { role: "admin" } })).status, 403);
+});
+

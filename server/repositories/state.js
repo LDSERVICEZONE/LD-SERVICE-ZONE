@@ -326,12 +326,29 @@ export function createStateRepository(config) {
             updatedAt: new Date().toISOString(),
           }))
           if (users.length) {
-            const userResponse = await fetch(`${supabaseUrl}/rest/v1/User?on_conflict=id`, {
-              method: "POST",
-              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
-              body: JSON.stringify(users),
-            })
-            if (!userResponse.ok) throw new Error(`Supabase User sync failed (${userResponse.status})`)
+            try {
+              const userResponse = await fetch(
+                `${supabaseUrl}/rest/v1/User?on_conflict=id`,
+                {
+                  method: "POST",
+                  headers: {
+                    ...authHeaders,
+                    Prefer: "resolution=merge-duplicates,return=minimal",
+                  },
+                  body: JSON.stringify(users),
+                },
+              )
+              if (!userResponse.ok) {
+                console.warn(
+                  `Supabase User sync notice (${userResponse.status})`,
+                )
+              }
+            } catch (userSyncErr) {
+              console.warn(
+                "Supabase User sync exception:",
+                userSyncErr?.message,
+              )
+            }
           }
           const kycProfiles = (snapshot.users || []).filter((user) => user.kyc).map((user) => ({
             id: `kyc_${user.id}`, userId: user.id,

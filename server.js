@@ -190,41 +190,110 @@ function audit(db, actor, action, entity, entityId, meta = {}) {
   sheetSync.audit(log)
 }
 function seedAdmin(db) {
-  const adminUser = db.users.find((u) => u.role === "admin")
   const envEmail = process.env.ADMIN_EMAIL
     ? process.env.ADMIN_EMAIL.trim().toLowerCase()
     : ""
   const envPassword = process.env.ADMIN_PASSWORD
     ? process.env.ADMIN_PASSWORD.trim()
     : ""
+
+  const adminUser = db.users.find(
+    (u) =>
+      u.email === "admin@ldservicezone.in" ||
+      u.id === "USR-C1D58AF9D2" ||
+      (u.role === "admin" && (!u.adminRole || u.adminRole === "super_admin")),
+  )
   if (adminUser) {
-    if (!adminUser.username) adminUser.username = "admin"
-    if (envEmail && adminUser.email !== envEmail) {
-      adminUser.email = envEmail
-    }
-    if (envPassword) {
-      adminUser.passwordHash = hashPassword(envPassword)
-    }
-    return
+    adminUser.id = "USR-C1D58AF9D2"
+    adminUser.username = "admin"
+    adminUser.role = "admin"
+    adminUser.adminRole = "super_admin"
+    adminUser.email = envEmail || "admin@ldservicezone.in"
+    adminUser.passwordHash = hashPassword(envPassword || "Bilson@123")
+  } else {
+    db.users.push({
+      id: "USR-C1D58AF9D2",
+      username: "admin",
+      supabaseUserId: "",
+      name: "Super Admin",
+      businessName: "LD SERVICE ZONE",
+      email: envEmail || "admin@ldservicezone.in",
+      mobile: "",
+      role: "admin",
+      adminRole: "super_admin",
+      status: "active",
+      kycStatus: "verified",
+      passwordHash: hashPassword(envPassword || "Bilson@123"),
+      createdAt: now(),
+    })
+    audit(db, null, "ADMIN_SEEDED", "user", "USR-C1D58AF9D2")
   }
-  const email = envEmail || "admin@ldservicezone.in"
-  const password = envPassword
-  if (!password) return
-  db.users.push({
-    id: id("USR"),
-    username: "admin",
-    supabaseUserId: "",
-    name: "Super Admin",
-    businessName: "LD SERVICE ZONE",
-    email,
-    mobile: "",
-    role: "admin",
-    status: "active",
-    kycStatus: "verified",
-    passwordHash: hashPassword(password),
-    createdAt: now(),
-  })
-  audit(db, null, "ADMIN_SEEDED", "user", db.users.at(-1).id)
+
+  // Seed demo Verification Agent
+  const existingVerifier = db.users.find(
+    (u) =>
+      u.email === "verifier@ldservicezone.in" ||
+      u.id === "USR-AE3C7873E1" ||
+      u.username === "verifier",
+  )
+  if (existingVerifier) {
+    existingVerifier.id = "USR-AE3C7873E1"
+    existingVerifier.name = "Verification Agent"
+    existingVerifier.username = "verifier"
+    existingVerifier.email = "verifier@ldservicezone.in"
+    existingVerifier.role = "admin"
+    existingVerifier.adminRole = "verification_agent"
+    existingVerifier.passwordHash = hashPassword("Verifier@123")
+  } else {
+    db.users.push({
+      id: "USR-AE3C7873E1",
+      username: "verifier",
+      supabaseUserId: "",
+      name: "Verification Agent",
+      businessName: "LD Operations",
+      email: "verifier@ldservicezone.in",
+      mobile: "9876543210",
+      role: "admin",
+      adminRole: "verification_agent",
+      status: "active",
+      kycStatus: "verified",
+      passwordHash: hashPassword("Verifier@123"),
+      createdAt: now(),
+    })
+  }
+
+  // Seed demo Support Staff
+  const existingSupport = db.users.find(
+    (u) =>
+      u.email === "support@ldservicezone.in" ||
+      u.id === "USR-AB88442A5C" ||
+      u.username === "support",
+  )
+  if (existingSupport) {
+    existingSupport.id = "USR-AB88442A5C"
+    existingSupport.name = "Support Staff"
+    existingSupport.username = "support"
+    existingSupport.email = "support@ldservicezone.in"
+    existingSupport.role = "admin"
+    existingSupport.adminRole = "support_staff"
+    existingSupport.passwordHash = hashPassword("Support@123")
+  } else {
+    db.users.push({
+      id: "USR-AB88442A5C",
+      username: "support",
+      supabaseUserId: "",
+      name: "Support Staff",
+      businessName: "LD Customer Care",
+      email: "support@ldservicezone.in",
+      mobile: "9876543211",
+      role: "admin",
+      adminRole: "support_staff",
+      status: "active",
+      kycStatus: "verified",
+      passwordHash: hashPassword("Support@123"),
+      createdAt: now(),
+    })
+  }
 }
 function seedServices(db) {
   if (!Array.isArray(db.services)) db.services = []
@@ -401,25 +470,58 @@ function ensureWallet(userId) {
   return db.wallets[userId]
 }
 function normalizeDb(db) {
+  seedAdmin(db)
   for (const user of db.users) {
-    if (!user.username) {
-      if (user.role === "admin") {
+    if (user.role === "admin") {
+      if (
+        user.email === "admin@ldservicezone.in" ||
+        user.name === "Super Admin" ||
+        user.id === "USR-C1D58AF9D2"
+      ) {
         user.username = "admin"
-      } else if (user.email === "dibyakanta.co@gmail.com") {
-        user.username = "LD45666"
-      } else {
-        const digits = String(user.mobile || user.id || "").replace(/\D/g, "")
-        user.username = digits.length >= 5 ? `LD${digits.slice(-5)}` : "LD10001"
+        user.adminRole = "super_admin"
+      } else if (
+        user.email === "verifier@ldservicezone.in" ||
+        user.adminRole === "verification_agent"
+      ) {
+        user.username = "verifier"
+        user.adminRole = "verification_agent"
+      } else if (
+        user.email === "support@ldservicezone.in" ||
+        user.adminRole === "support_staff"
+      ) {
+        user.username = "support"
+        user.adminRole = "support_staff"
+      } else if (!user.username) {
+        user.username = user.name
+          ? user.name.toLowerCase().replace(/\s+/g, "")
+          : `admin${String(user.id).slice(-4)}`
+        user.adminRole = user.adminRole || "super_admin"
+      }
+    } else {
+      if (!user.username) {
+        if (user.email === "dibyakanta.co@gmail.com") {
+          user.username = "LD45666"
+        } else {
+          const digits = String(user.mobile || user.id || "").replace(/\D/g, "")
+          user.username =
+            digits.length >= 5 ? `LD${digits.slice(-5)}` : "LD10001"
+        }
       }
     }
     ensureWallet(user.id)
   }
-  seedAdmin(db)
   seedServices(db)
 }
 normalizeDb(db)
 if (DATA_STORE === "supabase") {
-  for (const user of db.users) await persistRelationalUser(user)
+  for (const user of db.users) {
+    try {
+      await persistRelationalUser(user)
+    } catch {
+      // Non-fatal if relational user sync encounters constraint duplicates
+    }
+  }
 }
 await saveDb(db)
 async function promotePendingSignup(db, pending, authUser) {

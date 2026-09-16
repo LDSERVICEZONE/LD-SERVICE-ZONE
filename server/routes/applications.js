@@ -233,6 +233,12 @@ export async function handleApplicationRoutes(context) {
   if (/^\/api\/applications\/[^/]+$/.test(pathName) && req.method === "PATCH") {
     const auth = requireAuth(req, res, db, "admin")
     if (!auth) return true
+    if (auth.user.adminRole === "support_staff") {
+      return respond(403, {
+        error:
+          "Support staff are not authorized to update application processing statuses.",
+      })
+    }
     const applicationId = pathName.split("/").pop()
     const application = db.applications.find(
       (candidate) => candidate.applicationId === applicationId,

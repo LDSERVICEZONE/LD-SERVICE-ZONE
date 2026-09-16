@@ -32,6 +32,25 @@ export default function AdminShell({ onLogout }: Props) {
   }, []);
   const [admin, setAdmin] = useState<any>(null);
   useEffect(() => { api<any>("/auth/me").then(d => setAdmin(d.user)).catch(() => {}); }, []);
+
+  const adminRole = admin?.adminRole || "super_admin";
+  const allowedPaths = {
+    super_admin: ["/admin", "/admin/users", "/admin/transactions", "/admin/applications", "/admin/help", "/admin/analytics", "/admin/reports", "/admin/services", "/admin/settings"],
+    verification_agent: ["/admin", "/admin/users", "/admin/applications", "/admin/help"],
+    support_staff: ["/admin", "/admin/help"],
+  }[adminRole as "super_admin" | "verification_agent" | "support_staff"] || ["/admin", "/admin/help"];
+
+  const roleMeta = {
+    super_admin: { label: "Super Admin", bg: "bg-violet-100", border: "border-violet-200", text: "text-violet-700", dot: "bg-violet-500" },
+    verification_agent: { label: "Verification Agent", bg: "bg-indigo-100", border: "border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-500" },
+    support_staff: { label: "Support Staff", bg: "bg-teal-100", border: "border-teal-200", text: "text-teal-700", dot: "bg-teal-500" },
+  }[adminRole as "super_admin" | "verification_agent" | "support_staff"] || { label: "Super Admin", bg: "bg-violet-100", border: "border-violet-200", text: "text-violet-700", dot: "bg-violet-500" };
+
+  const filteredNav = NAV.filter(item => {
+    if ("path" in item) return allowedPaths.includes(item.path!);
+    return true;
+  });
+
   return (
     <div className="relative isolate flex h-dvh bg-[#F1F4F9] overflow-hidden">
       <aside id="admin-navigation" className={`fixed md:relative z-30 w-56 h-full flex-shrink-0 bg-[#07111F] flex flex-col transition-transform duration-200 ${open ? "translate-x-0 visible" : "-translate-x-full md:translate-x-0 invisible md:visible"}`}>
@@ -39,11 +58,11 @@ export default function AdminShell({ onLogout }: Props) {
           <img src={ldLogo} alt="LD Service Zone" className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
           <div>
             <p className="font-display font-bold text-white text-xs leading-tight">LD SERVICE ZONE</p>
-            <p className="text-violet-400 text-[10px] font-semibold">Admin Panel</p>
+            <p className="text-violet-400 text-[10px] font-semibold">{roleMeta.label}</p>
           </div>
         </div>
         <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-          {NAV.map((item, i) => {
+          {filteredNav.map((item, i) => {
             if ("group" in item) {
               return <div key={i} className="px-3 pt-4 pb-1 text-[10px] font-semibold text-white/25 uppercase tracking-widest">{item.group}</div>;
             }
@@ -76,9 +95,9 @@ export default function AdminShell({ onLogout }: Props) {
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <header className="h-16 shrink-0 bg-white border-b border-[#E2E8F0] flex items-center px-4 md:px-5 gap-3">
           <button aria-label="Toggle admin navigation" aria-expanded={open} aria-controls="admin-navigation" onClick={() => setOpen(v => !v)} className="md:hidden shrink-0 w-9 h-9 rounded-xl border border-[#E2E8F0] bg-[#F1F4F9] flex items-center justify-center text-[#475569]"><Menu size={18}/></button>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-100 border border-violet-200 text-violet-700 text-xs font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
-            Admin Mode
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${roleMeta.bg} ${roleMeta.border} ${roleMeta.text} text-xs font-semibold`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${roleMeta.dot}`} />
+            {roleMeta.label}
           </div>
           <div className="ml-auto min-w-0 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">{(admin?.name || "A")[0]}</div>

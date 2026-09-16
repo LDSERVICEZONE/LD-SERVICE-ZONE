@@ -237,6 +237,11 @@ export async function handleKycRoutes(context) {
   if (/^\/api\/admin\/kyc\/[^/]+$/.test(pathName) && req.method === "PATCH") {
     const auth = requireAuth(req, res, db, "admin")
     if (!auth) return true
+    if (auth.user.adminRole === "support_staff") {
+      return respond(403, {
+        error: "Support staff are not authorized to verify or update KYC status.",
+      })
+    }
     const userId = pathName.split("/").pop()
     const user = db.users.find(
       (candidate) => candidate.id === userId && candidate.role === "retailer",
