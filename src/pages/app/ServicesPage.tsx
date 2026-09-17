@@ -88,6 +88,7 @@ export default function ServicesPage() {
   const [utiDob, setUtiDob] = useState("");
   const [nsdlStatusOpen, setNsdlStatusOpen] = useState(false);
   const [nsdlAckNo, setNsdlAckNo] = useState("");
+  const [nsdlModalOpen, setNsdlModalOpen] = useState(false);
 
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([])).finally(() => setCatalogLoading(false));
@@ -454,6 +455,10 @@ export default function ServicesPage() {
                           setNsdlStatusOpen(true);
                           return;
                         }
+                        if (item.id === "PAN-NSDL") {
+                          setNsdlModalOpen(true);
+                          return;
+                        }
                         setShowPanServices(false);
                         openApplication({ ...item, category: "PAN" });
                       }}
@@ -763,6 +768,67 @@ export default function ServicesPage() {
             >
               <span>Track Live on Official NSDL TIN Portal ↗</span>
             </a>
+          </div>
+        </div>
+      )}
+
+      {/* NSDL (Protean) PAN Portal Modal */}
+      {nsdlModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setNsdlModalOpen(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">📑</div>
+                <div>
+                  <h3 className="font-bold text-base text-[#0F172A]">NSDL (Protean) eKYC PAN Portal</h3>
+                  <p className="text-[11px] text-slate-400">Fast Paperless Biometric & OTP PAN Application</p>
+                </div>
+              </div>
+              <button onClick={() => setNsdlModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 text-white space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300">Protean Official Portal</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 font-bold text-emerald-300">Fast 2-Hour e-PAN</span>
+                </div>
+                <h4 className="text-sm font-extrabold">Instant Paperless Biometric PAN Application</h4>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Retailers submit applications directly on the official Protean / NSDL portal using customer Aadhaar biometric thumbprint or mobile OTP. No physical paper sending required!
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-2">
+                <p className="font-bold text-slate-900">How to process on NSDL portal:</p>
+                <ol className="list-decimal pl-4 space-y-1 text-[11px] text-slate-600">
+                  <li>Launch the official Protean / NSDL Online Services portal.</li>
+                  <li>Select Application Type: <strong>New PAN - Indian Citizen (Form 49A)</strong>.</li>
+                  <li>Select <strong>Paperless e-KYC & e-Sign</strong> (Scan thumbprint on biometric device).</li>
+                  <li>e-PAN is generated and emailed within 2 hours; physical card is mailed to customer address.</li>
+                </ol>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <a
+                  href="https://onlineservices.nsdl.com/paam/endUserRegisterContact.html"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 text-center"
+                >
+                  <span>Launch Official NSDL Portal ↗</span>
+                </a>
+                <button
+                  onClick={() => {
+                    setNsdlModalOpen(false);
+                    setNsdlStatusOpen(true);
+                  }}
+                  className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+                >
+                  Track Application Status →
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
