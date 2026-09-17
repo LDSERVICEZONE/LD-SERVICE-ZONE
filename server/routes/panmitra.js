@@ -57,6 +57,7 @@ export async function handlePanMitraRoutes(context) {
         vleId,
         vleStatus,
         kycStatus: user.kycStatus || "pending",
+        vleRequested: Boolean(user.vleRequested),
         user: {
           id: user.id,
           name: user.name,
@@ -64,6 +65,36 @@ export async function handlePanMitraRoutes(context) {
           email: user.email,
           businessName: user.businessName,
         },
+      })
+    }
+
+    // POST /api/panmitra/request-vle
+    if (pathName === "/api/panmitra/request-vle" && req.method === "POST") {
+      if (user.panmitraVleId) {
+        return respond(200, {
+          status: "active",
+          hasVle: true,
+          vleId: user.panmitraVleId,
+          message: `You already have an authorized UTI PSA ID (${user.panmitraVleId}).`,
+        })
+      }
+      user.vleRequested = true
+      user.vleRequestedAt = now()
+      user.updatedAt = now()
+      if (saveDb) await saveDb(db)
+
+      if (audit) {
+        audit(db, user.id, "panmitra_vle_requested", "user", user.id, {
+          email: user.email,
+          name: user.name,
+        })
+      }
+
+      return respond(200, {
+        status: "success",
+        vleRequested: true,
+        message:
+          "Your request for an official UTI PSA ID via LD Service Zone has been submitted! Admin will activate your VLE ID shortly.",
       })
     }
 

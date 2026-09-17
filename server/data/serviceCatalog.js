@@ -37,9 +37,12 @@ export const SERVICE_SEED = [
   { id: "PAN-NEW", category: "PAN", name: "New PAN", processingTime: "7-15 days", customerPrice: 107, commission: 32, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171" },
   { id: "PAN-CORRECTION", category: "PAN", name: "PAN Correction", processingTime: "7-15 days", customerPrice: 107, commission: 28, documents: ["PAN Card", "Aadhaar", "Supporting Proof"], color: "#F59E0B" },
   { id: "PAN-REPRINT", category: "PAN", name: "PAN Reprint", processingTime: "7-15 days", customerPrice: 50, commission: 20, documents: ["PAN Number", "Aadhaar"], color: "#06B6D4" },
+  { id: "PAN-UTI", category: "PAN", name: "UTI PAN", processingTime: "Instant / 3-5 days", customerPrice: 107, commission: 10, documents: ["Aadhaar", "Biometric / OTP"], color: "#7C3AED" },
   { id: "PAN-FIND", category: "PAN", name: "PAN Find", processingTime: "Instant", customerPrice: 20, commission: 10, documents: ["Aadhaar"], color: "#4F46E5" },
+  { id: "PAN-NSDL", category: "PAN", name: "NSDL PAN", processingTime: "Instant / 2 hours", customerPrice: 107, commission: 10, documents: ["Aadhaar", "Biometric / OTP"], color: "#1D56D8" },
+  { id: "PAN-UTI-STATUS", category: "PAN", name: "UTI PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: ["Application / Coupon No"], color: "#10B981" },
+  { id: "PAN-NSDL-STATUS", category: "PAN", name: "NSDL PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: ["15-Digit Ack No"], color: "#06B6D4" },
+  { id: "PAN-UTI-COUPON", category: "PAN", name: "UTI Coupon Add", processingTime: "Instant", customerPrice: 107, commission: 5, documents: ["UTI VLE ID"], color: "#F59E0B" },
   { id: "PAN-STATUS", category: "PAN", name: "PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: ["Acknowledgement Number"], color: "#10B981" },
-  { id: "PAN-UTI", category: "PAN", name: "UTI Services", processingTime: "7-15 days", customerPrice: 120, commission: 40, documents: ["Aadhaar", "PAN"], color: "#7C3AED" },
-  { id: "PAN-NSDL", category: "PAN", name: "NSDL Services", processingTime: "7-15 days", customerPrice: 120, commission: 35, documents: ["Aadhaar", "PAN"], color: "#1D56D8" },
 ];
 

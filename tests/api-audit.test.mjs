@@ -318,6 +318,17 @@ test("retailer can fetch PanMitra VLE profile but cannot buy coupons without VLE
     body: { quantity: 1, type: "1" },
   });
   assert.equal(buyRes.status, 400);
+
+  const reqRes = await request("/panmitra/request-vle", {
+    token: retailerToken,
+    method: "POST",
+  });
+  assert.equal(reqRes.status, 200);
+  assert.equal(reqRes.data.status, "success");
+  assert.equal(reqRes.data.vleRequested, true);
+
+  const updatedProf = await request("/panmitra/vle-profile", { token: retailerToken });
+  assert.equal(updatedProf.data.vleRequested, true);
 });
 
 

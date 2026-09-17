@@ -801,6 +801,7 @@ export default function AdminServices() {
                     <option value="">-- Choose Retailer --</option>
                     {unassignedRetailers.map((u) => (
                       <option key={u.id} value={u.id}>
+                        {u.vleRequested ? "🔥 [REQUESTED UTI ID] " : ""}
                         {u.name} ({u.mobile}) · {u.businessName || "Shop"}
                       </option>
                     ))}

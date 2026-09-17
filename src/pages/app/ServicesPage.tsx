@@ -5,13 +5,12 @@ import { useWallet } from "@/features/session/AppContext";
 const BASE_CATEGORIES = ["All", "Government", "PAN", "Tax", "Certificate", "Recharge", "Bills", "Other"];
 
 const PAN_SERVICES = [
-  { id: "PAN-NEW", name: "New PAN", icon: "🆕", commission: 32, processingTime: "7-15 days", customerPrice: 107, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171" },
-  { id: "PAN-CORRECTION", name: "PAN Correction", icon: "✏️", commission: 28, processingTime: "7-15 days", customerPrice: 107, documents: ["PAN Card", "Aadhaar", "Supporting Proof"], color: "#F59E0B" },
-  { id: "PAN-REPRINT", name: "PAN Reprint", icon: "🖨️", commission: 20, processingTime: "7-15 days", customerPrice: 50, documents: ["PAN Number", "Aadhaar"], color: "#06B6D4" },
-  { id: "PAN-FIND", name: "PAN Find", icon: "🔍", commission: 10, processingTime: "Instant", customerPrice: 20, documents: ["Aadhaar"], color: "#4F46E5" },
-  { id: "PAN-STATUS", name: "PAN Status", icon: "📋", commission: 0, processingTime: "Instant", customerPrice: 0, documents: ["Acknowledgement Number"], color: "#10B981" },
-  { id: "PAN-UTI", name: "UTI Services", icon: "🏢", commission: 40, processingTime: "7-15 days", customerPrice: 120, documents: ["Aadhaar", "PAN"], color: "#7C3AED" },
-  { id: "PAN-NSDL", name: "NSDL Services", icon: "📑", commission: 35, processingTime: "7-15 days", customerPrice: 120, documents: ["Aadhaar", "PAN"], color: "#1D56D8" },
+  { id: "PAN-UTI", name: "UTI PAN", icon: "🏢", commission: 10, processingTime: "Instant / 3-5 days", customerPrice: 107, documents: ["Aadhaar", "Biometric / OTP"], color: "#7C3AED", description: "Official UTI PSA Paperless PAN (ID issued via LD Service Zone)" },
+  { id: "PAN-FIND", name: "PAN Find", icon: "🔍", commission: 10, processingTime: "Instant", customerPrice: 20, documents: ["Aadhaar Number", "Mobile Number"], color: "#4F46E5", description: "Find lost PAN number by Aadhaar card" },
+  { id: "PAN-NSDL", name: "NSDL PAN", icon: "📑", commission: 10, processingTime: "Instant / 2 hours", customerPrice: 107, documents: ["Aadhaar", "Biometric / OTP"], color: "#1D56D8", description: "Instant paperless eKYC PAN card application" },
+  { id: "PAN-UTI-STATUS", name: "UTI PAN Status", icon: "⏱️", commission: 0, processingTime: "Instant", customerPrice: 0, documents: ["Application / Coupon No"], color: "#10B981", description: "Track UTIITSL PAN application status online" },
+  { id: "PAN-NSDL-STATUS", name: "NSDL PAN Status", icon: "🔎", commission: 0, processingTime: "Instant", customerPrice: 0, documents: ["15-Digit Ack No"], color: "#06B6D4", description: "Track NSDL TIN application status online" },
+  { id: "PAN-UTI-COUPON", name: "UTI Coupon Add", icon: "🎟️", commission: 5, processingTime: "Instant", customerPrice: 107, documents: ["UTI VLE ID"], color: "#F59E0B", description: "Add Physical & Electronic coupons to your UTI ID" },
 ];
 
 const SERVICE_SUBSERVICES: Record<string, any[]> = {
@@ -80,6 +79,15 @@ export default function ServicesPage() {
   const [buyType, setBuyType] = useState("1"); // 1: Physical, 2: Electronic
   const [buyingCoupon, setBuyingCoupon] = useState(false);
   const [couponFeedback, setCouponFeedback] = useState("");
+  // Client 6-item PAN workflow states
+  const [utiModalOpen, setUtiModalOpen] = useState(false);
+  const [requestingVle, setRequestingVle] = useState(false);
+  const [requestVleMsg, setRequestVleMsg] = useState("");
+  const [utiStatusOpen, setUtiStatusOpen] = useState(false);
+  const [utiAppNo, setUtiAppNo] = useState("");
+  const [utiDob, setUtiDob] = useState("");
+  const [nsdlStatusOpen, setNsdlStatusOpen] = useState(false);
+  const [nsdlAckNo, setNsdlAckNo] = useState("");
 
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([])).finally(() => setCatalogLoading(false));
@@ -111,8 +119,10 @@ export default function ServicesPage() {
     const names = ["Full Name", "Date of Birth", "Mobile Number", "Email Address", "Father's Name"];
     if (selectedService.id?.startsWith("PAN-")) {
       if (selectedService.id === "PAN-FIND") return ["Aadhaar Number", "Mobile Number"];
-      if (selectedService.id === "PAN-STATUS") return ["Acknowledgement Number", "Mobile Number"];
+      if (selectedService.id === "PAN-STATUS" || selectedService.id === "PAN-UTI-STATUS") return ["Application / Coupon No", "Date of Birth"];
+      if (selectedService.id === "PAN-NSDL-STATUS") return ["15-Digit Acknowledgement No"];
       if (selectedService.id === "PAN-REPRINT") return ["Full Name", "PAN Number", "Aadhaar Number", "Mobile Number"];
+      if (selectedService.id === "PAN-NSDL") return ["Full Name", "Date of Birth", "Mobile Number", "Email Address", "Aadhaar Number"];
       return ["Full Name", "Date of Birth", "Mobile Number", "Email Address", "Father's Name", "Aadhaar Number"];
     }
     if (selectedService.id?.startsWith("VOTER-")) return [...names, "Aadhaar Number", "Address"];
@@ -203,6 +213,20 @@ export default function ServicesPage() {
       setCouponFeedback(err.message || "Failed to purchase coupons");
     } finally {
       setBuyingCoupon(false);
+    }
+  };
+
+  const handleRequestVle = async () => {
+    setRequestingVle(true);
+    setRequestVleMsg("");
+    try {
+      const res = await api<any>("/panmitra/request-vle", { method: "POST" });
+      setRequestVleMsg(res.message || "Request submitted successfully to LD Service Zone!");
+      api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
+    } catch (e: any) {
+      setRequestVleMsg(e.message || "Failed to submit request.");
+    } finally {
+      setRequestingVle(false);
     }
   };
 
@@ -346,12 +370,13 @@ export default function ServicesPage() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Authorized PanMitra Agency</span>
-                        <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-white/10 font-bold text-violet-200">
-                          VLE ID: {vleProfile.vleId}
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Official UTI PSA Agency</span>
+                        <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
+                          ID: {vleProfile.vleId}
                         </span>
+                        <span className="text-[10px] text-violet-300 bg-white/10 px-2 py-0.5 rounded-full">via LD Service Zone</span>
                       </div>
-                      <h4 className="font-display text-lg font-extrabold">UTIITSL & NSDL Partner Account Active</h4>
+                      <h4 className="font-display text-lg font-extrabold">UTIITSL Paperless Agent Portal Active</h4>
                       <p className="text-xs text-slate-300">
                         Available Coupons: <span className="font-bold text-emerald-400 font-mono text-sm">{vleProfile.vleStatus?.couponsAvailable ?? "Active"}</span>
                       </p>
@@ -362,7 +387,7 @@ export default function ServicesPage() {
                         onClick={() => setBuyCouponOpen(true)}
                         className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition shadow-md shadow-violet-500/30 flex items-center gap-1.5"
                       >
-                        <span>🎟️</span> Buy PAN Coupons
+                        <span>🎟️</span> Buy / Add Coupons
                       </button>
                       <a
                         href="https://www.psaonline.utiitsl.com/psaonline/"
@@ -376,34 +401,94 @@ export default function ServicesPage() {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-3xl bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 border border-blue-100 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="rounded-3xl bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 border border-blue-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">🏛️</div>
+                    <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center text-2xl">🏢</div>
                     <div>
-                      <p className="font-bold text-xs text-[#0F172A]">Direct Biometric & e-KYC PAN Agency Access</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-violet-700 bg-violet-100 px-2 py-0.5 rounded-md">Direct Agent ID</span>
+                        <span className="text-[11px] font-semibold text-slate-500">Issued by LD Service Zone</span>
+                      </div>
+                      <p className="font-bold text-sm text-[#0F172A] mt-0.5">Official UTI PSA Partner ID</p>
                       <p className="text-[11px] text-[#64748B]">
-                        Get your official PanMitra VLE account to process instant thumbprint & OTP PAN cards directly.
+                        Get your official UTI PSA VLE credentials through LD Service Zone to process paperless PAN cards directly.
                       </p>
+                      {requestVleMsg && (
+                        <p className="text-xs font-semibold text-emerald-700 mt-1">{requestVleMsg}</p>
+                      )}
                     </div>
                   </div>
-                  <span className="text-[11px] font-semibold text-violet-700 bg-white px-3 py-1.5 rounded-xl border border-violet-200">
-                    Contact Admin for 1-Click VLE Activation
-                  </span>
+                  <button
+                    onClick={handleRequestVle}
+                    disabled={requestingVle || vleProfile?.vleRequested}
+                    className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:bg-emerald-600 text-white text-xs font-bold transition shadow-md shadow-violet-500/20 whitespace-nowrap"
+                  >
+                    {requestingVle ? "Submitting..." : vleProfile?.vleRequested ? "✓ ID Requested (Pending Admin Approval)" : "Request UTI ID Activation →"}
+                  </button>
                 </div>
               )}
 
-              {/* Grid of PAN Services */}
+              {/* Grid of the 6 Client-Specified PAN Services */}
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {PAN_SERVICES.filter(p => services.some(s => s.id === p.id)).map(p => ({ ...p, ...services.find(s => s.id === p.id) })).map(p => (
-                  <button key={p.id} type="button" onClick={() => { setShowPanServices(false); openApplication({ ...p, category: "PAN" }); }}
-                    className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-violet-300 hover:shadow-xl hover:-translate-y-1 transition-all">
-                    <div className="flex items-start justify-between"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: p.color + "20" }}>{p.icon}</div><span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700">PAN SERVICE</span></div>
-                    <h4 className="font-bold text-[#0F172A] mt-4">{p.name}</h4><p className="text-xs text-[#64748B] mt-1">⏱ {p.processingTime}</p>
-                    <div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl bg-[#F8FAFC] p-3"><p className="text-[9px] text-[#94A3B8]">Customer Price</p><p className="font-bold text-sm">{p.customerPrice === 0 ? "Free" : `₹${p.customerPrice}`}</p></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-[9px] text-emerald-600">Your Commission</p><p className="font-bold text-sm text-emerald-700">{p.commission === 0 ? "Free" : `₹${p.commission}`}</p></div></div>
-                    <div className="flex flex-wrap gap-1.5 mt-4">{p.documents.map((d: string) => <span key={d} className="text-[9px] px-2 py-1 rounded-full bg-[#F1F4F9] text-[#475569]">{d}</span>)}</div>
-                    <div className="mt-4 text-sm font-bold text-[#4F46E5] group-hover:translate-x-1 transition-transform">Open {p.name} →</div>
-                  </button>
-                ))}
+                {PAN_SERVICES.map(p => {
+                  const matched = services.find(s => s.id === p.id);
+                  const item = matched ? { ...p, ...matched } : p;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        if (item.id === "PAN-UTI") {
+                          setUtiModalOpen(true);
+                          return;
+                        }
+                        if (item.id === "PAN-UTI-COUPON") {
+                          setBuyCouponOpen(true);
+                          return;
+                        }
+                        if (item.id === "PAN-UTI-STATUS") {
+                          setUtiStatusOpen(true);
+                          return;
+                        }
+                        if (item.id === "PAN-NSDL-STATUS") {
+                          setNsdlStatusOpen(true);
+                          return;
+                        }
+                        setShowPanServices(false);
+                        openApplication({ ...item, category: "PAN" });
+                      }}
+                      className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-violet-300 hover:shadow-xl hover:-translate-y-1 transition-all"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: item.color + "20" }}>
+                          {item.icon}
+                        </div>
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700">PAN SERVICE</span>
+                      </div>
+                      <h4 className="font-bold text-[#0F172A] mt-4">{item.name}</h4>
+                      <p className="text-xs text-[#64748B] mt-1">⏱ {item.processingTime}</p>
+                      <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">{item.description}</p>
+                      <div className="grid grid-cols-2 gap-2 mt-4">
+                        <div className="rounded-xl bg-[#F8FAFC] p-3">
+                          <p className="text-[9px] text-[#94A3B8]">Customer Price</p>
+                          <p className="font-bold text-sm">{item.customerPrice === 0 ? "Free" : `₹${item.customerPrice}`}</p>
+                        </div>
+                        <div className="rounded-xl bg-emerald-50 p-3">
+                          <p className="text-[9px] text-emerald-600">Your Commission</p>
+                          <p className="font-bold text-sm text-emerald-700">{item.commission === 0 ? "Free" : `₹${item.commission}`}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-4">
+                        {item.documents?.map((d: string) => (
+                          <span key={d} className="text-[9px] px-2 py-1 rounded-full bg-[#F1F4F9] text-[#475569]">{d}</span>
+                        ))}
+                      </div>
+                      <div className="mt-4 text-sm font-bold text-[#4F46E5] group-hover:translate-x-1 transition-transform">
+                        Open {item.name} →
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -468,6 +553,216 @@ export default function ServicesPage() {
             >
               {buyingCoupon ? "Processing Allocation..." : Number(wallet?.balance || 0) < (buyQty * (buyType === "2" ? 72 : 107)) ? "Insufficient Wallet Balance" : "Confirm & Pay from Wallet"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* UTI PAN Hub Modal */}
+      {utiModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setUtiModalOpen(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center text-xl">🏢</div>
+                <div>
+                  <h3 className="font-bold text-base text-[#0F172A]">UTI PSA Paperless PAN Hub</h3>
+                  <p className="text-[11px] text-slate-400">Official Government Channel via LD Service Zone</p>
+                </div>
+              </div>
+              <button onClick={() => setUtiModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+            </div>
+
+            {vleProfile?.hasVle ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-900 to-indigo-950 text-white space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">Official Agent Active</span>
+                    <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-white/10 font-bold text-violet-200">
+                      ID: {vleProfile.vleId}
+                    </span>
+                  </div>
+                  <p className="text-sm font-extrabold">UTIITSL PSA Authorized VLE</p>
+                  <p className="text-xs text-slate-300">
+                    Available Coupons: <span className="font-mono font-bold text-emerald-300">{vleProfile.vleStatus?.couponsAvailable ?? "Active"}</span>
+                  </p>
+                  <p className="text-[10px] text-violet-300">Credential issued & backed by LD Service Zone</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      setUtiModalOpen(false);
+                      setBuyCouponOpen(true);
+                    }}
+                    className="p-3.5 rounded-2xl bg-violet-50 hover:bg-violet-100 border border-violet-200 text-left space-y-1 transition"
+                  >
+                    <span className="text-lg">🎟️</span>
+                    <p className="font-bold text-xs text-violet-900">Buy UTI Coupons</p>
+                    <p className="text-[10px] text-violet-700">Add coupons to your UTI ID</p>
+                  </button>
+
+                  <a
+                    href="https://www.psaonline.utiitsl.com/psaonline/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-3.5 rounded-2xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-left space-y-1 transition"
+                  >
+                    <span className="text-lg">↗</span>
+                    <p className="font-bold text-xs text-indigo-900">Launch UTI Portal</p>
+                    <p className="text-[10px] text-indigo-700">Login to PSAonline</p>
+                  </a>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
+                  <p className="font-bold text-slate-800">Need a password reset for your UTI PSA portal?</p>
+                  <p className="text-[11px]">Contact your LD Service Zone distributor support or ask admin to reset your credentials instantly.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 border border-violet-200 space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 bg-white px-2 py-0.5 rounded-md border border-violet-200">
+                    ID Via LD Service Zone
+                  </span>
+                  <h4 className="font-bold text-sm text-[#0F172A]">Get Your Official UTI PSA ID Through Us</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    LD Service Zone is an authorized distributor providing direct government UTIITSL VLE Agent IDs.
+                    With your ID, you can issue paperless biometric thumbprint & Aadhaar OTP PAN cards in minutes!
+                  </p>
+                </div>
+
+                {requestVleMsg && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                    {requestVleMsg}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleRequestVle}
+                  disabled={requestingVle || vleProfile?.vleRequested}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:from-emerald-600 disabled:to-emerald-700 text-white font-bold text-xs transition shadow-lg shadow-violet-500/20"
+                >
+                  {requestingVle
+                    ? "Submitting to LD Service Zone..."
+                    : vleProfile?.vleRequested
+                    ? "✓ UTI ID Requested — Admin is Activating"
+                    : "Request Official UTI PSA ID Now →"}
+                </button>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Need to apply for a customer right now?</span>
+                  <button
+                    onClick={() => {
+                      setUtiModalOpen(false);
+                      setShowPanServices(false);
+                      const s = services.find(x => x.id === "PAN-NEW") || { id: "PAN-NEW", name: "New PAN Card", customerPrice: 107, commission: 32, documents: ["Aadhaar", "DOB Proof", "Photograph"] };
+                      openApplication({ ...s, category: "PAN" });
+                    }}
+                    className="text-xs font-bold text-violet-700 hover:underline"
+                  >
+                    Use Assisted Form 49A →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* UTI PAN Status Modal */}
+      {utiStatusOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setUtiStatusOpen(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">⏱️</span>
+                <div>
+                  <h3 className="font-bold text-base text-[#0F172A]">UTI PAN Application Status</h3>
+                  <p className="text-[11px] text-slate-400">Track UTIITSL Application / Coupon</p>
+                </div>
+              </div>
+              <button onClick={() => setUtiStatusOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <label className="block">
+                <span className="font-semibold text-slate-700 mb-1 block">Application / Coupon Number *</span>
+                <input
+                  type="text"
+                  value={utiAppNo}
+                  onChange={e => setUtiAppNo(e.target.value)}
+                  placeholder="e.g. U-A123456789 or Coupon No"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-violet-500 font-mono uppercase"
+                />
+              </label>
+
+              <label className="block">
+                <span className="font-semibold text-slate-700 mb-1 block">Applicant Date of Birth (Optional)</span>
+                <input
+                  type="date"
+                  value={utiDob}
+                  onChange={e => setUtiDob(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-violet-500"
+                />
+              </label>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-violet-50 border border-violet-100 text-[11px] text-violet-800">
+              ℹ️ Opens the official Government UTIITSL Live PAN Tracking portal in real-time.
+            </div>
+
+            <a
+              href="https://www.trackpan.utiitsl.com/PANONLINE/trackApp"
+              target="_blank"
+              rel="noreferrer"
+              className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-violet-500/20 flex items-center justify-center gap-2 text-center"
+            >
+              <span>Track Live on Official UTI Portal ↗</span>
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* NSDL PAN Status Modal */}
+      {nsdlStatusOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setNsdlStatusOpen(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">🔎</span>
+                <div>
+                  <h3 className="font-bold text-base text-[#0F172A]">NSDL PAN Application Status</h3>
+                  <p className="text-[11px] text-slate-400">Track NSDL TIN 15-Digit Acknowledgement</p>
+                </div>
+              </div>
+              <button onClick={() => setNsdlStatusOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <label className="block">
+                <span className="font-semibold text-slate-700 mb-1 block">15-Digit Acknowledgement Number *</span>
+                <input
+                  type="text"
+                  value={nsdlAckNo}
+                  onChange={e => setNsdlAckNo(e.target.value.replace(/\D/g, "").slice(0, 15))}
+                  placeholder="e.g. 881010101010101"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-blue-500 font-mono text-sm"
+                />
+              </label>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-blue-50 border border-blue-100 text-[11px] text-blue-800">
+              ℹ️ Opens the official Protean / NSDL TIN e-Gov Tracking system.
+            </div>
+
+            <a
+              href="https://tin.tin.nsdl.com/pantan/StatusTrack.html"
+              target="_blank"
+              rel="noreferrer"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 text-center"
+            >
+              <span>Track Live on Official NSDL TIN Portal ↗</span>
+            </a>
           </div>
         </div>
       )}
