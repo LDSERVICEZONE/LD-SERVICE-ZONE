@@ -204,12 +204,12 @@ function seedAdmin(db) {
       (u.role === "admin" && (!u.adminRole || u.adminRole === "super_admin")),
   )
   if (adminUser) {
-    adminUser.id = "USR-C1D58AF9D2"
-    adminUser.username = "admin"
+    if (!adminUser.id) adminUser.id = "USR-C1D58AF9D2"
+    if (!adminUser.username) adminUser.username = "admin"
     adminUser.role = "admin"
-    adminUser.adminRole = "super_admin"
-    adminUser.email = envEmail || "admin@ldservicezone.in"
-    adminUser.passwordHash = hashPassword(envPassword || "Bilson@123")
+    adminUser.adminRole = adminUser.adminRole || "super_admin"
+    adminUser.email = envEmail || adminUser.email || "admin@ldservicezone.in"
+    if (envPassword) adminUser.passwordHash = hashPassword(envPassword)
   } else {
     db.users.push({
       id: "USR-C1D58AF9D2",
@@ -237,13 +237,13 @@ function seedAdmin(db) {
       u.username === "verifier",
   )
   if (existingVerifier) {
-    existingVerifier.id = "USR-AE3C7873E1"
-    existingVerifier.name = "Verification Agent"
-    existingVerifier.username = "verifier"
-    existingVerifier.email = "verifier@ldservicezone.in"
+    if (!existingVerifier.id) existingVerifier.id = "USR-AE3C7873E1"
+    if (!existingVerifier.username) existingVerifier.username = "verifier"
+    existingVerifier.name = existingVerifier.name || "Verification Agent"
+    existingVerifier.email = existingVerifier.email || "verifier@ldservicezone.in"
     existingVerifier.role = "admin"
-    existingVerifier.adminRole = "verification_agent"
-    existingVerifier.passwordHash = hashPassword("Verifier@123")
+    existingVerifier.adminRole = existingVerifier.adminRole || "verification_agent"
+    if (!existingVerifier.passwordHash) existingVerifier.passwordHash = hashPassword("Verifier@123")
   } else {
     db.users.push({
       id: "USR-AE3C7873E1",
@@ -270,13 +270,13 @@ function seedAdmin(db) {
       u.username === "support",
   )
   if (existingSupport) {
-    existingSupport.id = "USR-AB88442A5C"
-    existingSupport.name = "Support Staff"
-    existingSupport.username = "support"
-    existingSupport.email = "support@ldservicezone.in"
+    if (!existingSupport.id) existingSupport.id = "USR-AB88442A5C"
+    if (!existingSupport.username) existingSupport.username = "support"
+    existingSupport.name = existingSupport.name || "Support Staff"
+    existingSupport.email = existingSupport.email || "support@ldservicezone.in"
     existingSupport.role = "admin"
-    existingSupport.adminRole = "support_staff"
-    existingSupport.passwordHash = hashPassword("Support@123")
+    existingSupport.adminRole = existingSupport.adminRole || "support_staff"
+    if (!existingSupport.passwordHash) existingSupport.passwordHash = hashPassword("Support@123")
   } else {
     db.users.push({
       id: "USR-AB88442A5C",
@@ -709,7 +709,11 @@ export async function handleRequest(req, res) {
       url,
       db,
       send,
+      saveDb,
+      audit,
       requireAuth,
+      ensureWallet,
+      decrypt,
       provider: panmitra,
     })
     if (panmitraHandled) return

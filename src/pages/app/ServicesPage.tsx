@@ -73,7 +73,18 @@ export default function ServicesPage() {
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const { wallet, refreshWallet, updateBalance } = useWallet();
 
-  useEffect(() => { api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([])).finally(() => setCatalogLoading(false)); }, []);
+  // PanMitra VLE agency state
+  const [vleProfile, setVleProfile] = useState<any>(null);
+  const [buyCouponOpen, setBuyCouponOpen] = useState(false);
+  const [buyQty, setBuyQty] = useState(5);
+  const [buyType, setBuyType] = useState("1"); // 1: Physical, 2: Electronic
+  const [buyingCoupon, setBuyingCoupon] = useState(false);
+  const [couponFeedback, setCouponFeedback] = useState("");
+
+  useEffect(() => {
+    api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([])).finally(() => setCatalogLoading(false));
+    api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
+  }, []);
 
   const categories = useMemo(() => Array.from(new Set([...BASE_CATEGORIES, ...services.map(s => s.category).filter(Boolean)])), [services]);
 
@@ -170,6 +181,29 @@ export default function ServicesPage() {
       setForm({}); setFiles({}); setSelectedFiles({});
     } catch (e: any) { setSubmitMessage(e.message || "Unable to submit application"); }
     finally { setSubmitting(false); }
+  };
+
+  const handleBuyCoupons = async () => {
+    setBuyingCoupon(true);
+    setCouponFeedback("");
+    try {
+      const res = await api<any>("/panmitra/buy-coupons", {
+        method: "POST",
+        body: JSON.stringify({ quantity: buyQty, type: buyType }),
+      });
+      if (res.walletBalance !== undefined) {
+        updateBalance(res.walletBalance);
+      } else {
+        await refreshWallet();
+      }
+      setCouponFeedback(res.message || "Coupons allocated successfully!");
+      setBuyCouponOpen(false);
+      api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
+    } catch (err: any) {
+      setCouponFeedback(err.message || "Failed to purchase coupons");
+    } finally {
+      setBuyingCoupon(false);
+    }
   };
 
   return (
@@ -293,21 +327,147 @@ export default function ServicesPage() {
         <div className="fixed inset-0 bg-[#07111F]/65 backdrop-blur-sm z-40 flex items-center justify-center p-3 sm:p-6" onClick={() => setShowPanServices(false)}>
           <div className="bg-[#F8FAFC] w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-[#E2E8F0] p-5 sm:p-6 flex items-center justify-between">
-              <div><div className="inline-flex px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-bold uppercase">PAN</div><h3 className="font-display font-extrabold text-[#0F172A] text-xl mt-2">PAN Card Services</h3><p className="text-xs text-[#64748B] mt-1">Choose New PAN, Correction, Reprint, Find, Status, UTI or NSDL.</p></div>
+              <div><div className="inline-flex px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-bold uppercase">PAN AGENCY</div><h3 className="font-display font-extrabold text-[#0F172A] text-xl mt-2">PAN Card & Government Agency Hub</h3><p className="text-xs text-[#64748B] mt-1">Apply for consumer PAN cards, or issue UTIITSL / NSDL coupons directly.</p></div>
               <button onClick={() => setShowPanServices(false)} className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] text-xl">×</button>
             </div>
-            <div className="p-5 sm:p-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {PAN_SERVICES.filter(p => services.some(s => s.id === p.id)).map(p => ({ ...p, ...services.find(s => s.id === p.id) })).map(p => (
-                <button key={p.id} type="button" onClick={() => { setShowPanServices(false); openApplication({ ...p, category: "PAN" }); }}
-                  className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-violet-300 hover:shadow-xl hover:-translate-y-1 transition-all">
-                  <div className="flex items-start justify-between"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: p.color + "20" }}>{p.icon}</div><span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700">PAN SERVICE</span></div>
-                  <h4 className="font-bold text-[#0F172A] mt-4">{p.name}</h4><p className="text-xs text-[#64748B] mt-1">⏱ {p.processingTime}</p>
-                  <div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl bg-[#F8FAFC] p-3"><p className="text-[9px] text-[#94A3B8]">Customer Price</p><p className="font-bold text-sm">{p.customerPrice === 0 ? "Free" : `₹${p.customerPrice}`}</p></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-[9px] text-emerald-600">Your Commission</p><p className="font-bold text-sm text-emerald-700">{p.commission === 0 ? "Free" : `₹${p.commission}`}</p></div></div>
-                  <div className="flex flex-wrap gap-1.5 mt-4">{p.documents.map((d: string) => <span key={d} className="text-[9px] px-2 py-1 rounded-full bg-[#F1F4F9] text-[#475569]">{d}</span>)}</div>
-                  <div className="mt-4 text-sm font-bold text-[#4F46E5] group-hover:translate-x-1 transition-transform">Open {p.name} →</div>
-                </button>
-              ))}
+
+            <div className="p-5 sm:p-6 space-y-5">
+              {couponFeedback && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex justify-between items-center">
+                  <span>{couponFeedback}</span>
+                  <button onClick={() => setCouponFeedback("")} className="text-emerald-700 font-bold text-sm">×</button>
+                </div>
+              )}
+
+              {/* VLE Agency Banner */}
+              {vleProfile?.hasVle ? (
+                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-900 via-indigo-950 to-slate-900 p-5 text-white shadow-lg border border-violet-800/40">
+                  <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Authorized PanMitra Agency</span>
+                        <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-white/10 font-bold text-violet-200">
+                          VLE ID: {vleProfile.vleId}
+                        </span>
+                      </div>
+                      <h4 className="font-display text-lg font-extrabold">UTIITSL & NSDL Partner Account Active</h4>
+                      <p className="text-xs text-slate-300">
+                        Available Coupons: <span className="font-bold text-emerald-400 font-mono text-sm">{vleProfile.vleStatus?.couponsAvailable ?? "Active"}</span>
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <button
+                        onClick={() => setBuyCouponOpen(true)}
+                        className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition shadow-md shadow-violet-500/30 flex items-center gap-1.5"
+                      >
+                        <span>🎟️</span> Buy PAN Coupons
+                      </button>
+                      <a
+                        href="https://www.psaonline.utiitsl.com/psaonline/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition flex items-center gap-1.5"
+                      >
+                        <span>↗</span> Launch UTI PSA Portal
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-3xl bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 border border-blue-100 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">🏛️</div>
+                    <div>
+                      <p className="font-bold text-xs text-[#0F172A]">Direct Biometric & e-KYC PAN Agency Access</p>
+                      <p className="text-[11px] text-[#64748B]">
+                        Get your official PanMitra VLE account to process instant thumbprint & OTP PAN cards directly.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold text-violet-700 bg-white px-3 py-1.5 rounded-xl border border-violet-200">
+                    Contact Admin for 1-Click VLE Activation
+                  </span>
+                </div>
+              )}
+
+              {/* Grid of PAN Services */}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {PAN_SERVICES.filter(p => services.some(s => s.id === p.id)).map(p => ({ ...p, ...services.find(s => s.id === p.id) })).map(p => (
+                  <button key={p.id} type="button" onClick={() => { setShowPanServices(false); openApplication({ ...p, category: "PAN" }); }}
+                    className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-violet-300 hover:shadow-xl hover:-translate-y-1 transition-all">
+                    <div className="flex items-start justify-between"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: p.color + "20" }}>{p.icon}</div><span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700">PAN SERVICE</span></div>
+                    <h4 className="font-bold text-[#0F172A] mt-4">{p.name}</h4><p className="text-xs text-[#64748B] mt-1">⏱ {p.processingTime}</p>
+                    <div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl bg-[#F8FAFC] p-3"><p className="text-[9px] text-[#94A3B8]">Customer Price</p><p className="font-bold text-sm">{p.customerPrice === 0 ? "Free" : `₹${p.customerPrice}`}</p></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-[9px] text-emerald-600">Your Commission</p><p className="font-bold text-sm text-emerald-700">{p.commission === 0 ? "Free" : `₹${p.commission}`}</p></div></div>
+                    <div className="flex flex-wrap gap-1.5 mt-4">{p.documents.map((d: string) => <span key={d} className="text-[9px] px-2 py-1 rounded-full bg-[#F1F4F9] text-[#475569]">{d}</span>)}</div>
+                    <div className="mt-4 text-sm font-bold text-[#4F46E5] group-hover:translate-x-1 transition-transform">Open {p.name} →</div>
+                  </button>
+                ))}
+              </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Buy Coupons Modal */}
+      {buyCouponOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-base text-[#0F172A]">Buy UTI/NSDL PAN Coupons</h3>
+                <p className="text-[11px] text-slate-400">Deducted directly from your LD Wallet balance</p>
+              </div>
+              <button onClick={() => setBuyCouponOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <label className="block">
+                <span className="font-semibold text-slate-700 mb-1 block">Coupon Type</span>
+                <select
+                  value={buyType}
+                  onChange={(e) => setBuyType(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none focus:border-violet-500 bg-white"
+                >
+                  <option value="1">Physical PAN Card Coupon (₹107)</option>
+                  <option value="2">Electronic e-PAN Coupon (₹72)</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="font-semibold text-slate-700 mb-1 block">Quantity</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={buyQty}
+                  onChange={(e) => setBuyQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none focus:border-violet-500"
+                />
+              </label>
+
+              <div className="rounded-2xl bg-violet-50 border border-violet-100 p-3 space-y-1">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-violet-700 font-medium">Total Cost:</span>
+                  <span className="font-mono font-bold text-violet-900 text-sm">
+                    ₹{(buyQty * (buyType === "2" ? 72 : 107)).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-[11px] text-violet-600 pt-1 border-t border-violet-200/50">
+                  <span>Available Wallet Balance:</span>
+                  <span className="font-mono font-bold">₹{Number(wallet?.balance || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleBuyCoupons}
+              disabled={buyingCoupon || (Number(wallet?.balance || 0) < (buyQty * (buyType === "2" ? 72 : 107)))}
+              className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-violet-500/20 disabled:opacity-50"
+            >
+              {buyingCoupon ? "Processing Allocation..." : Number(wallet?.balance || 0) < (buyQty * (buyType === "2" ? 72 : 107)) ? "Insufficient Wallet Balance" : "Confirm & Pay from Wallet"}
+            </button>
           </div>
         </div>
       )}

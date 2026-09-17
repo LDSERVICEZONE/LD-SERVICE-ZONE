@@ -295,3 +295,29 @@ test("retailers cannot create staff accounts or authorize roles", async () => {
   assert.equal((await request("/admin/users/other/role", { token: retailerToken, method: "PATCH", body: { role: "admin" } })).status, 403);
 });
 
+test("admin can query PanMitra balance and VLE endpoints", async () => {
+  const balRes = await request("/admin/panmitra/balance", { token: "admin" });
+  assert.equal(balRes.status, 200);
+  assert.ok(balRes.data.balance !== undefined);
+
+  const vleListRes = await request("/admin/panmitra/vles", { token: "admin" });
+  assert.equal(vleListRes.status, 200);
+  assert.ok(Array.isArray(vleListRes.data.vles));
+});
+
+test("retailer can fetch PanMitra VLE profile but cannot buy coupons without VLE", async () => {
+  const loginRes = await request("/auth/login", { body: { credential: "other@example.test", password } });
+  const retailerToken = loginRes.data.token;
+  const profRes = await request("/panmitra/vle-profile", { token: retailerToken });
+  assert.equal(profRes.status, 200);
+  assert.equal(profRes.data.hasVle, false);
+
+  const buyRes = await request("/panmitra/buy-coupons", {
+    token: retailerToken,
+    method: "POST",
+    body: { quantity: 1, type: "1" },
+  });
+  assert.equal(buyRes.status, 400);
+});
+
+
