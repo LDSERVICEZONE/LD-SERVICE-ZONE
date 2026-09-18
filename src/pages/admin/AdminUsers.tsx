@@ -20,6 +20,8 @@ import {
   Check,
   Sparkles,
   ExternalLink,
+  KeyRound,
+  RefreshCw,
 } from "lucide-react";
 
 export default function AdminUsers() {
@@ -75,6 +77,14 @@ export default function AdminUsers() {
 
   // Status toggle state
   const [statusBusyId, setStatusBusyId] = useState<string | null>(null);
+
+  // Reset Password modal state
+  const [resetUser, setResetUser] = useState<any | null>(null);
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetResult, setResetResult] = useState<any | null>(null);
+  const [resetCopied, setResetCopied] = useState(false);
 
   // Role authorization modal state
   const [roleUser, setRoleUser] = useState<any | null>(null);
@@ -343,6 +353,44 @@ Please sign in to change your password and start transacting!`;
     setTimeout(() => setCopiedNotice(false), 3000);
   };
 
+  const openResetPasswordModal = (user: any) => {
+    setResetUser(user);
+    const randomDigits = Math.floor(100000 + Math.random() * 900000);
+    setResetNewPassword(`Ld@${randomDigits}`);
+    setResetError("");
+    setResetResult(null);
+    setResetCopied(false);
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetUser) return;
+    setResetBusy(true);
+    setResetError("");
+    try {
+      const res = await api<any>(`/admin/users/${resetUser.id}/password`, {
+        method: "POST",
+        body: JSON.stringify({ password: resetNewPassword }),
+      });
+      setResetResult({
+        ...res.credentials,
+        name: resetUser.name,
+      });
+    } catch (err: any) {
+      setResetError(err?.message || "Failed to reset password");
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
+  const copyResetCredentials = () => {
+    if (!resetResult) return;
+    const msg = `🔐 *LD SERVICE ZONE - Password Reset*\n\nHello ${resetResult.name || resetResult.username},\nYour login credentials have been updated by administrator.\n\n🌐 Portal: ${window.location.origin}/login\n📧 Login: ${resetResult.email || resetResult.username}\n🔑 New Password: ${resetResult.password}\n\nPlease login and change your password if needed.`;
+    navigator.clipboard.writeText(msg);
+    setResetCopied(true);
+    setTimeout(() => setResetCopied(false), 2500);
+  };
+
   return (
     <div className="p-6 space-y-5 max-w-[1350px]">
       {loadError && <p role="alert" className="text-red-600">{loadError}</p>}
@@ -507,6 +555,16 @@ Please sign in to change your password and start transacting!`;
                               Activate
                             </>
                           )}
+                        </button>
+                      )}
+                      {isSuperAdmin && (
+                        <button
+                          onClick={() => openResetPasswordModal(u)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-semibold transition-colors"
+                          title="Reset user password"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          Password
                         </button>
                       )}
                       {isSuperAdmin && u.id !== currentUser?.id && (
@@ -1375,6 +1433,169 @@ Please sign in to change your password and start transacting!`;
                 {deleteBusy ? "Removing..." : "Yes, Delete Account"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* RESET USER PASSWORD MODAL                                */}
+      {/* ======================================================== */}
+      {resetUser && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => !resetBusy && setResetUser(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-purple-700">
+                <span className="p-2 rounded-xl bg-purple-100">
+                  <KeyRound className="w-5 h-5 text-purple-700" />
+                </span>
+                <div>
+                  <h3 className="font-display font-bold text-lg text-slate-900">
+                    {resetResult ? "Password Reset Successful" : "Reset Password"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {resetUser.name} ({resetUser.email || resetUser.mobile || "User"})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !resetBusy && setResetUser(null)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {resetError && (
+              <div role="alert" className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{resetError}</span>
+              </div>
+            )}
+
+            {resetResult ? (
+              <div className="space-y-4 py-1">
+                <div className="rounded-2xl bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent border border-emerald-500/20 p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-emerald-700 font-semibold text-xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>New password set! Existing sessions revoked.</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+                    <div className="rounded-xl bg-white/80 p-2 border border-slate-200/60 col-span-2">
+                      <span className="text-slate-400 font-medium block text-[11px]">User Account</span>
+                      <span className="font-semibold text-slate-900">{resetResult.name || resetResult.username}</span>
+                    </div>
+                    <div className="rounded-xl bg-white/80 p-2 border border-slate-200/60">
+                      <span className="text-slate-400 font-medium block text-[11px]">Login Email / ID</span>
+                      <span className="font-mono font-semibold text-blue-700 break-all">{resetResult.email || resetResult.username}</span>
+                    </div>
+                    <div className="rounded-xl bg-white/80 p-2 border border-slate-200/60">
+                      <span className="text-slate-400 font-medium block text-[11px]">New Password</span>
+                      <span className="font-mono font-bold text-purple-700 text-sm">{resetResult.password}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={copyResetCredentials}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition"
+                  >
+                    {resetCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {resetCopied ? "Copied to Clipboard!" : "Copy Details"}
+                  </button>
+                  {resetResult.mobile && (
+                    <a
+                      href={`https://wa.me/91${resetResult.mobile.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(
+                        `🔐 *LD SERVICE ZONE - Password Reset*\n\nHello ${resetResult.name || resetResult.username},\nYour login password has been reset by administrator.\n\n🌐 Portal: ${window.location.origin}/login\n📧 Login: ${resetResult.email || resetResult.username}\n🔑 New Password: ${resetResult.password}\n\nPlease login and change your password if desired.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold transition"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Send WhatsApp
+                    </a>
+                  )}
+                </div>
+
+                <div className="text-right pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setResetUser(null)}
+                    className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-100 text-xs text-purple-900 space-y-1">
+                  <p className="font-medium">
+                    Resetting password for: <b className="text-purple-950">{resetUser.name}</b>
+                  </p>
+                  <p className="text-purple-700/80 text-[11px]">
+                    Role: <span className="font-semibold uppercase">{resetUser.role}</span> | Mobile: {resetUser.mobile || "N/A"}
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      New Password <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setResetNewPassword(`Ld@${Math.floor(100000 + Math.random() * 900000)}`)}
+                      className="text-[11px] text-purple-600 hover:text-purple-800 font-medium inline-flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Generate New
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    minLength={6}
+                    value={resetNewPassword}
+                    onChange={(e) => setResetNewPassword(e.target.value)}
+                    placeholder="Enter new password (min 6 chars)"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-mono focus:border-purple-500 focus:outline-hidden"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    ℹ️ Existing login sessions for this account will be automatically terminated.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setResetUser(null)}
+                    disabled={resetBusy}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetBusy || !resetNewPassword}
+                    className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 shadow-sm transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+                  >
+                    <KeyRound className="w-4 h-4" />
+                    {resetBusy ? "Updating Password..." : "Update Password"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

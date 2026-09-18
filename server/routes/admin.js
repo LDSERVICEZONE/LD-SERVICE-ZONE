@@ -620,6 +620,52 @@ export async function handleAdminRoutes(context) {
     })
   }
 
+  // POST /api/admin/users/:userId/password (Admin Reset Retailer Password)
+  if (/^\/api\/admin\/users\/[^/]+\/password$/.test(pathName) && req.method === "POST") {
+    if (!isSuperAdmin) {
+      return respond(403, { error: "Only Super Admin is authorized to reset passwords." })
+    }
+    const parts = pathName.split("/")
+    const targetUserId = parts[parts.length - 2]
+    const targetUser = db.users.find((u) => u.id === targetUserId)
+    if (!targetUser) return respond(404, { error: "User not found." })
+
+    const input = await parseJson(req)
+    const newPassword = String(input?.password || "").trim() || `Retailer@${Math.floor(1000 + Math.random() * 9000)}`
+    if (newPassword.length < 6) {
+      return respond(400, { error: "Password must be at least 6 characters." })
+    }
+
+    targetUser.passwordHash = hashPassword(newPassword)
+    targetUser.updatedAt = now()
+
+    // Revoke any existing active sessions so they must sign in with the new password
+    if (Array.isArray(db.sessions)) {
+      db.sessions = db.sessions.filter((s) => s.userId !== targetUserId)
+    }
+
+    if (audit) {
+      audit(db, auth.user, "ADMIN_RESET_PASSWORD", "user", targetUserId, {
+        email: targetUser.email,
+        mobile: targetUser.mobile,
+      })
+    }
+    if (saveDb) await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      message: "Password updated successfully.",
+      credentials: {
+        userId: targetUser.id,
+        username: targetUser.username || targetUser.email,
+        name: targetUser.name,
+        email: targetUser.email,
+        mobile: targetUser.mobile,
+        password: newPassword,
+      },
+    })
+  }
+
   if (pathName === "/api/admin/audit" && req.method === "GET") {
     return respond(200, { logs: db.auditLogs.slice(0, 300) })
   }

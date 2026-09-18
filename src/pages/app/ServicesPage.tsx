@@ -99,6 +99,8 @@ export default function ServicesPage() {
 
   const filtered = useMemo(() => services.filter(s =>
     s.category !== "PAN" &&
+    s.status !== "disabled" &&
+    s.active !== false &&
     (activeCategory === "All" || s.category === activeCategory) &&
     s.name.toLowerCase().includes(search.toLowerCase())
   ), [services, activeCategory, search]);

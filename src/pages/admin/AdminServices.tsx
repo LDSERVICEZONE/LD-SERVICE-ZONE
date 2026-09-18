@@ -425,7 +425,7 @@ export default function AdminServices() {
                           : "bg-emerald-100 text-emerald-700 border border-emerald-200"
                       }`}
                     >
-                      {s.status === "disabled" ? "Disabled" : "Active"}
+                      {s.status === "disabled" ? "Hidden / Disabled" : "Visible / Active"}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -436,7 +436,7 @@ export default function AdminServices() {
                           ? "bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
                           : "bg-emerald-50 text-emerald-600 hover:bg-rose-50 hover:text-rose-600"
                       }`}
-                      title={s.status === "disabled" ? "Click to Activate" : "Click to Disable"}
+                      title={s.status === "disabled" ? "Click to Show to Retailers (Activate)" : "Click to Hide from Retailers (Disable)"}
                     >
                       {s.status === "disabled" ? <PowerOff size={15} /> : <Power size={15} />}
                     </button>

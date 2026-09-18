@@ -482,4 +482,35 @@ test("admin can delete a service from catalog", async () => {
   assert.equal(catalogRes.data.services.some((s) => s.id === "SVC-TEST-REMOVE"), false);
 });
 
+test("admin can reset user password directly", async () => {
+  // Retailer cannot reset another user's password
+  const loginRes = await request("/auth/login", { body: { credential: "other@example.test", password } });
+  const retailerToken = loginRes.data.token;
+  const forbiddenRes = await request("/admin/users/other/password", {
+    token: retailerToken,
+    method: "POST",
+    body: { password: "NewPassword123!" },
+  });
+  assert.equal(forbiddenRes.status, 403);
+
+  // Admin can reset password
+  const resetRes = await request("/admin/users/other/password", {
+    token: "admin",
+    method: "POST",
+    body: { password: "BrandNewSecret99!" },
+  });
+  assert.equal(resetRes.status, 200);
+  assert.equal(resetRes.data.ok, true);
+  assert.equal(resetRes.data.credentials.password, "BrandNewSecret99!");
+  assert.equal(resetRes.data.credentials.userId, "other");
+
+  // Invalid password (< 6 chars) rejected
+  const shortPassRes = await request("/admin/users/other/password", {
+    token: "admin",
+    method: "POST",
+    body: { password: "123" },
+  });
+  assert.equal(shortPassRes.status, 400);
+});
+
 
