@@ -8,7 +8,7 @@ import {
 } from "../lib/security.js"
 
 export async function handleAdminRoutes(context) {
-  const { req, res, pathName, db, send, saveDb, audit, requireAuth, ensureWallet, provider } = context
+  const { req, res, pathName, db, send, saveDb, audit, requireAuth, ensureWallet, provider, config } = context
 
   const respond = (status, payload) => {
     send(res, status, payload)
@@ -428,6 +428,8 @@ export async function handleAdminRoutes(context) {
       role: "retailer",
       status: "active",
       kycStatus: "verified",
+      emailVerifiedAt: now(),
+      mobileVerifiedAt: now(),
       passwordHash: hashPassword(plainPassword),
       createdAt: now(),
       updatedAt: now(),
@@ -542,8 +544,26 @@ export async function handleAdminRoutes(context) {
     }
 
     db.users = db.users.filter((u) => u.id !== targetUserId)
+    if (db.wallets && db.wallets[targetUserId]) {
+      delete db.wallets[targetUserId]
+    }
     if (Array.isArray(db.sessions)) {
       db.sessions = db.sessions.filter((s) => s.userId !== targetUserId)
+    }
+
+    if (config?.supabaseUrl && config?.supabaseServiceRoleKey) {
+      try {
+        await fetch(`${config.supabaseUrl}/rest/v1/User?id=eq.${encodeURIComponent(targetUserId)}`, {
+          method: "DELETE",
+          headers: {
+            apikey: config.supabaseServiceRoleKey,
+            Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
+            Prefer: "return=minimal",
+          },
+        })
+      } catch (delErr) {
+        console.warn("Could not delete relational user from Supabase:", delErr?.message)
+      }
     }
 
     if (audit) {

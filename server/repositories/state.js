@@ -107,21 +107,44 @@ export function createStateRepository(config) {
       const categoryRows = await relationalCategories.json()
       const serviceRows = await relationalServices.json()
       if (userRows.length) {
-        state.users = userRows.map((user) => ({
-          id: user.id,
-          email: user.email,
-          mobile: user.mobile,
-          passwordHash: user.passwordHash,
-          name: user.name,
-          businessName: user.businessName,
-          role: String(user.role || "RETAILER").toLowerCase(),
-          status: user.active === false ? "suspended" : "active",
-          emailVerifiedAt: user.emailVerifiedAt,
-          mobileVerifiedAt: user.mobileVerifiedAt,
-          supabaseUserId: user.supabaseUserId,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        }))
+        const relationalMap = new Map(userRows.map((user) => [user.id, user]))
+        if (Array.isArray(state.users) && state.users.length > 0) {
+          state.users = state.users.map((existing) => {
+            const rel = relationalMap.get(existing.id)
+            if (!rel) return existing
+            return {
+              ...existing,
+              email: rel.email || existing.email,
+              mobile: rel.mobile || existing.mobile,
+              passwordHash: rel.passwordHash || existing.passwordHash,
+              name: rel.name || existing.name,
+              businessName: rel.businessName || existing.businessName,
+              role: String(rel.role || existing.role || "RETAILER").toLowerCase(),
+              status: rel.active === false ? "suspended" : (existing.status || "active"),
+              emailVerifiedAt: rel.emailVerifiedAt || existing.emailVerifiedAt,
+              mobileVerifiedAt: rel.mobileVerifiedAt || existing.mobileVerifiedAt,
+              supabaseUserId: rel.supabaseUserId || existing.supabaseUserId,
+              createdAt: rel.createdAt || existing.createdAt,
+              updatedAt: rel.updatedAt || existing.updatedAt,
+            }
+          })
+        } else {
+          state.users = userRows.map((user) => ({
+            id: user.id,
+            email: user.email,
+            mobile: user.mobile,
+            passwordHash: user.passwordHash,
+            name: user.name,
+            businessName: user.businessName,
+            role: String(user.role || "RETAILER").toLowerCase(),
+            status: user.active === false ? "suspended" : "active",
+            emailVerifiedAt: user.emailVerifiedAt,
+            mobileVerifiedAt: user.mobileVerifiedAt,
+            supabaseUserId: user.supabaseUserId,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+          }))
+        }
         const kycByUser = new Map(kycRows.map((kyc) => [kyc.userId, kyc]))
         const docsByKyc = new Map()
         for (const document of kycDocumentRows) {
@@ -147,21 +170,41 @@ export function createStateRepository(config) {
       }))
       if (serviceRows.length) {
         const categoryNames = new Map(categoryRows.map((category) => [category.id, category.name]))
-        state.services = serviceRows.map((service) => ({
-          id: service.id,
-          category: categoryNames.get(service.categoryId) || "General",
-          name: service.name,
-          slug: service.slug,
-          description: service.description || "",
-          customerPrice: Number(service.customerPrice || 0),
-          commission: Number(service.retailerCommission || 0),
-          processingDays: service.processingDays,
-          active: service.active !== false,
-          formSchema: service.formSchema || null,
-          documents: service.requiredDocuments || [],
-          createdAt: service.createdAt,
-          updatedAt: service.updatedAt,
-        }))
+        const relationalMap = new Map(serviceRows.map((s) => [s.id, s]))
+        if (Array.isArray(state.services) && state.services.length > 0) {
+          state.services = state.services.map((existing) => {
+            const rel = relationalMap.get(existing.id)
+            if (!rel) return existing
+            return {
+              ...existing,
+              category: categoryNames.get(rel.categoryId) || existing.category || "General",
+              name: rel.name || existing.name,
+              slug: rel.slug || existing.slug,
+              description: rel.description !== undefined && rel.description !== null ? rel.description : existing.description,
+              customerPrice: Number(rel.customerPrice !== undefined ? rel.customerPrice : existing.customerPrice || 0),
+              commission: Number(rel.retailerCommission !== undefined ? rel.retailerCommission : existing.commission || 0),
+              processingDays: rel.processingDays !== undefined ? rel.processingDays : existing.processingDays,
+              active: rel.active !== undefined ? (rel.active !== false) : (existing.active !== false),
+              documents: rel.requiredDocuments || existing.documents || [],
+            }
+          })
+        } else {
+          state.services = serviceRows.map((service) => ({
+            id: service.id,
+            category: categoryNames.get(service.categoryId) || "General",
+            name: service.name,
+            slug: service.slug,
+            description: service.description || "",
+            customerPrice: Number(service.customerPrice || 0),
+            commission: Number(service.retailerCommission || 0),
+            processingDays: service.processingDays,
+            active: service.active !== false,
+            formSchema: service.formSchema || null,
+            documents: service.requiredDocuments || [],
+            createdAt: service.createdAt,
+            updatedAt: service.updatedAt,
+          }))
+        }
       }
       const relationalApplications = await fetch(
         `${supabaseUrl}/rest/v1/Application?select=*`,
@@ -304,258 +347,322 @@ export function createStateRepository(config) {
     if (dataStore === "supabase") {
       const snapshot = structuredClone(state)
       persistQueue = persistQueue
+        .catch((error) => {
+          console.warn("Supabase persistence queue recovered from error:", error?.message || error)
+        })
         .then(async () => {
           const authHeaders = {
             apikey: supabaseServiceRoleKey,
             Authorization: `Bearer ${supabaseServiceRoleKey}`,
             "Content-Type": "application/json",
           }
-          const users = (snapshot.users || []).map((user) => ({
-            id: user.id,
-            email: user.email || null,
-            mobile: user.mobile || null,
-            passwordHash: user.passwordHash || null,
-            name: user.name || "Unknown user",
-            businessName: user.businessName || null,
-            role: String(user.role || "retailer").toUpperCase(),
-            active: user.status !== "suspended",
-            emailVerifiedAt: user.emailVerifiedAt || null,
-            mobileVerifiedAt: user.mobileVerifiedAt || null,
-            supabaseUserId: user.supabaseUserId || null,
-            createdAt: user.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }))
-          if (users.length) {
-            try {
-              const userResponse = await fetch(
-                `${supabaseUrl}/rest/v1/User?on_conflict=id`,
-                {
-                  method: "POST",
-                  headers: {
-                    ...authHeaders,
-                    Prefer: "resolution=merge-duplicates,return=minimal",
-                  },
-                  body: JSON.stringify(users),
+
+          // 1. Primary snapshot persistence: write to platform_state first so no application data is ever lost.
+          try {
+            const response = await fetch(
+              `${supabaseUrl}/rest/v1/${supabaseStateTable}?on_conflict=id`,
+              {
+                method: "POST",
+                headers: {
+                  ...authHeaders,
+                  Prefer: "resolution=merge-duplicates,return=minimal",
                 },
-              )
-              if (!userResponse.ok) {
-                console.warn(
-                  `Supabase User sync notice (${userResponse.status})`,
-                )
-              }
-            } catch (userSyncErr) {
-              console.warn(
-                "Supabase User sync exception:",
-                userSyncErr?.message,
-              )
+                body: JSON.stringify({
+                  id: "singleton",
+                  state: snapshot,
+                  updated_at: new Date().toISOString(),
+                }),
+              },
+            )
+            if (!response.ok) {
+              const errText = await response.text().catch(() => "")
+              console.error(`Supabase platform_state database write failed (${response.status}): ${errText}`)
             }
+          } catch (stateErr) {
+            console.error("Supabase platform_state write exception:", stateErr?.message || stateErr)
           }
-          const kycProfiles = (snapshot.users || []).filter((user) => user.kyc).map((user) => ({
-            id: `kyc_${user.id}`, userId: user.id,
-            status: user.kycStatus === "verified" ? "APPROVED" : String(user.kycStatus || "pending").toUpperCase(),
-            encryptedData: JSON.stringify({ ...user.kyc, documents: undefined }),
-            rejectionReason: user.kyc.adminNote || null, reviewedAt: user.kyc.reviewedAt || null,
-            createdAt: user.kyc.submittedAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
-          }))
-          if (kycProfiles.length) {
-            const kycResponse = await fetch(`${supabaseUrl}/rest/v1/KycProfile?on_conflict=userId`, {
-              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(kycProfiles),
-            })
-            if (!kycResponse.ok) throw new Error(`Supabase KycProfile sync failed (${kycResponse.status})`)
+
+          // 2. Relational tables synchronization (graceful and isolated)
+          try {
+            const users = (snapshot.users || []).map((user) => ({
+              id: user.id,
+              email: user.email || null,
+              mobile: user.mobile || null,
+              passwordHash: user.passwordHash || null,
+              name: user.name || "Unknown user",
+              businessName: user.businessName || null,
+              role: String(user.role || "retailer").toUpperCase(),
+              active: user.status !== "suspended",
+              emailVerifiedAt: user.emailVerifiedAt || null,
+              mobileVerifiedAt: user.mobileVerifiedAt || null,
+              supabaseUserId: user.supabaseUserId || null,
+              createdAt: user.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }))
+
+            for (const user of users) {
+              try {
+                const userResponse = await fetch(
+                  `${supabaseUrl}/rest/v1/User?on_conflict=id`,
+                  {
+                    method: "POST",
+                    headers: {
+                      ...authHeaders,
+                      Prefer: "resolution=merge-duplicates,return=minimal",
+                    },
+                    body: JSON.stringify(user),
+                  },
+                )
+                if (!userResponse.ok) {
+                  const errText = await userResponse.text().catch(() => "")
+                  console.warn(`Supabase User sync notice (${userResponse.status}) for ${user.id}: ${errText}`)
+                }
+              } catch (userSyncErr) {
+                console.warn(`Supabase User sync exception for ${user.id}:`, userSyncErr?.message)
+              }
+            }
+          } catch (usersErr) {
+            console.warn("Supabase Users sync batch error:", usersErr?.message)
           }
-          const kycDocuments = []
-          for (const user of snapshot.users || []) for (const [type, document] of Object.entries(user.kyc?.documents || {})) {
-            if (!document.storageName) continue
-            kycDocuments.push({ id: `kycdoc_${user.id}_${type}`, kycId: `kyc_${user.id}`, type, storageKey: document.storageName, originalName: document.fileName || type, mimeType: document.mimeType || "application/octet-stream", sizeBytes: Number(document.size || 0), createdAt: document.uploadedAt || new Date().toISOString() })
-          }
-          if (kycDocuments.length) {
-            const kycDocResponse = await fetch(`${supabaseUrl}/rest/v1/KycDocument?on_conflict=id`, {
-              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(kycDocuments),
-            })
-            if (!kycDocResponse.ok) throw new Error(`Supabase KycDocument sync failed (${kycDocResponse.status})`)
-          }
-          await fetch(`${supabaseUrl}/rest/v1/Session?id=not.is.null`, {
-            method: "DELETE", headers: { ...authHeaders, Prefer: "return=minimal" },
-          })
-          const sessions = (snapshot.sessions || []).map((session) => ({
-            id: session.id,
-            userId: session.userId,
-            tokenHash: session.tokenHash,
-            expiresAt: session.expiresAt,
-            revokedAt: session.revokedAt || null,
-            createdAt: session.createdAt || new Date().toISOString(),
-          }))
-          if (sessions.length) {
-            const sessionResponse = await fetch(`${supabaseUrl}/rest/v1/Session?on_conflict=id`, {
-              method: "POST",
-              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
-              body: JSON.stringify(sessions),
-            })
-            if (!sessionResponse.ok) throw new Error(`Supabase Session sync failed (${sessionResponse.status})`)
-          }
-          const categoryIds = new Map()
-          for (const service of snapshot.services || []) {
-            const name = service.category || "General"
-            if (!categoryIds.has(name)) categoryIds.set(name, `cat_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`)
-          }
-          const categoryRows = [...categoryIds].map(([name, id]) => ({ id, name, active: true }))
-          if (categoryRows.length) {
-            const categoryResponse = await fetch(`${supabaseUrl}/rest/v1/ServiceCategory?on_conflict=id`, {
-              method: "POST",
-              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
-              body: JSON.stringify(categoryRows),
-            })
-            if (!categoryResponse.ok) throw new Error(`Supabase ServiceCategory sync failed (${categoryResponse.status})`)
-          }
-          const services = (snapshot.services || []).map((service) => ({
-            id: service.id,
-            categoryId: categoryIds.get(service.category || "General"),
-            name: service.name,
-            slug: service.slug || service.id,
-            description: service.description || null,
-            customerPrice: Number(service.customerPrice || 0),
-            retailerCommission: Number(service.commission || service.retailerCommission || 0),
-            processingDays: Number.parseInt(String(service.processingDays || "0"), 10) || null,
-            active: service.active !== false,
-            formSchema: service.formSchema || null,
-            requiredDocuments: service.documents || service.requiredDocuments || [],
-            createdAt: service.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }))
-          if (services.length) {
-            const serviceResponse = await fetch(`${supabaseUrl}/rest/v1/Service?on_conflict=id`, {
-              method: "POST",
-              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
-              body: JSON.stringify(services),
-            })
-            if (!serviceResponse.ok) throw new Error(`Supabase Service sync failed (${serviceResponse.status})`)
-          }
-          const applications = (snapshot.applications || []).map((application) => ({
-            id: application.applicationId || application.id,
-            userId: application.userId,
-            serviceId: application.serviceId,
-            status: String(application.status || "submitted").toUpperCase(),
-            amount: Number(application.customerPrice || application.amount || 0),
-            customerData: application.applicant || application.customerData || {},
-            rejectionReason: application.adminNote || application.rejectionReason || null,
-            createdAt: application.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }))
-          if (applications.length) {
-            const applicationResponse = await fetch(`${supabaseUrl}/rest/v1/Application?on_conflict=id`, {
-              method: "POST",
-              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
-              body: JSON.stringify(applications),
-            })
-            if (!applicationResponse.ok) throw new Error(`Supabase Application sync failed (${applicationResponse.status})`)
-          }
-          const documents = []
-          for (const application of snapshot.applications || []) {
-            for (const document of application.documents || []) {
-              if (!document.storageName) continue
-              documents.push({
-                id: document.id || `${application.applicationId}_${document.name}`,
-                applicationId: application.applicationId || application.id,
-                documentType: document.name,
-                storageKey: document.storageName,
-                originalName: document.fileName || document.name,
-                mimeType: document.mimeType || "application/octet-stream",
-                sizeBytes: Number(document.size || 0),
-                createdAt: document.uploadedAt || new Date().toISOString(),
+
+          try {
+            const kycProfiles = (snapshot.users || []).filter((user) => user.kyc).map((user) => ({
+              id: `kyc_${user.id}`, userId: user.id,
+              status: user.kycStatus === "verified" ? "APPROVED" : String(user.kycStatus || "pending").toUpperCase(),
+              encryptedData: JSON.stringify({ ...user.kyc, documents: undefined }),
+              rejectionReason: user.kyc.adminNote || null, reviewedAt: user.kyc.reviewedAt || null,
+              createdAt: user.kyc.submittedAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+            }))
+            if (kycProfiles.length) {
+              await fetch(`${supabaseUrl}/rest/v1/KycProfile?on_conflict=userId`, {
+                method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(kycProfiles),
               })
             }
+          } catch (kycErr) {
+            console.warn("Supabase KycProfile sync notice:", kycErr?.message)
           }
-          if (documents.length) {
-            const documentResponse = await fetch(`${supabaseUrl}/rest/v1/ApplicationDocument?on_conflict=id`, {
-              method: "POST",
-              headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
-              body: JSON.stringify(documents),
+
+          try {
+            const kycDocuments = []
+            for (const user of snapshot.users || []) for (const [type, document] of Object.entries(user.kyc?.documents || {})) {
+              if (!document.storageName) continue
+              kycDocuments.push({ id: `kycdoc_${user.id}_${type}`, kycId: `kyc_${user.id}`, type, storageKey: document.storageName, originalName: document.fileName || type, mimeType: document.mimeType || "application/octet-stream", sizeBytes: Number(document.size || 0), createdAt: document.uploadedAt || new Date().toISOString() })
+            }
+            if (kycDocuments.length) {
+              await fetch(`${supabaseUrl}/rest/v1/KycDocument?on_conflict=id`, {
+                method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(kycDocuments),
+              })
+            }
+          } catch (docErr) {
+            console.warn("Supabase KycDocument sync notice:", docErr?.message)
+          }
+
+          try {
+            await fetch(`${supabaseUrl}/rest/v1/Session?id=not.is.null`, {
+              method: "DELETE", headers: { ...authHeaders, Prefer: "return=minimal" },
             })
-            if (!documentResponse.ok) throw new Error(`Supabase ApplicationDocument sync failed (${documentResponse.status})`)
+            const sessions = (snapshot.sessions || []).map((session) => ({
+              id: session.id,
+              userId: session.userId,
+              tokenHash: session.tokenHash,
+              expiresAt: session.expiresAt,
+              revokedAt: session.revokedAt || null,
+              createdAt: session.createdAt || new Date().toISOString(),
+            }))
+            if (sessions.length) {
+              await fetch(`${supabaseUrl}/rest/v1/Session?on_conflict=id`, {
+                method: "POST",
+                headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+                body: JSON.stringify(sessions),
+              })
+            }
+          } catch (sessionErr) {
+            console.warn("Supabase Session sync notice:", sessionErr?.message)
           }
-          const payments = (snapshot.payments || []).map((payment) => ({
-            id: payment.paymentId || payment.id, applicationId: payment.applicationId || null, userId: payment.userId,
-            provider: payment.provider || "razorpay", providerOrderId: payment.orderId || null,
-            providerPaymentId: payment.gatewayPaymentId || payment.providerPaymentId || null,
-            amount: Number(payment.amount || 0), status: String(payment.status || "created").toUpperCase(),
-            mode: payment.mode || "razorpay", gatewayPaymentId: payment.gatewayPaymentId || null,
-            paidAt: payment.paidAt || null, createdAt: payment.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
-          }))
-          if (payments.length) {
-            const paymentResponse = await fetch(`${supabaseUrl}/rest/v1/Payment?on_conflict=id`, {
-              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(payments),
-            })
-            if (!paymentResponse.ok) throw new Error(`Supabase Payment sync failed (${paymentResponse.status})`)
+
+          try {
+            const categoryIds = new Map()
+            for (const service of snapshot.services || []) {
+              const name = service.category || "General"
+              if (!categoryIds.has(name)) categoryIds.set(name, `cat_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`)
+            }
+            const categoryRows = [...categoryIds].map(([name, id]) => ({ id, name, active: true }))
+            if (categoryRows.length) {
+              await fetch(`${supabaseUrl}/rest/v1/ServiceCategory?on_conflict=id`, {
+                method: "POST",
+                headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+                body: JSON.stringify(categoryRows),
+              })
+            }
+          } catch (catErr) {
+            console.warn("Supabase ServiceCategory sync notice:", catErr?.message)
           }
-          const walletRows = Object.values(snapshot.wallets || {}).map((wallet) => ({
-            id: wallet.id || `wallet_${wallet.userId}`, userId: wallet.userId, balance: Number(wallet.balance || 0),
-            creditLimit: Number(wallet.creditLimit || 0), pendingSettlement: Number(wallet.pendingSettlement || 0),
-            createdAt: wallet.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
-          }))
-          if (walletRows.length) {
-            const walletResponse = await fetch(`${supabaseUrl}/rest/v1/Wallet?on_conflict=userId`, {
-              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(walletRows),
-            })
-            if (!walletResponse.ok) throw new Error(`Supabase Wallet sync failed (${walletResponse.status})`)
+
+          try {
+            const categoryIds = new Map()
+            for (const service of snapshot.services || []) {
+              const name = service.category || "General"
+              if (!categoryIds.has(name)) categoryIds.set(name, `cat_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`)
+            }
+            const services = (snapshot.services || []).map((service) => ({
+              id: service.id,
+              categoryId: categoryIds.get(service.category || "General"),
+              name: service.name,
+              slug: service.slug || service.id,
+              description: service.description || null,
+              customerPrice: Number(service.customerPrice || 0),
+              retailerCommission: Number(service.commission || service.retailerCommission || 0),
+              processingDays: Number.parseInt(String(service.processingDays || "0"), 10) || null,
+              active: service.active !== false,
+              formSchema: service.formSchema || null,
+              requiredDocuments: service.documents || service.requiredDocuments || [],
+              createdAt: service.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }))
+            if (services.length) {
+              await fetch(`${supabaseUrl}/rest/v1/Service?on_conflict=id`, {
+                method: "POST",
+                headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+                body: JSON.stringify(services),
+              })
+            }
+          } catch (serviceErr) {
+            console.warn("Supabase Service sync notice:", serviceErr?.message)
           }
-          const ledgerRows = (snapshot.walletLedger || []).map((entry) => ({
-            id: entry.id, userId: entry.userId, walletId: snapshot.wallets?.[entry.userId]?.id || `wallet_${entry.userId}`,
-            type: String(entry.type || "adjustment").toUpperCase(), amount: Number(entry.amount || 0),
-            reference: entry.reference || entry.id, description: entry.description || null, status: entry.status || "success",
-            balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt || new Date().toISOString(),
-          }))
-          if (ledgerRows.length) {
-            const ledgerResponse = await fetch(`${supabaseUrl}/rest/v1/WalletLedger?on_conflict=id`, {
-              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(ledgerRows),
-            })
-            if (!ledgerResponse.ok) throw new Error(`Supabase WalletLedger sync failed (${ledgerResponse.status})`)
+
+          try {
+            const applications = (snapshot.applications || []).map((application) => ({
+              id: application.applicationId || application.id,
+              userId: application.userId,
+              serviceId: application.serviceId,
+              status: String(application.status || "submitted").toUpperCase(),
+              amount: Number(application.customerPrice || application.amount || 0),
+              customerData: application.applicant || application.customerData || {},
+              rejectionReason: application.adminNote || application.rejectionReason || null,
+              createdAt: application.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }))
+            if (applications.length) {
+              await fetch(`${supabaseUrl}/rest/v1/Application?on_conflict=id`, {
+                method: "POST",
+                headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+                body: JSON.stringify(applications),
+              })
+            }
+          } catch (appErr) {
+            console.warn("Supabase Application sync notice:", appErr?.message)
           }
-          const rechargeRows = (snapshot.rechargeTransactions || []).map((transaction) => ({
-            id: transaction.id, clientId: transaction.clientId || null, externalRef: transaction.clientId || null,
-            providerTxnId: transaction.providerTxnId || null, userId: transaction.userId, provider: transaction.provider || "pay2all",
-            providerId: transaction.providerId || null, mobile: transaction.mobile, operator: transaction.operator,
-            circle: transaction.circle || null, type: transaction.type || "MOBILE", amount: Number(transaction.amount || 0),
-            status: String(transaction.status || "pending").toUpperCase(), commission: Number(transaction.commission || 0),
-            providerCommission: Number(transaction.providerCommission || 0), userCommission: Number(transaction.userCommission || 0),
-            adminCommission: Number(transaction.adminCommission || 0), commissionCredited: transaction.commissionCredited === true,
-            message: transaction.message || null, refunded: transaction.refunded === true,
-            createdAt: transaction.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
-          }))
-          if (rechargeRows.length) {
-            const rechargeResponse = await fetch(`${supabaseUrl}/rest/v1/RechargeTransaction?on_conflict=id`, {
-              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rechargeRows),
-            })
-            if (!rechargeResponse.ok) throw new Error(`Supabase RechargeTransaction sync failed (${rechargeResponse.status})`)
+
+          try {
+            const documents = []
+            for (const application of snapshot.applications || []) {
+              for (const document of application.documents || []) {
+                if (!document.storageName) continue
+                documents.push({
+                  id: document.id || `${application.applicationId}_${document.name}`,
+                  applicationId: application.applicationId || application.id,
+                  documentType: document.name,
+                  storageKey: document.storageName,
+                  originalName: document.fileName || document.name,
+                  mimeType: document.mimeType || "application/octet-stream",
+                  sizeBytes: Number(document.size || 0),
+                  createdAt: document.uploadedAt || new Date().toISOString(),
+                })
+              }
+            }
+            if (documents.length) {
+              await fetch(`${supabaseUrl}/rest/v1/ApplicationDocument?on_conflict=id`, {
+                method: "POST",
+                headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+                body: JSON.stringify(documents),
+              })
+            }
+          } catch (docSyncErr) {
+            console.warn("Supabase ApplicationDocument sync notice:", docSyncErr?.message)
           }
-          const rechargeHistory = (snapshot.rechargeStatusHistory || []).map((entry) => ({
-            id: entry.id, transactionId: entry.transactionId, status: String(entry.status || "pending").toUpperCase(),
-            payload: entry.payload || null, createdAt: entry.createdAt || new Date().toISOString(),
-          }))
-          if (rechargeHistory.length) {
-            const historyResponse = await fetch(`${supabaseUrl}/rest/v1/RechargeStatusHistory?on_conflict=id`, {
-              method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rechargeHistory),
-            })
-            if (!historyResponse.ok) throw new Error(`Supabase RechargeStatusHistory sync failed (${historyResponse.status})`)
+
+          try {
+            const payments = (snapshot.payments || []).map((payment) => ({
+              id: payment.paymentId || payment.id, applicationId: payment.applicationId || null, userId: payment.userId,
+              provider: payment.provider || "razorpay", providerOrderId: payment.orderId || null,
+              providerPaymentId: payment.gatewayPaymentId || payment.providerPaymentId || null,
+              amount: Number(payment.amount || 0), status: String(payment.status || "created").toUpperCase(),
+              mode: payment.mode || "razorpay", gatewayPaymentId: payment.gatewayPaymentId || null,
+              paidAt: payment.paidAt || null, createdAt: payment.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+            }))
+            if (payments.length) {
+              await fetch(`${supabaseUrl}/rest/v1/Payment?on_conflict=id`, {
+                method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(payments),
+              })
+            }
+          } catch (payErr) {
+            console.warn("Supabase Payment sync notice:", payErr?.message)
           }
-          const response = await fetch(
-            `${supabaseUrl}/rest/v1/${supabaseStateTable}?on_conflict=id`,
-            {
-              method: "POST",
-              headers: {
-                apikey: supabaseServiceRoleKey,
-                Authorization: `Bearer ${supabaseServiceRoleKey}`,
-                "Content-Type": "application/json",
-                Prefer: "resolution=merge-duplicates,return=minimal",
-              },
-              body: JSON.stringify({
-                id: "singleton",
-                state: snapshot,
-                updated_at: new Date().toISOString(),
-              }),
-            },
-          )
-          if (!response.ok) {
-            console.error(`Supabase database write failed (${response.status})`)
+
+          try {
+            const walletRows = Object.values(snapshot.wallets || {}).map((wallet) => ({
+              id: wallet.id || `wallet_${wallet.userId}`, userId: wallet.userId, balance: Number(wallet.balance || 0),
+              creditLimit: Number(wallet.creditLimit || 0), pendingSettlement: Number(wallet.pendingSettlement || 0),
+              createdAt: wallet.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+            }))
+            if (walletRows.length) {
+              await fetch(`${supabaseUrl}/rest/v1/Wallet?on_conflict=userId`, {
+                method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(walletRows),
+              })
+            }
+          } catch (wallErr) {
+            console.warn("Supabase Wallet sync notice:", wallErr?.message)
+          }
+
+          try {
+            const ledgerRows = (snapshot.walletLedger || []).map((entry) => ({
+              id: entry.id, userId: entry.userId, walletId: snapshot.wallets?.[entry.userId]?.id || `wallet_${entry.userId}`,
+              type: String(entry.type || "adjustment").toUpperCase(), amount: Number(entry.amount || 0),
+              reference: entry.reference || entry.id, description: entry.description || null, status: entry.status || "success",
+              balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt || new Date().toISOString(),
+            }))
+            if (ledgerRows.length) {
+              await fetch(`${supabaseUrl}/rest/v1/WalletLedger?on_conflict=id`, {
+                method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(ledgerRows),
+              })
+            }
+          } catch (ledgErr) {
+            console.warn("Supabase WalletLedger sync notice:", ledgErr?.message)
+          }
+
+          try {
+            const rechargeRows = (snapshot.rechargeTransactions || []).map((transaction) => ({
+              id: transaction.id, clientId: transaction.clientId || null, externalRef: transaction.clientId || null,
+              providerTxnId: transaction.providerTxnId || null, userId: transaction.userId, provider: transaction.provider || "pay2all",
+              providerId: transaction.providerId || null, mobile: transaction.mobile, operator: transaction.operator,
+              circle: transaction.circle || null, type: transaction.type || "MOBILE", amount: Number(transaction.amount || 0),
+              status: String(transaction.status || "pending").toUpperCase(), commission: Number(transaction.commission || 0),
+              providerCommission: Number(transaction.providerCommission || 0), userCommission: Number(transaction.userCommission || 0),
+              adminCommission: Number(transaction.adminCommission || 0), commissionCredited: transaction.commissionCredited === true,
+              message: transaction.message || null, refunded: transaction.refunded === true,
+              createdAt: transaction.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+            }))
+            if (rechargeRows.length) {
+              await fetch(`${supabaseUrl}/rest/v1/RechargeTransaction?on_conflict=id`, {
+                method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rechargeRows),
+              })
+            }
+          } catch (rechErr) {
+            console.warn("Supabase RechargeTransaction sync notice:", rechErr?.message)
+          }
+
+          try {
+            const rechargeHistory = (snapshot.rechargeStatusHistory || []).map((entry) => ({
+              id: entry.id, transactionId: entry.transactionId, status: String(entry.status || "pending").toUpperCase(),
+              payload: entry.payload || null, createdAt: entry.createdAt || new Date().toISOString(),
+            }))
+            if (rechargeHistory.length) {
+              await fetch(`${supabaseUrl}/rest/v1/RechargeStatusHistory?on_conflict=id`, {
+                method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rechargeHistory),
+              })
+            }
+          } catch (histErr) {
+            console.warn("Supabase RechargeStatusHistory sync notice:", histErr?.message)
           }
         })
         .catch((error) =>

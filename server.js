@@ -701,6 +701,10 @@ export async function handleRequest(req, res) {
       requireAuth,
       ensureWallet,
       provider: panmitra,
+      config: {
+        supabaseUrl: SUPABASE_URL,
+        supabaseServiceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+      },
     })
     if (adminHandled) return
     const panmitraHandled = await handlePanMitraRoutes({
