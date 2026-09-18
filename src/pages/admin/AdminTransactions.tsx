@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/shared/api/client";
+import { FileDown, RefreshCw } from "lucide-react";
+import { exportToCsv } from "@/shared/utils/csvExport";
 
 export default function AdminTransactions() {
   const [rows, setRows] = useState<any[]>([]);
@@ -7,11 +9,16 @@ export default function AdminTransactions() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
     api<any>("/admin/transactions")
       .then((d) => setRows(d.transactions || []))
-      .catch(e => setLoadError(e.message))
+      .catch((e) => setLoadError(e.message))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
   }, []);
 
   const filtered = useMemo(
@@ -22,16 +29,66 @@ export default function AdminTransactions() {
     [rows, search]
   );
 
+  const handleExportCsv = () => {
+    if (!filtered.length) return;
+    const headers = [
+      "Transaction ID",
+      "Date",
+      "User / Retailer ID",
+      "Service",
+      "Customer",
+      "Amount (INR)",
+      "Commission (INR)",
+      "Status",
+    ];
+    const exportRows = filtered.map((t) => [
+      t.id,
+      t.date || t.createdAt ? new Date(t.date || t.createdAt).toLocaleString() : "",
+      t.userId || "",
+      t.service || "",
+      t.customer || "",
+      t.amount || 0,
+      t.commission || 0,
+      t.status || "",
+    ]);
+    exportToCsv(
+      `admin-transactions-${new Date().toISOString().slice(0, 10)}`,
+      headers,
+      exportRows
+    );
+  };
+
   return (
     <div className="p-6 space-y-5 max-w-[1400px]">
       {loadError && <p role="alert" className="text-red-600">{loadError}</p>}
-      <div>
-        <h1 className="font-display text-2xl font-extrabold">
-          Transaction Management
-        </h1>
-        <p className="text-[#94A3B8] text-sm">
-          Live records of service applications and recharges.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold">
+            Transaction Management
+          </h1>
+          <p className="text-[#94A3B8] text-sm">
+            Live records of service applications and recharges.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {filtered.length > 0 && (
+            <button
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors"
+              title="Download CSV report of transactions"
+            >
+              <FileDown size={14} className="text-blue-600" />
+              Export CSV
+            </button>
+          )}
+          <button
+            onClick={load}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors"
+          >
+            <RefreshCw size={14} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       <input
@@ -83,7 +140,7 @@ export default function AdminTransactions() {
                     ₹{Number(t.commission || 0).toLocaleString("en-IN")}
                   </td>
                   <td className="px-5 py-4 text-xs text-[#94A3B8]">
-                    {new Date(t.date).toLocaleString()}
+                    {new Date(t.date || t.createdAt || Date.now()).toLocaleString()}
                   </td>
                   <td className="px-5 py-4 capitalize font-semibold text-xs">
                     {t.status}

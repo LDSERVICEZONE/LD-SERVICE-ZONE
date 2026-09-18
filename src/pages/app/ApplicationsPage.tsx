@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { api, downloadAuthenticatedFile } from "@/shared/api/client";
-import { Download, FileText, LifeBuoy, X } from "lucide-react";
+import { Download, FileText, LifeBuoy, X, Printer, FileDown } from "lucide-react";
 import ApplicationCheckout from "../../components/ApplicationCheckout";
+import CustomerReceiptModal from "../../components/CustomerReceiptModal";
+import { exportToCsv } from "@/shared/utils/csvExport";
+import { useAuth } from "@/features/session/AppContext";
 
 export default function ApplicationsPage() {
+  const { user } = useAuth();
   const [apps, setApps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<any>(null);
   const [helpApp, setHelpApp] = useState<any>(null);
+  const [receiptApp, setReceiptApp] = useState<any>(null);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -16,12 +21,46 @@ export default function ApplicationsPage() {
   const load = () =>
     api<any>("/applications")
       .then((d) => setApps(d.applications || []))
-      .catch(e => setError(e.message))
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
 
   useEffect(() => {
     load();
   }, []);
+
+  const handleExportCsv = () => {
+    if (!apps.length) return;
+    const headers = [
+      "Application ID",
+      "Date",
+      "Service Name",
+      "Customer Name",
+      "Customer Mobile",
+      "Customer Price",
+      "Commission",
+      "Payment Status",
+      "Application Status",
+      "Payment ID",
+    ];
+    const rows = apps.map((a) => {
+      const applicant = a.applicant || {};
+      const cName = applicant.name || applicant.fullName || applicant.applicantName || a.customer || "";
+      const cMobile = applicant.mobile || applicant.phone || "";
+      return [
+        a.applicationId,
+        new Date(a.createdAt).toLocaleString(),
+        a.serviceName,
+        cName,
+        cMobile,
+        a.customerPrice,
+        a.commission,
+        a.paymentId ? "Paid" : "Pending",
+        a.status,
+        a.paymentId || "",
+      ];
+    });
+    exportToCsv(`my-applications-${new Date().toISOString().slice(0, 10)}`, headers, rows);
+  };
 
   const raiseHelp = async () => {
     if (!helpApp || !subject.trim() || !message.trim()) return;
@@ -49,22 +88,36 @@ export default function ApplicationsPage() {
 
   return (
     <div className="p-5 sm:p-6 max-w-[1200px] space-y-5">
-      <div>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600">
-          Workspace
-        </span>
-        <h1 className="font-display text-3xl font-extrabold text-[#0F172A]">
-          My Applications
-        </h1>
-        <p className="text-sm text-[#94A3B8]">
-          Track payment, processing, uploaded documents and admin decisions for your service requests.
-        </p>
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600">
+            Workspace
+          </span>
+          <h1 className="font-display text-3xl font-extrabold text-[#0F172A]">
+            My Applications
+          </h1>
+          <p className="text-sm text-[#94A3B8]">
+            Track payment, processing, uploaded documents and print customer acknowledgment slips.
+          </p>
+        </div>
+        {apps.length > 0 && (
+          <button
+            onClick={handleExportCsv}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors self-start sm:self-auto"
+            title="Download CSV report of your applications"
+          >
+            <FileDown size={14} className="text-blue-600" />
+            Export CSV
+          </button>
+        )}
       </div>
 
       <div className="grid sm:grid-cols-3 gap-3">
-        <Metric title="Total" value={apps.length} />
+        <Metric title="Total Applications" value={apps.length} />
         <Metric
-          title="In progress"
+          title="In Progress"
           value={
             apps.filter((a) =>
               ["submitted", "processing", "accepted"].includes(a.status)
@@ -78,7 +131,12 @@ export default function ApplicationsPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
-        <div className="px-5 py-4 border-b font-bold">Application History</div>
+        <div className="px-5 py-4 border-b font-bold flex items-center justify-between">
+          <span>Application History</span>
+          <span className="text-xs text-slate-400 font-normal">
+            Showing {apps.length} records
+          </span>
+        </div>
         {loading ? (
           <div className="p-8 text-center text-[#94A3B8]">Loading…</div>
         ) : !apps.length ? (
@@ -90,7 +148,7 @@ export default function ApplicationsPage() {
             {apps.map((a) => (
               <div
                 key={a.applicationId}
-                className="p-5 flex flex-wrap items-center gap-4 justify-between"
+                className="p-5 flex flex-wrap items-center gap-4 justify-between hover:bg-slate-50/50 transition-colors"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -102,7 +160,7 @@ export default function ApplicationsPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-5">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                   <div>
                     <p className="text-[10px] text-[#94A3B8]">Amount</p>
                     <b className="font-mono">₹{a.customerPrice}</b>
@@ -121,6 +179,16 @@ export default function ApplicationsPage() {
                       {a.paymentId ? "Paid" : "Pending"}
                     </b>
                   </div>
+
+                  {/* Print Slip Button */}
+                  <button
+                    onClick={() => setReceiptApp(a)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors"
+                    title="Print customer acknowledgment receipt"
+                  >
+                    <Printer size={14} />
+                    Print Slip
+                  </button>
 
                   <button
                     onClick={() => setSelectedApp(a)}
@@ -169,12 +237,22 @@ export default function ApplicationsPage() {
                   Status: {selectedApp.status.replace(/_/g, " ")}
                 </p>
               </div>
-              <button
-                onClick={() => setSelectedApp(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-600"
-              >
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setReceiptApp(selectedApp)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors"
+                  title="Print customer receipt"
+                >
+                  <Printer size={13} />
+                  Print Slip
+                </button>
+                <button
+                  onClick={() => setSelectedApp(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             {selectedApp.adminNote && (
@@ -184,7 +262,15 @@ export default function ApplicationsPage() {
             )}
 
             <div className="mt-5 space-y-4">
-              {selectedApp.status === "payment_pending" && <ApplicationCheckout application={selectedApp} onComplete={() => { setSelectedApp(null); void load(); }} />}
+              {selectedApp.status === "payment_pending" && (
+                <ApplicationCheckout
+                  application={selectedApp}
+                  onComplete={() => {
+                    setSelectedApp(null);
+                    void load();
+                  }}
+                />
+              )}
               <div>
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                   Uploaded Documents
@@ -244,7 +330,10 @@ export default function ApplicationsPage() {
                 <div className="rounded-xl border border-slate-200 p-3 space-y-1.5 text-xs">
                   {Object.entries(selectedApp.applicant || {}).map(
                     ([k, v]) => (
-                      <div key={k} className="flex justify-between py-1 border-b border-slate-100 last:border-0">
+                      <div
+                        key={k}
+                        className="flex justify-between py-1 border-b border-slate-100 last:border-0"
+                      >
                         <span className="text-slate-400">{k}</span>
                         <span className="font-medium text-slate-700 text-right">
                           {String(v || "—")}
@@ -305,6 +394,15 @@ export default function ApplicationsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Printable Customer Receipt Slip Modal */}
+      {receiptApp && (
+        <CustomerReceiptModal
+          application={receiptApp}
+          retailer={user}
+          onClose={() => setReceiptApp(null)}
+        />
       )}
     </div>
   );

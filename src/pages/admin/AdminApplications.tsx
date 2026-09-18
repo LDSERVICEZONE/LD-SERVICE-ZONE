@@ -1,23 +1,453 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, downloadAuthenticatedFile } from "@/shared/api/client";
-import { Download, FileText, RefreshCw, X } from "lucide-react";
+import { Download, FileText, RefreshCw, X, Printer, FileDown } from "lucide-react";
+import CustomerReceiptModal from "../../components/CustomerReceiptModal";
+import { exportToCsv } from "@/shared/utils/csvExport";
 
-const STATUS = ["all","payment_pending","submitted","processing","accepted","rejected","completed"];
+const STATUS = [
+  "all",
+  "payment_pending",
+  "submitted",
+  "processing",
+  "accepted",
+  "rejected",
+  "completed",
+];
 
-export default function AdminApplications(){
- const [apps,setApps]=useState<any[]>([]); const [selected,setSelected]=useState<any>(null); const [filter,setFilter]=useState("all"); const [loading,setLoading]=useState(true); const [note,setNote]=useState(""); const [searchParams]=useSearchParams();
- async function load(){setLoading(true);try{const d=await api<any>("/applications");setApps(d.applications)}finally{setLoading(false)}}
- useEffect(()=>{load()},[]);
- useEffect(()=>{const id=searchParams.get("application");if(id){const match=apps.find(a=>a.applicationId===id);if(match){setSelected(match);setNote(match.adminNote||"")}}},[apps,searchParams]);
- const visible=useMemo(()=>apps.filter(a=>filter==="all"||a.status===filter),[apps,filter]);
- async function update(status:string){if(!selected)return;const d=await api<any>(`/applications/${selected.applicationId}`,{method:"PATCH",body:JSON.stringify({status,adminNote:note})});setApps(x=>x.map(a=>a.applicationId===d.application.applicationId?d.application:a));setSelected(d.application);}
- return <div className="p-6 max-w-[1500px] space-y-5"><div className="flex flex-wrap items-end justify-between gap-4"><div><span className="text-[10px] font-bold tracking-widest text-violet-600 uppercase">Operations</span><h1 className="font-display text-3xl font-extrabold text-[#0F172A]">Service Applications</h1><p className="text-sm text-[#94A3B8]">Review, accept, reject and track every retailer request.</p></div><button onClick={load} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm font-semibold hover:bg-slate-50"><RefreshCw size={14}/>Refresh</button></div>
- <div className="flex gap-2 overflow-x-auto pb-1">{STATUS.map(s=><button key={s} onClick={()=>setFilter(s)} className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap ${filter===s?"bg-violet-600 text-white":"bg-white border border-[#E2E8F0] text-[#64748B]"}`}>{s.replaceAll("_"," ").replace(/^./,c=>c.toUpperCase())}</button>)}</div>
- <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden"><div className="px-5 py-4 border-b border-[#E2E8F0] flex justify-between"><b>Requests ({visible.length})</b>{loading&&<span className="text-xs text-[#94A3B8]">Loading…</span>}</div><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-[#F8FAFC] text-[#94A3B8] text-xs"><tr>{["Application","Retailer","Service","Amount","Payment","Status","Created","Action"].map(x=><th key={x} className="text-left px-5 py-3 font-semibold">{x}</th>)}</tr></thead><tbody>{visible.map(a=><tr key={a.applicationId} className="border-t border-[#F1F5F9] hover:bg-[#FAFBFF]"><td className="px-5 py-4 font-mono text-xs text-violet-600">{a.applicationId}</td><td className="px-5 py-4"><b>{a.retailerName}</b><div className="text-xs text-[#94A3B8]">{a.userId}</div></td><td className="px-5 py-4 font-medium">{a.serviceName}</td><td className="px-5 py-4 font-mono font-bold">₹{a.customerPrice}</td><td className="px-5 py-4">{a.paymentId?<span className="text-emerald-600 font-semibold">Paid</span>:<span className="text-amber-600">Pending</span>}</td><td className="px-5 py-4"><Status status={a.status}/></td><td className="px-5 py-4 text-xs text-[#94A3B8]">{new Date(a.createdAt).toLocaleString()}</td><td className="px-5 py-4"><button onClick={()=>{setSelected(a);setNote(a.adminNote||"")}} className="px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 text-xs font-semibold">Review</button></td></tr>)}{!visible.length&&!loading&&<tr><td colSpan={8} className="py-14 text-center text-[#94A3B8]">No applications in this status.</td></tr>}</tbody></table></div></div>
- {selected&&<div className="fixed inset-0 bg-slate-950/50 z-50 flex justify-end" onClick={()=>setSelected(null)}><div className="w-full max-w-xl bg-white h-full overflow-y-auto" onClick={e=>e.stopPropagation()}><div className="p-5 border-b flex justify-between items-start"><div><span className="text-xs text-violet-600 font-bold">{selected.applicationId}</span><h2 className="font-display text-xl font-bold mt-1">{selected.serviceName}</h2><p className="text-xs text-[#94A3B8]">Submitted by {selected.retailerName}</p></div><button onClick={()=>setSelected(null)} className="p-2 text-slate-400 hover:text-slate-600"><X size={20}/></button></div><div className="p-5 space-y-5"><div className="rounded-2xl bg-gradient-to-br from-violet-50 to-blue-50 border border-violet-100 p-4 flex justify-between"><div><p className="text-xs text-[#64748B]">Customer Price</p><b className="text-2xl font-mono">₹{selected.customerPrice}</b></div><div><p className="text-xs text-[#64748B]">Retailer Commission</p><b className="text-2xl font-mono text-emerald-600">₹{selected.commission}</b></div></div><Section title="Applicant Details">{Object.entries(selected.applicant||{}).map(([k,v])=><div key={k} className="flex justify-between gap-4 py-2 border-b border-[#F1F5F9] text-sm"><span className="text-[#94A3B8]">{k}</span><span className="font-medium text-right break-all">{String(v||"—")}</span></div>)}</Section><Section title="Required Documents">{(selected.documents||[]).map((d:any)=><div key={d.name} className="flex justify-between items-center p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] mb-2"><div className="flex items-center gap-2.5"><FileText size={18} className="text-violet-600"/><div><b className="text-sm block">{d.name}</b><p className="text-xs text-[#94A3B8]">{d.fileName||"Not uploaded"}</p></div></div>{d.fileName?<button onClick={()=>downloadAuthenticatedFile(`/applications/${selected.applicationId}/documents/${encodeURIComponent(d.name)}`,d.fileName)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition-colors"><Download size={13}/>Download</button>:<span className="text-xs text-[#94A3B8] italic">Pending</span>}</div>)}</Section><Section title="Admin Note"><textarea value={note} onChange={e=>setNote(e.target.value)} rows={4} placeholder="Write internal processing notes…" className="w-full rounded-xl border border-[#E2E8F0] p-3 text-sm outline-none focus:border-violet-400"/></Section><div className="grid grid-cols-2 gap-2"><Action label="Processing" onClick={()=>update("processing")} cls="bg-blue-600 hover:bg-blue-700"/><Action label="Accept" onClick={()=>update("accepted")} cls="bg-emerald-600 hover:bg-emerald-700"/><Action label="Complete" onClick={()=>update("completed")} cls="bg-violet-600 hover:bg-violet-700"/><Action label="Reject" onClick={()=>update("rejected")} cls="bg-red-500 hover:bg-red-600"/></div></div></div></div>}
- </div>
+export default function AdminApplications() {
+  const [apps, setApps] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any>(null);
+  const [receiptApp, setReceiptApp] = useState<any>(null);
+  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [note, setNote] = useState("");
+  const [searchParams] = useSearchParams();
+
+  async function load() {
+    setLoading(true);
+    try {
+      const d = await api<any>("/applications");
+      setApps(d.applications || []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    const id = searchParams.get("application");
+    if (id) {
+      const match = apps.find((a) => a.applicationId === id);
+      if (match) {
+        setSelected(match);
+        setNote(match.adminNote || "");
+      }
+    }
+  }, [apps, searchParams]);
+
+  const visible = useMemo(
+    () => apps.filter((a) => filter === "all" || a.status === filter),
+    [apps, filter]
+  );
+
+  async function update(status: string) {
+    if (!selected) return;
+    const d = await api<any>(`/applications/${selected.applicationId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, adminNote: note }),
+    });
+    setApps((x) =>
+      x.map((a) => (a.applicationId === d.application.applicationId ? d.application : a))
+    );
+    setSelected(d.application);
+  }
+
+  const handleExportCsv = () => {
+    if (!visible.length) return;
+    const headers = [
+      "Application ID",
+      "Date",
+      "Retailer Name",
+      "Retailer ID",
+      "Service Name",
+      "Customer Name",
+      "Customer Mobile",
+      "Amount (INR)",
+      "Commission (INR)",
+      "Payment Status",
+      "Application Status",
+      "Payment ID",
+    ];
+    const rows = visible.map((a) => {
+      const applicant = a.applicant || {};
+      const cName =
+        applicant.name ||
+        applicant.fullName ||
+        applicant.applicantName ||
+        a.customer ||
+        "";
+      const cMobile = applicant.mobile || applicant.phone || "";
+      return [
+        a.applicationId,
+        new Date(a.createdAt).toLocaleString(),
+        a.retailerName || "",
+        a.userId || "",
+        a.serviceName,
+        cName,
+        cMobile,
+        a.customerPrice,
+        a.commission,
+        a.paymentId ? "Paid" : "Pending",
+        a.status,
+        a.paymentId || "",
+      ];
+    });
+    exportToCsv(
+      `admin-applications-${filter}-${new Date().toISOString().slice(0, 10)}`,
+      headers,
+      rows
+    );
+  };
+
+  return (
+    <div className="p-6 max-w-[1500px] space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <span className="text-[10px] font-bold tracking-widest text-violet-600 uppercase">
+            Operations
+          </span>
+          <h1 className="font-display text-3xl font-extrabold text-[#0F172A]">
+            Service Applications
+          </h1>
+          <p className="text-sm text-[#94A3B8]">
+            Review, accept, reject and track every retailer request.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {visible.length > 0 && (
+            <button
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm font-semibold hover:bg-slate-50 transition-colors shadow-xs"
+              title="Download CSV report of visible applications"
+            >
+              <FileDown size={15} className="text-violet-600" />
+              Export CSV
+            </button>
+          )}
+          <button
+            onClick={load}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm font-semibold hover:bg-slate-50 transition-colors shadow-xs"
+          >
+            <RefreshCw size={14} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {STATUS.map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilter(s)}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+              filter === s
+                ? "bg-violet-600 text-white"
+                : "bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-slate-50"
+            }`}
+          >
+            {s.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase())}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#E2E8F0] flex justify-between items-center">
+          <b>Requests ({visible.length})</b>
+          {loading && <span className="text-xs text-[#94A3B8]">Loading…</span>}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[#F8FAFC] text-[#94A3B8] text-xs">
+              <tr>
+                {[
+                  "Application",
+                  "Retailer",
+                  "Service",
+                  "Amount",
+                  "Payment",
+                  "Status",
+                  "Created",
+                  "Action",
+                ].map((x) => (
+                  <th key={x} className="text-left px-5 py-3 font-semibold">
+                    {x}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((a) => (
+                <tr
+                  key={a.applicationId}
+                  className="border-t border-[#F1F5F9] hover:bg-[#FAFBFF] transition-colors"
+                >
+                  <td className="px-5 py-4 font-mono text-xs text-violet-600 font-medium">
+                    {a.applicationId}
+                  </td>
+                  <td className="px-5 py-4">
+                    <b>{a.retailerName}</b>
+                    <div className="text-xs text-[#94A3B8]">{a.userId}</div>
+                  </td>
+                  <td className="px-5 py-4 font-medium">{a.serviceName}</td>
+                  <td className="px-5 py-4 font-mono font-bold">
+                    ₹{a.customerPrice}
+                  </td>
+                  <td className="px-5 py-4">
+                    {a.paymentId ? (
+                      <span className="text-emerald-600 font-semibold">Paid</span>
+                    ) : (
+                      <span className="text-amber-600">Pending</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
+                    <Status status={a.status} />
+                  </td>
+                  <td className="px-5 py-4 text-xs text-[#94A3B8]">
+                    {new Date(a.createdAt).toLocaleString()}
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setReceiptApp(a)}
+                        className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                        title="Print customer acknowledgment slip"
+                      >
+                        <Printer size={14} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelected(a);
+                          setNote(a.adminNote || "");
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 text-xs font-semibold hover:bg-violet-100 transition-colors"
+                      >
+                        Review
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!visible.length && !loading && (
+                <tr>
+                  <td colSpan={8} className="py-14 text-center text-[#94A3B8]">
+                    No applications in this status.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Review Drawer */}
+      {selected && (
+        <div
+          className="fixed inset-0 bg-slate-950/50 z-50 flex justify-end"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="w-full max-w-xl bg-white h-full overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 border-b flex justify-between items-start">
+              <div>
+                <span className="text-xs text-violet-600 font-bold font-mono">
+                  {selected.applicationId}
+                </span>
+                <h2 className="font-display text-xl font-bold mt-1">
+                  {selected.serviceName}
+                </h2>
+                <p className="text-xs text-[#94A3B8]">
+                  Submitted by {selected.retailerName} ({selected.userId})
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setReceiptApp(selected)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
+                  title="Print customer receipt"
+                >
+                  <Printer size={14} />
+                  Print Slip
+                </button>
+                <button
+                  onClick={() => setSelected(null)}
+                  className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="p-5 space-y-5">
+              <div className="rounded-2xl bg-gradient-to-br from-violet-50 to-blue-50 border border-violet-100 p-4 flex justify-between">
+                <div>
+                  <p className="text-xs text-[#64748B]">Customer Price</p>
+                  <b className="text-2xl font-mono">₹{selected.customerPrice}</b>
+                </div>
+                <div>
+                  <p className="text-xs text-[#64748B]">Retailer Commission</p>
+                  <b className="text-2xl font-mono text-emerald-600">
+                    ₹{selected.commission}
+                  </b>
+                </div>
+              </div>
+              <Section title="Applicant Details">
+                {Object.entries(selected.applicant || {}).map(([k, v]) => (
+                  <div
+                    key={k}
+                    className="flex justify-between gap-4 py-2 border-b border-[#F1F5F9] text-sm"
+                  >
+                    <span className="text-[#94A3B8]">{k}</span>
+                    <span className="font-medium text-right break-all">
+                      {String(v || "—")}
+                    </span>
+                  </div>
+                ))}
+              </Section>
+              <Section title="Required Documents">
+                {(selected.documents || []).map((d: any) => (
+                  <div
+                    key={d.name}
+                    className="flex justify-between items-center p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] mb-2"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <FileText size={18} className="text-violet-600" />
+                      <div>
+                        <b className="text-sm block">{d.name}</b>
+                        <p className="text-xs text-[#94A3B8]">
+                          {d.fileName || "Not uploaded"}
+                        </p>
+                      </div>
+                    </div>
+                    {d.fileName ? (
+                      <button
+                        onClick={() =>
+                          downloadAuthenticatedFile(
+                            `/applications/${selected.applicationId}/documents/${encodeURIComponent(
+                              d.name
+                            )}`,
+                            d.fileName
+                          )
+                        }
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition-colors"
+                      >
+                        <Download size={13} />
+                        Download
+                      </button>
+                    ) : (
+                      <span className="text-xs text-[#94A3B8] italic">Pending</span>
+                    )}
+                  </div>
+                ))}
+              </Section>
+              <Section title="Admin Note">
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={4}
+                  placeholder="Write internal processing notes…"
+                  className="w-full rounded-xl border border-[#E2E8F0] p-3 text-sm outline-none focus:border-violet-400"
+                />
+              </Section>
+              <div className="grid grid-cols-2 gap-2">
+                <Action
+                  label="Processing"
+                  onClick={() => update("processing")}
+                  cls="bg-blue-600 hover:bg-blue-700"
+                />
+                <Action
+                  label="Accept"
+                  onClick={() => update("accepted")}
+                  cls="bg-emerald-600 hover:bg-emerald-700"
+                />
+                <Action
+                  label="Complete"
+                  onClick={() => update("completed")}
+                  cls="bg-violet-600 hover:bg-violet-700"
+                />
+                <Action
+                  label="Reject"
+                  onClick={() => update("rejected")}
+                  cls="bg-red-500 hover:bg-red-600"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Receipt Modal for Admin */}
+      {receiptApp && (
+        <CustomerReceiptModal
+          application={receiptApp}
+          retailer={{
+            name: receiptApp.retailerName,
+            id: receiptApp.userId,
+          }}
+          onClose={() => setReceiptApp(null)}
+        />
+      )}
+    </div>
+  );
 }
-function Status({status}:{status:string}){const map:any={payment_pending:["bg-amber-50","text-amber-700"],submitted:["bg-blue-50","text-blue-700"],processing:["bg-indigo-50","text-indigo-700"],accepted:["bg-emerald-50","text-emerald-700"],rejected:["bg-red-50","text-red-700"],completed:["bg-violet-50","text-violet-700"]};const c=map[status]||map.submitted;return <span className={`px-2 py-1 rounded-full text-[10px] font-bold capitalize ${c[0]} ${c[1]}`}>{status.replaceAll("_"," ")}</span>}
-function Section({title,children}:{title:string;children:any}){return <div><h3 className="font-display font-bold text-[#0F172A] mb-2">{title}</h3><div className="rounded-xl border border-[#E2E8F0] p-3">{children}</div></div>}
-function Action({label,onClick,cls}:{label:string;onClick:()=>void;cls:string}){return <button onClick={onClick} className={`py-3 rounded-xl text-white text-sm font-semibold ${cls}`}>{label}</button>}
+
+function Status({ status }: { status: string }) {
+  const map: any = {
+    payment_pending: ["bg-amber-50", "text-amber-700"],
+    submitted: ["bg-blue-50", "text-blue-700"],
+    processing: ["bg-indigo-50", "text-indigo-700"],
+    accepted: ["bg-emerald-50", "text-emerald-700"],
+    rejected: ["bg-red-50", "text-red-700"],
+    completed: ["bg-violet-50", "text-violet-700"],
+  };
+  const c = map[status] || map.submitted;
+  return (
+    <span
+      className={`px-2 py-1 rounded-full text-[10px] font-bold capitalize ${c[0]} ${c[1]}`}
+    >
+      {status.replaceAll("_", " ")}
+    </span>
+  );
+}
+
+function Section({ title, children }: { title: string; children: any }) {
+  return (
+    <div>
+      <h3 className="font-display font-bold text-[#0F172A] mb-2">{title}</h3>
+      <div className="rounded-xl border border-[#E2E8F0] p-3">{children}</div>
+    </div>
+  );
+}
+
+function Action({
+  label,
+  onClick,
+  cls,
+}: {
+  label: string;
+  onClick: () => void;
+  cls: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`py-3 rounded-xl text-white text-sm font-semibold transition-colors ${cls}`}
+    >
+      {label}
+    </button>
+  );
+}

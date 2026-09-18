@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/shared/api/client";
 import { useAuth, useWallet } from "@/features/session/AppContext";
+import { FileDown } from "lucide-react";
+import { exportToCsv } from "@/shared/utils/csvExport";
 
 declare global {
   interface Window {
@@ -38,6 +40,35 @@ export default function WalletPage() {
     refreshWallet();
     loadLedger();
   }, [refreshWallet]);
+
+  const handleExportLedger = () => {
+    if (!ledger.length) return;
+    const headers = [
+      "Date",
+      "Transaction ID",
+      "Description",
+      "Reference",
+      "Credit (INR)",
+      "Debit (INR)",
+      "Balance After (INR)",
+      "Status",
+    ];
+    const rows = ledger.map((l) => [
+      new Date(l.createdAt).toLocaleString(),
+      l.id || "",
+      l.description || "",
+      l.reference || "",
+      l.type === "credit" ? l.amount : "",
+      l.type === "debit" ? l.amount : "",
+      l.balanceAfter || 0,
+      l.status || "",
+    ]);
+    exportToCsv(
+      `wallet-passbook-${user?.username || user?.name || "retailer"}-${new Date().toISOString().slice(0, 10)}`,
+      headers,
+      rows
+    );
+  };
 
   const fee = 0;
   const total = Number(amount || 0) + fee;
@@ -173,7 +204,22 @@ export default function WalletPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5">
-        <h2 className="font-display font-bold mb-4">Wallet Ledger</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className="font-display font-bold text-lg text-slate-900">Wallet Passbook & Ledger</h2>
+            <p className="text-xs text-slate-400">Statement of all top-ups, deductions, and commissions.</p>
+          </div>
+          {ledger.length > 0 && (
+            <button
+              onClick={handleExportLedger}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
+              title="Download passbook statement CSV"
+            >
+              <FileDown size={14} className="text-blue-600" />
+              Download Statement
+            </button>
+          )}
+        </div>
         {ledger.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
