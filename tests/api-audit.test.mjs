@@ -331,4 +331,155 @@ test("retailer can fetch PanMitra VLE profile but cannot buy coupons without VLE
   assert.equal(updatedProf.data.vleRequested, true);
 });
 
+test("admin can auto-onboard retailer with Gmail, Mobile, Aadhaar, and UTI PSA ID", async () => {
+  const newRetailerPayload = {
+    name: "Subash Mohanty",
+    businessName: "Mohanty Common Service Center",
+    email: "subash.mohanty@gmail.com",
+    mobile: "9437123456",
+    aadhaar: "123456789012",
+    pan: "ABCDE1234F",
+    city: "Cuttack",
+    state: "Odisha",
+    pincode: "753001",
+    initialBalance: 250,
+    createPanMitraVle: true,
+  };
+
+  const createRes = await request("/admin/retailer", {
+    token: "admin",
+    method: "POST",
+    body: newRetailerPayload,
+  });
+
+  assert.equal(createRes.status, 201);
+  assert.equal(createRes.data.ok, true);
+  assert.equal(createRes.data.user.email, "subash.mohanty@gmail.com");
+  assert.equal(createRes.data.user.role, "retailer");
+  assert.equal(createRes.data.user.kycStatus, "verified");
+  assert.ok(createRes.data.credentials.password);
+  assert.ok(createRes.data.credentials.vleId);
+
+  // Verify wallet balance was credited with initial balance
+  const usersRes = await request("/admin/users", { token: "admin" });
+  const createdUser = usersRes.data.users.find((u) => u.email === "subash.mohanty@gmail.com");
+  assert.ok(createdUser);
+  assert.equal(createdUser.wallet, 250);
+
+  // Test duplicate prevention
+  const dupRes = await request("/admin/retailer", {
+    token: "admin",
+    method: "POST",
+    body: newRetailerPayload,
+  });
+  assert.equal(dupRes.status, 409);
+});
+
+test("admin can toggle user status between active and suspended", async () => {
+  const usersRes = await request("/admin/users", { token: "admin" });
+  const targetUser = usersRes.data.users.find((u) => u.email === "subash.mohanty@gmail.com");
+  assert.ok(targetUser);
+
+  // Suspend user
+  const suspendRes = await request(`/admin/users/${targetUser.id}/status`, {
+    token: "admin",
+    method: "PATCH",
+    body: { status: "suspended" },
+  });
+  assert.equal(suspendRes.status, 200);
+  assert.equal(suspendRes.data.user.status, "suspended");
+
+  // Reactivate user
+  const activateRes = await request(`/admin/users/${targetUser.id}/status`, {
+    token: "admin",
+    method: "PATCH",
+    body: { status: "active" },
+  });
+  assert.equal(activateRes.status, 200);
+  assert.equal(activateRes.data.user.status, "active");
+});
+
+test("admin can delete inactive user but cannot delete themselves", async () => {
+  // Try deleting self
+  const selfDelRes = await request("/admin/users/admin", {
+    token: "admin",
+    method: "DELETE",
+  });
+  assert.equal(selfDelRes.status, 400);
+
+  // Delete the test retailer
+  const usersRes = await request("/admin/users", { token: "admin" });
+  const targetUser = usersRes.data.users.find((u) => u.email === "subash.mohanty@gmail.com");
+  assert.ok(targetUser);
+
+  const delRes = await request(`/admin/users/${targetUser.id}`, {
+    token: "admin",
+    method: "DELETE",
+  });
+  assert.equal(delRes.status, 200);
+  assert.equal(delRes.data.ok, true);
+
+  // Verify user is gone from list
+  const afterUsersRes = await request("/admin/users", { token: "admin" });
+  assert.equal(
+    afterUsersRes.data.users.some((u) => u.id === targetUser.id),
+    false,
+  );
+});
+
+test("announcement ticker can be fetched publicly and updated by admin", async () => {
+  // Public fetch
+  const getRes = await request("/announcement");
+  assert.equal(getRes.status, 200);
+  assert.ok(getRes.data.announcement);
+
+  // Admin update
+  const postRes = await request("/admin/announcement", {
+    token: "admin",
+    method: "POST",
+    body: {
+      text: "⚡ Scheduled maintenance tonight 11:30 PM to 12:00 AM IST. Please finish all PAN applications before 11:15 PM.",
+      tone: "warning",
+      active: true,
+    },
+  });
+  assert.equal(postRes.status, 200);
+  assert.equal(postRes.data.announcement.tone, "warning");
+
+  // Verify public endpoint reflects the update
+  const updatedGetRes = await request("/announcement");
+  assert.equal(updatedGetRes.data.announcement.tone, "warning");
+  assert.ok(updatedGetRes.data.announcement.text.includes("Scheduled maintenance"));
+});
+
+test("admin can delete a service from catalog", async () => {
+  // Create dummy service first
+  const createSvcRes = await request("/services", {
+    token: "admin",
+    method: "POST",
+    body: {
+      id: "SVC-TEST-REMOVE",
+      name: "Temporary Test Service",
+      category: "Other",
+      processingTime: "1 day",
+      customerPrice: 50,
+      commission: 10,
+      documents: ["Aadhaar"],
+    },
+  });
+  assert.equal(createSvcRes.status, 201);
+
+  // Delete it
+  const delSvcRes = await request("/services/SVC-TEST-REMOVE", {
+    token: "admin",
+    method: "DELETE",
+  });
+  assert.equal(delSvcRes.status, 200);
+  assert.equal(delSvcRes.data.ok, true);
+
+  // Verify it's gone
+  const catalogRes = await request("/services");
+  assert.equal(catalogRes.data.services.some((s) => s.id === "SVC-TEST-REMOVE"), false);
+});
+
 

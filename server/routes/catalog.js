@@ -96,6 +96,9 @@ export async function handleCatalogRoutes(context) {
     if (input.color !== undefined) {
       service.color = String(input.color || "#4F46E5")
     }
+    if (input.status !== undefined) {
+      service.status = input.status === "disabled" ? "disabled" : "active"
+    }
     if (!service.name || !service.category || !service.processingTime) {
       return respond(400, {
         error: "Name, category and processing time are required",
@@ -105,9 +108,25 @@ export async function handleCatalogRoutes(context) {
     audit(db, auth.user, "SERVICE_UPDATED", "service", service.id, {
       name: service.name,
       category: service.category,
+      status: service.status,
     })
     await saveDb(db)
     return respond(200, { service })
+  }
+
+  if (/^\/api\/services\/[^/]+$/.test(pathName) && req.method === "DELETE") {
+    const auth = requireAuth(req, res, db, "admin")
+    if (!auth) return true
+    const serviceId = pathName.split("/").pop()
+    const serviceIndex = db.services.findIndex((candidate) => candidate.id === serviceId)
+    if (serviceIndex === -1) return respond(404, { error: "Service not found" })
+    const [deletedService] = db.services.splice(serviceIndex, 1)
+    audit(db, auth.user, "SERVICE_DELETED", "service", serviceId, {
+      name: deletedService.name,
+      category: deletedService.category,
+    })
+    await saveDb(db)
+    return respond(200, { ok: true, message: `Service ${deletedService.name} deleted successfully` })
   }
 
   return false

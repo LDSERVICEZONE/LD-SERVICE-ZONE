@@ -700,6 +700,7 @@ export async function handleRequest(req, res) {
       audit,
       requireAuth,
       ensureWallet,
+      provider: panmitra,
     })
     if (adminHandled) return
     const panmitraHandled = await handlePanMitraRoutes({

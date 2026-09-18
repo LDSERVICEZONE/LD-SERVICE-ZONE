@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
 import { useAuth, useWallet } from "@/features/session/AppContext";
+import AnnouncementTicker from "../AnnouncementTicker";
 
 interface Props {
   onLogout?: () => void;
@@ -167,6 +168,9 @@ export default function AppShell({ onLogout }: Props) {
 
       {/* Main Container */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {/* Live Top Announcement Ticker */}
+        <AnnouncementTicker />
+
         <header className="h-16 shrink-0 bg-white border-b border-[#E2E8F0] flex items-center px-3 sm:px-4 gap-2 sm:gap-3">
           <button
             aria-label="Open navigation"

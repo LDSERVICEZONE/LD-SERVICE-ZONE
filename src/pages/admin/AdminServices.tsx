@@ -17,6 +17,9 @@ import {
   UserPlus,
   Search,
   Wallet,
+  Trash2,
+  Power,
+  PowerOff,
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 
@@ -29,6 +32,7 @@ type Service = {
   processingTime: string;
   documents: string[];
   color?: string;
+  status?: "active" | "disabled";
 };
 
 type VleItem = {
@@ -194,6 +198,31 @@ export default function AdminServices() {
       setError(e.message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleDeleteService = async (service: Service) => {
+    if (!confirm(`Are you sure you want to delete "${service.name}" (${service.id}) from the service catalog?`)) return;
+    try {
+      await api<any>(`/services/${service.id}`, { method: "DELETE" });
+      setServices((prev) => prev.filter((s) => s.id !== service.id));
+    } catch (e: any) {
+      alert(e.message || "Failed to delete service");
+    }
+  };
+
+  const handleToggleServiceStatus = async (service: Service) => {
+    const newStatus = service.status === "disabled" ? "active" : "disabled";
+    try {
+      await api<any>(`/services/${service.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setServices((prev) =>
+        prev.map((s) => (s.id === service.id ? { ...s, status: newStatus } : s))
+      );
+    } catch (e: any) {
+      alert(e.message || "Failed to update service status");
     }
   };
 
@@ -385,16 +414,47 @@ export default function AdminServices() {
                 className="bg-white rounded-2xl border border-[#E2E8F0] p-5 hover:shadow-lg transition-all"
               >
                 <div className="flex items-start justify-between">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <Building2 size={20} />
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <Building2 size={20} />
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        s.status === "disabled"
+                          ? "bg-rose-100 text-rose-700 border border-rose-200"
+                          : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                      }`}
+                    >
+                      {s.status === "disabled" ? "Disabled" : "Active"}
+                    </span>
                   </div>
-                  <button
-                    onClick={() => startEdit(s)}
-                    className="p-2 rounded-lg bg-slate-50 text-slate-500 hover:text-violet-600 hover:bg-violet-50 transition"
-                    title="Edit Service"
-                  >
-                    <Pencil size={15} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleToggleServiceStatus(s)}
+                      className={`p-2 rounded-lg transition ${
+                        s.status === "disabled"
+                          ? "bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
+                          : "bg-emerald-50 text-emerald-600 hover:bg-rose-50 hover:text-rose-600"
+                      }`}
+                      title={s.status === "disabled" ? "Click to Activate" : "Click to Disable"}
+                    >
+                      {s.status === "disabled" ? <PowerOff size={15} /> : <Power size={15} />}
+                    </button>
+                    <button
+                      onClick={() => startEdit(s)}
+                      className="p-2 rounded-lg bg-slate-50 text-slate-500 hover:text-violet-600 hover:bg-violet-50 transition"
+                      title="Edit Service"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteService(s)}
+                      className="p-2 rounded-lg bg-slate-50 text-slate-500 hover:text-red-600 hover:bg-red-50 transition"
+                      title="Delete Service"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
                 <h2 className="font-semibold text-[#0F172A] mt-4 text-base">
                   {s.name}

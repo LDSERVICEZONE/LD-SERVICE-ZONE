@@ -270,7 +270,22 @@ button:disabled { cursor: not-allowed; }
 @keyframes red-spark {
   0%,72%,100% { opacity:0; transform: translate3d(0,0,0) scale(.5); }
   76% { opacity:.8; transform: translate3d(2vw,-1vh,0) scale(1); }
-  80% { opacity:0; transform: translate3d(5vw,-3vh,0) scale(.6); }
+  70% { opacity:0; transform: translate3d(5vw,-3vh,0) scale(.6); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee-track:hover {
+  animation-play-state: paused;
 }
 
 @media (max-width: 767px) {
