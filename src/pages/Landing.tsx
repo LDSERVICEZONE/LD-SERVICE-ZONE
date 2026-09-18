@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { BarChart3, Building2, Car, CheckCircle2, CreditCard, FileBadge2, FileText, IndianRupee, LayoutDashboard, Menu, Receipt, ShieldCheck, Smartphone, Sparkles, Users, Vote, WalletCards, X, Zap } from "lucide-react";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
@@ -395,10 +395,12 @@ export default function Landing({ onLogin }: Props) {
           </div>
           <div className="border-t border-white/10 pt-6 flex flex-wrap items-center justify-between gap-4 text-white/30 text-xs">
             <p>© 2026 LD Service Zone. All rights reserved.</p>
-            <div className="flex gap-6">
-              <a href="#faq" className="hover:text-white/60">Privacy Policy</a>
-              <a href="#faq" className="hover:text-white/60">Terms of Service</a>
-              <a href="#faq" className="hover:text-white/60">Refund Policy</a>
+            <div className="flex flex-wrap gap-4 sm:gap-6">
+              <Link to="/terms" className="hover:text-white/60 transition-colors">Terms of Service</Link>
+              <Link to="/privacy" className="hover:text-white/60 transition-colors">Privacy Policy</Link>
+              <Link to="/refund" className="hover:text-white/60 transition-colors">Refund & Cancellation</Link>
+              <Link to="/shipping" className="hover:text-white/60 transition-colors">Shipping & Delivery</Link>
+              <Link to="/contact" className="hover:text-white/60 transition-colors">Contact Us</Link>
             </div>
           </div>
         </div>

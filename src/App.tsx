@@ -35,6 +35,7 @@ const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"))
 const AdminReports = lazy(() => import("./pages/admin/AdminReports"))
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"))
 const AdminHelpRequests = lazy(() => import("./pages/admin/AdminHelpRequests"))
+const LegalPage = lazy(() => import("./pages/public/LegalPage"))
 
 function RouteLoading() {
   return (
@@ -134,6 +135,18 @@ function AppRoutes() {
             )
           }
         />
+
+        {/* Razorpay & Legal Compliance Policy Pages */}
+        <Route path="/terms" element={<LegalPage initialTab="terms" />} />
+        <Route path="/terms-and-conditions" element={<LegalPage initialTab="terms" />} />
+        <Route path="/privacy" element={<LegalPage initialTab="privacy" />} />
+        <Route path="/privacy-policy" element={<LegalPage initialTab="privacy" />} />
+        <Route path="/refund" element={<LegalPage initialTab="refund" />} />
+        <Route path="/cancellation-refund" element={<LegalPage initialTab="refund" />} />
+        <Route path="/shipping" element={<LegalPage initialTab="shipping" />} />
+        <Route path="/shipping-policy" element={<LegalPage initialTab="shipping" />} />
+        <Route path="/contact" element={<LegalPage initialTab="contact" />} />
+        <Route path="/contact-us" element={<LegalPage initialTab="contact" />} />
 
         {/* Retailer App */}
         <Route
