@@ -506,7 +506,7 @@ export async function handleAuthRoutes(context) {
         name: "Demo Retailer",
         businessName: "LD SERVICE ZONE Demo",
         email: "demo@ldservicezone.in",
-        mobile: "6370892501",
+        mobile: "8280123459",
         role: "retailer",
         status: "active",
         kycStatus: "verified",

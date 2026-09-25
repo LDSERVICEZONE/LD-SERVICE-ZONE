@@ -2,10 +2,10 @@ import { useState } from "react";
 import { Mail, MessageCircle, Phone, Globe, X, Headphones, ExternalLink } from "lucide-react";
 
 const SUPPORT = {
-  whatsapp: "https://wa.me/916370892501",
-  email: "mailto:bilsondigal058@gmail.com",
-  call: "tel:+916370892501",
-  website: "https://my-portfolio-n3b5.vercel.app/",
+  whatsapp: "https://wa.me/918280123459?text=Hello%20LD%20SERVICE%20ZONE%2C%20I%20need%20assistance.",
+  email: "mailto:ldservicezone@gmail.com",
+  call: "tel:+918280123459",
+  contact: "/contact",
 };
 
 export default function SupportWidget() {
@@ -22,24 +22,24 @@ export default function SupportWidget() {
     },
     {
       label: "Email Support",
-      description: "bilsondigal058@gmail.com",
+      description: "ldservicezone@gmail.com",
       href: SUPPORT.email,
       icon: Mail,
       iconClass: "text-blue-300 bg-blue-500/15 border-blue-400/20",
     },
     {
       label: "Call Support",
-      description: "+91 63708 92501",
+      description: "+91 82801 23459",
       href: SUPPORT.call,
       icon: Phone,
       iconClass: "text-amber-300 bg-amber-500/15 border-amber-400/20",
     },
     {
-      label: "Website",
-      description: "Visit our support website",
-      href: SUPPORT.website,
+      label: "Contact & Office",
+      description: "Digital Citizen Hub, Odisha",
+      href: SUPPORT.contact,
       icon: Globe,
-      external: true,
+      external: false,
       iconClass: "text-violet-300 bg-violet-500/15 border-violet-400/20",
     },
   ];

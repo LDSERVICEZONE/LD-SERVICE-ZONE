@@ -228,12 +228,119 @@ export default function Landing({ onLogin }: Props) {
         </div>
       </section>
 
-      {/* Dashboard preview section */}
+      {/* Pricing & fee schedule */}
       <section id="pricing" className="py-24 bg-white/3 border-y border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
-            <h2 className="font-display text-4xl font-extrabold mb-4">Your Business, At a Glance.</h2>
-            <p className="text-white/50">Real-time visibility into every rupee earned, every service delivered.</p>
+            <p className="text-blue-400 text-sm font-semibold tracking-widest uppercase mb-3">Transparent Fee Structure</p>
+            <h2 className="font-display text-4xl font-extrabold mb-4">Clear Pricing. Zero Hidden Fees.</h2>
+            <p className="text-white/50 max-w-2xl mx-auto">
+              Transparent service rates and high retail margins. 100% of your wallet top-up is credited directly for service processing.
+            </p>
+          </div>
+
+          {/* Pricing cards */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col justify-between hover:border-blue-500/50 transition-all">
+              <div>
+                <span className="inline-block px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-semibold mb-4">
+                  Retailer Onboarding
+                </span>
+                <h3 className="font-bold text-xl text-white mb-1">Partner Account</h3>
+                <p className="text-white/50 text-xs mb-4">Full access to citizen service portal</p>
+                <div className="mb-6">
+                  <span className="font-display text-3xl font-extrabold text-white">₹0</span>
+                  <span className="text-white/40 text-xs ml-1.5">Free Lifetime</span>
+                </div>
+                <ul className="space-y-2.5 text-xs text-white/70 mb-6">
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Zero registration charge</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Instant activation with mobile & KYC</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Live wallet passbook & ledger</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Dedicated helpline & ticket support</li>
+                </ul>
+              </div>
+              <button onClick={handleStartBusiness} className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all">
+                Register Free
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-blue-500/40 bg-blue-500/5 p-6 flex flex-col justify-between relative hover:border-blue-500 transition-all">
+              <span className="absolute -top-3 right-6 px-3 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                Popular
+              </span>
+              <div>
+                <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-semibold mb-4">
+                  UTI & NSDL
+                </span>
+                <h3 className="font-bold text-xl text-white mb-1">PAN Card Services</h3>
+                <p className="text-white/50 text-xs mb-4">New PAN, Correction, Reprint, UTI VLE</p>
+                <div className="mb-6">
+                  <span className="font-display text-3xl font-extrabold text-white">₹107</span>
+                  <span className="text-white/40 text-xs ml-1.5">/ application</span>
+                </div>
+                <ul className="space-y-2.5 text-xs text-white/70 mb-6">
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Official government processing fee</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Earn up to ₹32 retailer commission</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Biometric & OTP eKYC support</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Instant digital acknowledgment</li>
+                </ul>
+              </div>
+              <button onClick={handleStartBusiness} className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all shadow-lg shadow-blue-600/20">
+                Start PAN Services
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col justify-between hover:border-violet-500/50 transition-all">
+              <div>
+                <span className="inline-block px-3 py-1 rounded-full bg-violet-500/10 text-violet-400 text-xs font-semibold mb-4">
+                  Citizen Hub
+                </span>
+                <h3 className="font-bold text-xl text-white mb-1">Government & Tax</h3>
+                <p className="text-white/50 text-xs mb-4">Voter ID, DL, RC, ITR, GST Registration</p>
+                <div className="mb-6">
+                  <span className="font-display text-3xl font-extrabold text-white">₹30 – ₹500</span>
+                  <span className="text-white/40 text-xs ml-1.5">/ service</span>
+                </div>
+                <ul className="space-y-2.5 text-xs text-white/70 mb-6">
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Direct government fee schedule</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> High retailer commission margins</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Verified document storage & review</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> 24 to 72 business hours turnaround</li>
+                </ul>
+              </div>
+              <button onClick={handleStartBusiness} className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all">
+                Explore Services
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col justify-between hover:border-emerald-500/50 transition-all">
+              <div>
+                <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold mb-4">
+                  BBPS & Utilities
+                </span>
+                <h3 className="font-bold text-xl text-white mb-1">Recharge & Utilities</h3>
+                <p className="text-white/50 text-xs mb-4">Prepaid, Postpaid, DTH, Electricity, Gas</p>
+                <div className="mb-6">
+                  <span className="font-display text-3xl font-extrabold text-white">0%</span>
+                  <span className="text-white/40 text-xs ml-1.5">Gateway Fee</span>
+                </div>
+                <ul className="space-y-2.5 text-xs text-white/70 mb-6">
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Zero convenience surcharge</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Real-time operator confirmation</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Instant commission to wallet</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Automated refund on failed recharges</li>
+                </ul>
+              </div>
+              <button onClick={handleStartBusiness} className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all">
+                Start Recharge
+              </button>
+            </div>
+          </div>
+
+          {/* Business KPI row */}
+          <div className="text-center mb-8">
+            <h3 className="font-display text-2xl font-bold text-white mb-2">Live Business Metrics</h3>
+            <p className="text-white/40 text-xs">Real-time visibility into every rupee earned and every service delivered</p>
           </div>
           <div className="grid md:grid-cols-5 gap-4 max-w-4xl mx-auto">
             {[
@@ -368,10 +475,10 @@ export default function Landing({ onLogin }: Props) {
               { title: "Account", links: [["Sign In", "/login"], ["Register", "/register"]] },
               { title: "Support", links: [
                 ["FAQ", "#faq"],
-                ["WhatsApp", "https://wa.me/916370892501"],
-                ["Email", "mailto:bilsondigal058@gmail.com"],
-                ["Call", "tel:+916370892501"],
-                ["Website", "https://my-portfolio-n3b5.vercel.app/"],
+                ["WhatsApp", "https://wa.me/918280123459?text=Hello%20LD%20SERVICE%20ZONE%2C%20I%20have%20an%20inquiry."],
+                ["Email", "mailto:ldservicezone@gmail.com"],
+                ["Call", "tel:+918280123459"],
+                ["Contact & Office", "/contact"],
               ] },
             ].map(col => (
               <div key={col.title}>
@@ -379,14 +486,23 @@ export default function Landing({ onLogin }: Props) {
                 <ul className="space-y-2">
                   {col.links.map(([label, href]) => (
                     <li key={label}>
-                      <a
-                        href={href}
-                        target={href.startsWith("http") ? "_blank" : undefined}
-                        rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-                        className="text-white/40 text-sm hover:text-white/70 transition-colors"
-                      >
-                        {label}
-                      </a>
+                      {href.startsWith("/") || href.startsWith("#") ? (
+                        <Link
+                          to={href}
+                          className="text-white/40 text-sm hover:text-white/70 transition-colors"
+                        >
+                          {label}
+                        </Link>
+                      ) : (
+                        <a
+                          href={href}
+                          target={href.startsWith("http") ? "_blank" : undefined}
+                          rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+                          className="text-white/40 text-sm hover:text-white/70 transition-colors"
+                        >
+                          {label}
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -394,7 +510,7 @@ export default function Landing({ onLogin }: Props) {
             ))}
           </div>
           <div className="border-t border-white/10 pt-6 flex flex-wrap items-center justify-between gap-4 text-white/30 text-xs">
-            <p>© 2026 LD Service Zone. All rights reserved.</p>
+            <p>© 2026 LD SERVICE ZONE. All rights reserved. Proprietor: Bilson Digal.</p>
             <div className="flex flex-wrap gap-4 sm:gap-6">
               <Link to="/terms" className="hover:text-white/60 transition-colors">Terms of Service</Link>
               <Link to="/privacy" className="hover:text-white/60 transition-colors">Privacy Policy</Link>
@@ -403,6 +519,9 @@ export default function Landing({ onLogin }: Props) {
               <Link to="/contact" className="hover:text-white/60 transition-colors">Contact Us</Link>
             </div>
           </div>
+          <p className="mt-4 text-[11px] leading-relaxed text-white/25 border-t border-white/5 pt-3">
+            <b>Disclaimer:</b> LD SERVICE ZONE is an independent citizen facilitation and retail technology portal operated by Bilson Digal. We provide assisted application processing, digital utility payments, and partner agency enablement. We are a private enterprise and are not directly affiliated with, sponsored by, or an official agency of any government ministry or department. All government trademarks and logos belong to their respective statutory authorities.
+          </p>
         </div>
       </footer>
       <SupportWidget />

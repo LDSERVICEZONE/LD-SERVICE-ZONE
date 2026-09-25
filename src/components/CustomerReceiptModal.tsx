@@ -78,7 +78,7 @@ export default function CustomerReceiptModal({
 
   const operatorName = retailer?.name || app.retailerName || "Authorized Agent";
   const operatorId = retailer?.vleId || retailer?.username || retailer?.id || app.userId || "VLE-AGENT";
-  const contactNo = retailer?.mobile || "Support: +91 6370892501";
+  const contactNo = retailer?.mobile || "Support: +91 8280123459";
   const centerLocation = [retailer?.city, retailer?.state].filter(Boolean).join(", ") || "Odisha, India";
 
   const appDate = app.createdAt ? new Date(app.createdAt) : new Date();
@@ -108,7 +108,7 @@ Mobile: ${customerMobile}
 Amount Paid: ₹${amount.toLocaleString("en-IN")}
 Payment Status: ${app.paymentId ? "PAID" : "COMPLETED"}
 Center: ${shopName} (Agent: ${operatorName})
-Helpline: +91 6370892501`;
+Helpline: +91 8280123459`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -206,7 +206,7 @@ Helpline: +91 6370892501`;
                 <span className="inline-block px-2.5 py-1 rounded bg-slate-100 text-slate-800 font-mono text-[10px] font-bold uppercase border border-slate-300">
                   Customer Copy
                 </span>
-                <p className="text-[10px] text-slate-500 mt-1">Helpline: +91 6370892501</p>
+                <p className="text-[10px] text-slate-500 mt-1">Helpline: +91 8280123459</p>
                 <p className="text-[10px] text-slate-500">https://ldservicezone.in</p>
               </div>
             </div>

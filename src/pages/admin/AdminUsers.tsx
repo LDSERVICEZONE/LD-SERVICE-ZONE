@@ -1153,7 +1153,7 @@ Please sign in to change your password and start transacting!`;
                   </button>
                   {createdRetailerCreds.mobile && (
                     <a
-                      href={`https://wa.me/91${createdRetailerCreds.mobile}?text=${encodeURIComponent(
+                      href={`https://wa.me/91${String(createdRetailerCreds.mobile || "").replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(
                         `🎉 Welcome to LD SERVICE ZONE!\nYour Retailer Partner Account has been activated.\n\n👤 Name: ${createdRetailerCreds.name}\n🏢 Shop: ${createdRetailerCreds.businessName}\n🌐 Portal: ${window.location.origin}/login\n📧 Login: ${createdRetailerCreds.email}\n🔑 Password: ${createdRetailerCreds.password}\n${createdRetailerCreds.vleId ? `🆔 UTI PSA ID: ${createdRetailerCreds.vleId}\n` : ""}\nPlease log in to start transacting!`
                       )}`}
                       target="_blank"

@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ShieldCheck, FileText, RotateCcw, Truck, Phone, Mail, MapPin, Clock, ArrowLeft } from "lucide-react";
+import { ShieldCheck, FileText, RotateCcw, Truck, Phone, Mail, MapPin, Clock, ArrowLeft, MessageCircle } from "lucide-react";
 import PublicNav from "@/components/layout/PublicNav";
 import AnimatedBackground from "@/components/background/AnimatedBackground";
 
@@ -115,6 +115,9 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                   cafes, and general citizens. We operate under the <b>"Services"</b> category and do
                   not manufacture or ship physical consumer goods.
                 </p>
+                <p className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs leading-relaxed">
+                  <b>Statutory Disclaimer:</b> LD SERVICE ZONE is an independent private facilitation and retail enablement portal operated by Bilson Digal. We are not an official government entity or department. All government names, schemes, and marks belong to their respective statutory authorities.
+                </p>
               </section>
 
               <section className="space-y-3">
@@ -216,7 +219,7 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                 <h3 className="text-base font-semibold text-white">5. Grievance Redressal</h3>
                 <p>
                   For any privacy inquiries or data update requests, please write to our Grievance
-                  Officer at <b>bilsondigal058@gmail.com</b> or call <b>+91 6370892501</b>.
+                  Officer at <b>ldservicezone@gmail.com</b> or call <b>+91 8280123459</b>.
                 </p>
               </section>
             </div>
@@ -272,7 +275,7 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                 <h3 className="text-base font-semibold text-white">4. Refund Request Procedure</h3>
                 <p>
                   To report any billing discrepancies or request manual assistance, please contact our
-                  dedicated support helpline at <b>+91 6370892501</b> or email <b>support@ldservicezone.in</b> with your
+                  dedicated support helpline at <b>+91 8280123459</b> or email <b>ldservicezone@gmail.com</b> with your
                   Application Number / Transaction ID. All refund requests are reviewed within 24–48 hours.
                 </p>
               </section>
@@ -359,10 +362,28 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                     <Phone className="w-4 h-4" />
                     <span>Customer Support & Helpline</span>
                   </div>
-                  <p className="text-white text-base font-mono font-bold">+91 6370892501</p>
+                  <p className="text-white text-base font-mono font-bold">+91 82801 23459</p>
                   <p className="text-xs text-slate-400">
                     Call or chat with us on WhatsApp for fast onboarding, technical support, and transaction queries.
                   </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <a
+                      href="https://wa.me/918280123459?text=Hello%20LD%20SERVICE%20ZONE%2C%20I%20have%20an%20inquiry."
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-400/25 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/25 transition"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Chat on WhatsApp
+                    </a>
+                    <a
+                      href="tel:+918280123459"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/15 border border-blue-400/25 text-blue-300 text-xs font-semibold hover:bg-blue-500/25 transition"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      Call Now
+                    </a>
+                  </div>
                 </div>
 
                 <div className="rounded-2xl bg-white/5 border border-white/10 p-5 space-y-3">
@@ -371,11 +392,20 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                     <span>Email Support</span>
                   </div>
                   <p className="text-white text-sm font-mono font-semibold break-all">
-                    bilsondigal058@gmail.com
+                    ldservicezone@gmail.com
                   </p>
                   <p className="text-xs text-slate-400">
                     Send official inquiries, bank verification documents, or billing dispute emails.
                   </p>
+                  <div className="pt-1">
+                    <a
+                      href="mailto:ldservicezone@gmail.com"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      Write Email
+                    </a>
+                  </div>
                 </div>
 
                 <div className="rounded-2xl bg-white/5 border border-white/10 p-5 space-y-3 sm:col-span-2">

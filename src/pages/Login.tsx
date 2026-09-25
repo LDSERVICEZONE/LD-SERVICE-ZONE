@@ -125,8 +125,8 @@ export default function Login({ onLogin }: Props) {
             </button>
           </div>
           <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3.5 text-white font-semibold shadow-lg shadow-blue-900/20 hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition">{loading ? "Signing in…" : "Sign In →"}</button>
-          <a href="https://wa.me/916370892501?text=Hello%20LD%20SERVICE%20ZONE%2C%20I%20need%20help%20with%20login." target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/5 px-4 py-2.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/10 transition-colors">
-            <span>WhatsApp Login Support</span><span className="text-emerald-200/50">63708 92501</span>
+          <a href="https://wa.me/918280123459?text=Hello%20LD%20SERVICE%20ZONE%2C%20I%20need%20help%20with%20login." target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/5 px-4 py-2.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/10 transition-colors">
+            <span>WhatsApp Login Support</span><span className="text-emerald-200/50">82801 23459</span>
           </a>
         </form>
         <p className="text-center text-white/40 text-sm mt-6">New partner? <Link to="/register" className="text-blue-400 font-semibold">Create an account</Link></p>
