@@ -215,6 +215,91 @@ export function createSupabaseService(config) {
       throw new Error(`Supabase User profile write failed (${response.status})`)
     }
   }
+  async function verifyOtp({ type = "email", email, token, tokenHash }) {
+    if (!url || !anonKey) throw new Error("Supabase is not configured")
+    const body = tokenHash
+      ? { type, token_hash: tokenHash }
+      : { type, email, token }
+    const response = await fetch(`${url}/auth/v1/verify`, {
+      method: "POST",
+      headers: {
+        apikey: anonKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(
+        data?.msg ||
+          data?.message ||
+          data?.error_description ||
+          data?.error ||
+          "Verification code is invalid or expired",
+      )
+    }
+    return data
+  }
+
+  async function sendMagicLink(email, redirectTo) {
+    if (!url || !anonKey) throw new Error("Supabase is not configured")
+    return request("/auth/v1/magiclink", "POST", {
+      email,
+      redirect_to: redirectTo || `${publicAppUrl}/login`,
+    })
+  }
+
+  async function sendRecovery(email, redirectTo) {
+    if (!url || !anonKey) throw new Error("Supabase is not configured")
+    return request("/auth/v1/recover", "POST", {
+      email,
+      redirect_to: redirectTo || `${publicAppUrl}/reset-password`,
+    })
+  }
+
+  async function updatePasswordWithToken(accessToken, password) {
+    if (!url || !anonKey) throw new Error("Supabase is not configured")
+    const response = await fetch(`${url}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(
+        data?.msg ||
+          data?.message ||
+          data?.error_description ||
+          data?.error ||
+          "Unable to update password",
+      )
+    }
+    return data
+  }
+
+  async function getUserByToken(accessToken) {
+    if (!url || !anonKey) throw new Error("Supabase is not configured")
+    const response = await fetch(`${url}/auth/v1/user`, {
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !data?.id) {
+      throw new Error(
+        data?.msg ||
+          data?.message ||
+          data?.error_description ||
+          "Invalid or expired session token",
+      )
+    }
+    return data
+  }
 
   return {
     request,
@@ -225,5 +310,10 @@ export function createSupabaseService(config) {
     findUserByEmail,
     passwordLogin,
     persistUser,
+    verifyOtp,
+    sendMagicLink,
+    sendRecovery,
+    updatePasswordWithToken,
+    getUserByToken,
   }
 }

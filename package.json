@@ -16,7 +16,7 @@
     "db:migrate-state": "node scripts/migrate-platform-state-to-relational.mjs",
     "db:verify-relational": "node scripts/verify-relational-migration.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/api-audit.test.mjs",
+    "test": "node --test tests/api-audit.test.mjs tests/supabase-auth-otp.test.mjs",
     "audit:browser": "node tests/browser-audit.mjs"
   },
   "dependencies": {

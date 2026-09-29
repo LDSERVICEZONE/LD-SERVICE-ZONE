@@ -1,6 +1,6 @@
-﻿# LD SERVICE ZONE â€” Signup & Login Rules
+# LD SERVICE ZONE — Signup, Login & OTP Rules
 
-## Account uniqueness
+## Account Uniqueness
 
 - One retailer account can use an email address only once.
 - One retailer account can use an Indian mobile number only once.
@@ -8,30 +8,32 @@
 - Indian mobile numbers are normalized to `+91XXXXXXXXXX`, so `9876543210`, `919876543210`, and `+919876543210` are treated as the same number.
 - Uniqueness is checked against both the local profile database and Supabase Auth metadata.
 - Supabase Auth remains the final authority for email uniqueness.
-- A second registration using the same email or same mobile returns HTTP 409 with a clear message and does not create another local account.
+- A duplicate registration using the same email or mobile returns HTTP 409 with a clear message and does not duplicate local accounts.
 
-## Login after signup
+## Supabase SMTP & Email Verification
 
-- Signup creates a Supabase Auth user with email confirmation required and sends a confirmation link.
-- The user is redirected to `/login` after successful registration.
-- Login accepts either the registered email or the registered mobile number.
-- Mobile login accepts 10-digit, `91XXXXXXXXXX`, or `+91XXXXXXXXXX` input.
-- The password is verified through Supabase for retailer accounts.
-- A successful login creates the app session and routes the retailer to `/dashboard`.
-- After verification, the retailer signs in with the password.
-- Mobile numbers are supported for password login.
+Now that custom SMTP is integrated into Supabase:
+- **Instant 6-digit OTP Email**: Upon signup, Supabase emails a 6-digit verification code (`{{ .Token }}`) and confirmation link.
+- **On-Screen OTP Verification**: The registration page (`/register`) provides an on-screen 6-digit OTP verification field with a 60-second resend cooldown timer.
+- **Immediate Session Creation**: Entering the 6-digit OTP verifies the Supabase Auth user, creates the retailer profile, initializes their wallet, and automatically signs them into `/dashboard`.
+- **Confirmation Link Support**: Clicking the email confirmation link seamlessly handles both access token hashes (`#access_token=...`), token hashes (`?token_hash=...`), and PKCE codes, confirming and signing the retailer in.
 
-## Email confirmation link
+## Login Options
 
-Supabase sends a confirmation link after registration. Opening the link at `/login` confirms the Supabase user and promotes the pending signup into the local profile. The registration UI does not ask for an OTP.
+1. **Password Login**:
+   - Accepts registered Member ID / Username, Gmail/email address, or Indian mobile number.
+   - Verified through Supabase Auth (or local secure hash for seeded admins).
+   - If an unconfirmed retailer attempts to sign in, the UI displays a clear notice with a one-click action to enter their 6-digit email OTP.
+2. **Email OTP Login (Passwordless)**:
+   - Retailers can toggle to "Email OTP Sign In" on `/login`.
+   - Enter registered email or mobile number to receive a 6-digit OTP.
+   - Enter the 6-digit code to immediately authenticate without remembering passwords.
 
+## Password Recovery & Reset
 
-## Current authentication behavior
-
-- Sign-up requires Full Name, Business Name, Gmail/email, and an Indian 10-digit mobile number.
-- Indian mobile numbers are normalized server-side to `+91XXXXXXXXXX`.
-- Email link verification remains the first verification step; mobile OTP is intentionally not required yet.
-- Login accepts either the registered email address or the registered Indian mobile number, plus the account password.
-- Mobile OTP can be enabled later after an SMS provider is configured in Supabase.
-- Do not place Supabase service-role keys or encryption keys in `.env.example` files; keep real secrets only in the local/production environment.
-
+- **Forgot Password**: Accepts email, username, or Indian mobile number.
+- Supabase sends both a 6-digit recovery OTP and a secure password reset link via SMTP.
+- **Reset Page (`/reset-password`)**:
+  - Supports 6-digit OTP entry directly (`email` + `otp` + `new password`).
+  - Supports direct link consumption via `access_token` or `token_hash`.
+  - Automatically clears previous sessions upon successful password reset.

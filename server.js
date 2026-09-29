@@ -149,6 +149,11 @@ const {
   findUserByEmail: supabaseAdminFindUserByEmail,
   passwordLogin: supabasePasswordLogin,
   persistUser: persistRelationalUser,
+  verifyOtp: supabaseVerifyOtp,
+  sendMagicLink: supabaseSendMagicLink,
+  sendRecovery: supabaseSendRecovery,
+  updatePasswordWithToken: supabaseUpdatePasswordWithToken,
+  getUserByToken: supabaseGetUserByToken,
 } = supabase
 const testMode = String(process.env.LD_SKIP_ENV || "").toLowerCase() === "true"
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -528,7 +533,7 @@ async function promotePendingSignup(db, pending, authUser) {
   if (!pending || !authUser?.id) return null
   if (
     !authUser.email_confirmed_at ||
-    authUser.id !== pending.supabaseUserId ||
+    (pending.supabaseUserId && authUser.id !== pending.supabaseUserId) ||
     String(authUser.email || "").toLowerCase() !== pending.email.toLowerCase()
   )
     return null
@@ -628,6 +633,11 @@ export async function handleRequest(req, res) {
       supabaseAdminGetUser,
       supabaseAdminFindUserByEmail,
       supabasePasswordLogin,
+      supabaseVerifyOtp,
+      supabaseSendMagicLink,
+      supabaseSendRecovery,
+      supabaseUpdatePasswordWithToken,
+      supabaseGetUserByToken,
       config: {
         dataStore: DATA_STORE,
         publicAppUrl: PUBLIC_APP_URL,

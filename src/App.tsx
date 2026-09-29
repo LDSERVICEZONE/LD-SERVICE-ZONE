@@ -130,7 +130,7 @@ function AppRoutes() {
               <div className="relative isolate min-h-screen bg-[#07111F]">
                 <AnimatedBackground />
                 <PublicNav />
-                <Register />
+                <Register onLogin={login} />
               </div>
             )
           }

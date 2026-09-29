@@ -31,6 +31,11 @@ export async function handleAuthRoutes(context) {
     supabaseAdminGetUser,
     supabaseAdminFindUserByEmail,
     supabasePasswordLogin,
+    supabaseVerifyOtp,
+    supabaseSendMagicLink,
+    supabaseSendRecovery,
+    supabaseUpdatePasswordWithToken,
+    supabaseGetUserByToken,
     config,
   } = context
 
@@ -168,7 +173,7 @@ export async function handleAuthRoutes(context) {
         email,
         username: generatedUsername,
         message:
-          `Account created with Member ID ${generatedUsername}. Check your email for the Supabase confirmation link, then return here to sign in.`,
+          `Account created with Member ID ${generatedUsername}. Check your email for the 6-digit verification code or confirmation link.`,
       })
     } catch (error) {
       const message = String(error?.message || error)
@@ -211,7 +216,7 @@ export async function handleAuthRoutes(context) {
               email,
               username: restoredUsername,
               message:
-                `Your signup was restored with Member ID ${restoredUsername}. Check your email for a new confirmation link.`,
+                `Your signup was restored with Member ID ${restoredUsername}. Check your email for a new 6-digit verification code or confirmation link.`,
             })
           }
         } catch (lookupError) {
@@ -250,22 +255,76 @@ export async function handleAuthRoutes(context) {
         error: "Enter the 6-digit email verification code",
       })
     }
-    const pending = db.pendingSignups.find((signup) => signup.email === email)
+
+    let pending = db.pendingSignups.find((signup) => signup.email === email)
+    if (!pending) {
+      try {
+        const authExisting = await supabaseAdminFindUserByEmail(email)
+        if (authExisting && !authExisting.email_confirmed_at) {
+          pending = {
+            id: id("PSU"),
+            username: `LD${Math.floor(10000 + Math.random() * 90000)}`,
+            supabaseUserId: authExisting.id,
+            name: authExisting.user_metadata?.name || "Retailer",
+            businessName:
+              authExisting.user_metadata?.businessName || "Retailer Business",
+            email,
+            mobile: authExisting.user_metadata?.mobile || "",
+            passwordHash: null,
+            createdAt: now(),
+            emailVerified: false,
+          }
+          db.pendingSignups.push(pending)
+          await saveDb(db)
+        }
+      } catch (err) {
+        console.warn("Could not check Supabase user for pending signup:", err)
+      }
+    }
+
     if (!pending) {
       return respond(404, {
-        error: "No pending signup found for this email",
+        error:
+          "No pending signup found for this email. If already verified, please sign in.",
       })
     }
+
     let authData
     try {
-      authData = await supabaseRequest("/auth/v1/verify", "POST", {
-        type: "email",
+      authData = await supabaseVerifyOtp({
+        type: "signup",
         email,
         token: code,
       })
-    } catch (error) {
-      return respond(400, { error: String(error?.message || error) })
+    } catch (signupError) {
+      try {
+        authData = await supabaseVerifyOtp({
+          type: "email",
+          email,
+          token: code,
+        })
+      } catch (emailError) {
+        let alreadyConfirmed = null
+        try {
+          const checkUser = await supabaseAdminFindUserByEmail(email)
+          if (checkUser?.email_confirmed_at) {
+            alreadyConfirmed = checkUser
+          }
+        } catch (_) {}
+        if (!alreadyConfirmed) {
+          return respond(400, {
+            error:
+              String(
+                emailError?.message ||
+                  signupError?.message ||
+                  "Verification code is invalid or expired",
+              ),
+          })
+        }
+        authData = { user: alreadyConfirmed }
+      }
     }
+
     const authUser =
       authData?.user ||
       (pending.supabaseUserId
@@ -278,11 +337,27 @@ export async function handleAuthRoutes(context) {
           "Supabase email verification succeeded, but the account could not be linked locally. Contact admin.",
       })
     }
+
+    const token = crypto.randomBytes(32).toString("hex")
+    db.sessions = db.sessions.filter(
+      (session) => new Date(session.expiresAt) > new Date(),
+    )
+    db.sessions.push({
+      id: id("SES"),
+      userId: user.id,
+      tokenHash: crypto.createHash("sha256").update(token).digest("hex"),
+      createdAt: now(),
+      expiresAt: new Date(
+        Date.now() + config.sessionDays * 86_400_000,
+      ).toISOString(),
+    })
+    audit(db, user, "SIGNUP_EMAIL_VERIFIED_OTP", "user", user.id)
     await saveDb(db)
-    return respond(201, {
+    return respond(200, {
+      token,
       user: sanitizeUser(user),
       message:
-        "Email verified successfully. Your Supabase account is ready. You can now sign in.",
+        "Email verified successfully! Welcome to LD SERVICE ZONE.",
     })
   }
 
@@ -304,7 +379,31 @@ export async function handleAuthRoutes(context) {
     if (!isEmail(email)) {
       return respond(400, { error: "Enter a valid email address" })
     }
-    const pending = db.pendingSignups.find((signup) => signup.email === email)
+    let pending = db.pendingSignups.find((signup) => signup.email === email)
+    if (!pending) {
+      try {
+        const authExisting = await supabaseAdminFindUserByEmail(email)
+        if (authExisting && !authExisting.email_confirmed_at) {
+          pending = {
+            id: id("PSU"),
+            username: `LD${Math.floor(10000 + Math.random() * 90000)}`,
+            supabaseUserId: authExisting.id,
+            name: authExisting.user_metadata?.name || "Retailer",
+            businessName:
+              authExisting.user_metadata?.businessName || "Retailer Business",
+            email,
+            mobile: authExisting.user_metadata?.mobile || "",
+            passwordHash: null,
+            createdAt: now(),
+            emailVerified: false,
+          }
+          db.pendingSignups.push(pending)
+          await saveDb(db)
+        }
+      } catch (err) {
+        console.warn("Could not check Supabase user for resend:", err)
+      }
+    }
     if (!pending) {
       return respond(404, {
         error: "No pending signup found for this email",
@@ -318,7 +417,7 @@ export async function handleAuthRoutes(context) {
       return respond(200, {
         ok: true,
         message:
-          "A new confirmation link was sent to your email. Check Gmail and spam.",
+          "A new 6-digit verification code and confirmation link were sent to your email.",
       })
     } catch (error) {
       return respond(400, { error: String(error?.message || error) })
@@ -328,56 +427,132 @@ export async function handleAuthRoutes(context) {
   if (pathName === "/api/auth/signup/confirm-link" && req.method === "POST") {
     const input = await parseJson(req)
     const accessToken = String(input.accessToken || "").trim()
-    if (!accessToken || accessToken.length < 20) {
+    const tokenHash = String(input.tokenHash || input.token_hash || "").trim()
+    const code = String(input.code || "").trim()
+    const type = String(input.type || "signup").trim()
+
+    let authData
+    if (tokenHash) {
+      try {
+        authData = await supabaseVerifyOtp({
+          type: type || "signup",
+          tokenHash,
+        })
+      } catch (signupErr) {
+        try {
+          authData = await supabaseVerifyOtp({
+            type: "email",
+            tokenHash,
+          })
+        } catch (emailErr) {
+          return respond(400, {
+            error: String(
+              emailErr?.message ||
+                signupErr?.message ||
+                "The confirmation link is invalid or expired",
+            ),
+          })
+        }
+      }
+    } else if (code) {
+      try {
+        const response = await fetch(`${config.supabaseUrl}/auth/v1/token?grant_type=pkce`, {
+          method: "POST",
+          headers: {
+            apikey: config.supabaseAnonKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ auth_code: code }),
+        })
+        authData = await response.json().catch(() => ({}))
+        if (!response.ok || !authData?.user?.id) {
+          throw new Error("Unable to exchange confirmation code")
+        }
+      } catch (codeErr) {
+        return respond(400, { error: String(codeErr?.message || codeErr) })
+      }
+    } else if (accessToken && accessToken.length >= 20) {
+      try {
+        const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+          headers: {
+            apikey: config.supabaseAnonKey,
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+        const userData = await response.json().catch(() => ({}))
+        if (!response.ok || !userData?.id) {
+          throw new Error("The confirmation link is invalid or expired")
+        }
+        authData = { user: userData }
+      } catch (error) {
+        return respond(400, { error: String(error?.message || error) })
+      }
+    } else {
       return respond(400, {
         error:
           "The confirmation link is missing or expired. Request a new link.",
       })
     }
-    let authData
-    try {
-      const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
-        headers: {
-          apikey: config.supabaseAnonKey,
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      authData = await response.json().catch(() => ({}))
-      if (!response.ok || !authData?.id) {
-        throw new Error("The confirmation link is invalid or expired")
-      }
-    } catch (error) {
-      return respond(400, { error: String(error?.message || error) })
-    }
-    const authUser = await supabaseAdminGetUser(authData.id)
+
+    const userId = authData?.user?.id
+    const userEmail = String(authData?.user?.email || "").toLowerCase()
+    const authUser = userId ? await supabaseAdminGetUser(userId) : null
     const pending = db.pendingSignups.find(
       (signup) =>
-        signup.supabaseUserId === authData.id ||
-        signup.email ===
-          String(authUser?.email || authData.email || "").toLowerCase(),
+        (userId && signup.supabaseUserId === userId) ||
+        (userEmail && signup.email === userEmail),
     )
-    const user = await promotePendingSignup(db, pending, authUser)
+    const user = await promotePendingSignup(db, pending, authUser || authData?.user)
     if (!user) {
       return respond(400, {
         error:
           "Email confirmed, but the pending signup could not be linked. Contact admin.",
       })
     }
+
+    const token = crypto.randomBytes(32).toString("hex")
+    db.sessions = db.sessions.filter(
+      (session) => new Date(session.expiresAt) > new Date(),
+    )
+    db.sessions.push({
+      id: id("SES"),
+      userId: user.id,
+      tokenHash: crypto.createHash("sha256").update(token).digest("hex"),
+      createdAt: now(),
+      expiresAt: new Date(
+        Date.now() + config.sessionDays * 86_400_000,
+      ).toISOString(),
+    })
+    audit(db, user, "SIGNUP_EMAIL_CONFIRMED_LINK", "user", user.id)
     await saveDb(db)
     return respond(200, {
+      token,
       user: sanitizeUser(user),
-      message: "Email verified successfully. You can now sign in.",
+      message: "Email verified successfully! Welcome to LD SERVICE ZONE.",
     })
   }
 
   if (pathName === "/api/auth/magic-link" && req.method === "POST") {
     const input = await parseJson(req)
-    const email = String(input.email || "")
+    let email = String(input.email || input.credential || "")
       .trim()
       .toLowerCase()
+
     if (!isEmail(email)) {
-      return respond(400, { error: "Enter a valid email address" })
+      const mob = normalizeIndianMobile(email)
+      const u = db.users.find(
+        (candidate) =>
+          normalizeIndianMobile(candidate.mobile) === mob ||
+          String(candidate.username || "").toLowerCase() === email ||
+          String(candidate.id || "").toLowerCase() === email,
+      )
+      if (u?.email) email = u.email.toLowerCase()
     }
+
+    if (!isEmail(email)) {
+      return respond(400, { error: "Enter a valid email address or registered mobile number" })
+    }
+
     const user = db.users.find(
       (candidate) =>
         String(candidate.email || "").toLowerCase() === email &&
@@ -385,12 +560,12 @@ export async function handleAuthRoutes(context) {
     )
     if (!user) {
       return respond(404, {
-        error: "No verified account was found for this email",
+        error: "No retailer account was found for this email or mobile",
       })
     }
     if (!user.emailVerifiedAt) {
       return respond(403, {
-        error: "Verify your email from the signup confirmation link first",
+        error: "Verify your email from the signup confirmation code or link first",
       })
     }
     try {
@@ -405,13 +580,11 @@ export async function handleAuthRoutes(context) {
           error: "Your Auth account no longer exists. Please register again.",
         })
       }
-      await supabaseRequest("/auth/v1/magiclink", "POST", {
-        email,
-        redirect_to: `${config.publicAppUrl}/login`,
-      })
+      await supabaseSendMagicLink(email, `${config.publicAppUrl}/login`)
       return respond(200, {
         ok: true,
-        message: "A magic sign-in link was sent to your email.",
+        email,
+        message: "A 6-digit sign-in code and magic link have been sent to your email.",
       })
     } catch (error) {
       return respond(400, { error: String(error?.message || error) })
@@ -421,36 +594,91 @@ export async function handleAuthRoutes(context) {
   if (pathName === "/api/auth/magic-link/consume" && req.method === "POST") {
     const input = await parseJson(req)
     const accessToken = String(input.accessToken || "").trim()
-    if (!accessToken || accessToken.length < 20) {
-      return respond(400, {
-        error: "The magic link is missing or expired. Request a new link.",
-      })
-    }
+    const tokenHash = String(input.tokenHash || input.token_hash || "").trim()
+    const email = String(input.email || "").trim().toLowerCase()
+    const code = String(input.code || input.otp || "").trim()
+
     let authData
-    try {
-      const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
-        headers: {
-          apikey: config.supabaseAnonKey,
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      authData = await response.json().catch(() => ({}))
-      if (!response.ok || !authData?.id) {
-        throw new Error("The magic link is invalid or expired")
+    if (code && email) {
+      try {
+        authData = await supabaseVerifyOtp({
+          type: "magiclink",
+          email,
+          token: code,
+        })
+      } catch (magicErr) {
+        try {
+          authData = await supabaseVerifyOtp({
+            type: "email",
+            email,
+            token: code,
+          })
+        } catch (emailErr) {
+          return respond(400, {
+            error: String(
+              emailErr?.message ||
+                magicErr?.message ||
+                "Invalid or expired sign-in OTP code",
+            ),
+          })
+        }
       }
-    } catch (error) {
-      return respond(400, { error: String(error?.message || error) })
+    } else if (tokenHash) {
+      try {
+        authData = await supabaseVerifyOtp({
+          type: "magiclink",
+          tokenHash,
+        })
+      } catch (magicErr) {
+        try {
+          authData = await supabaseVerifyOtp({
+            type: "email",
+            tokenHash,
+          })
+        } catch (emailErr) {
+          return respond(400, {
+            error: String(
+              emailErr?.message ||
+                magicErr?.message ||
+                "The sign-in link is invalid or expired",
+            ),
+          })
+        }
+      }
+    } else if (accessToken && accessToken.length >= 20) {
+      try {
+        const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+          headers: {
+            apikey: config.supabaseAnonKey,
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+        const userData = await response.json().catch(() => ({}))
+        if (!response.ok || !userData?.id) {
+          throw new Error("The magic link is invalid or expired")
+        }
+        authData = { user: userData }
+      } catch (error) {
+        return respond(400, { error: String(error?.message || error) })
+      }
+    } else {
+      return respond(400, {
+        error: "Enter the 6-digit sign-in code sent to your email",
+      })
     }
-    const authUser = await supabaseAdminGetUser(authData.id)
+
+    const authUser = authData?.user?.id
+      ? await supabaseAdminGetUser(authData.user.id)
+      : null
     const user = db.users.find(
       (candidate) =>
-        candidate.supabaseUserId === authData.id ||
+        (authData?.user?.id && candidate.supabaseUserId === authData.user.id) ||
         String(candidate.email || "").toLowerCase() ===
-          String(authUser?.email || authData.email || "").toLowerCase(),
+          String(authUser?.email || authData?.user?.email || "").toLowerCase(),
     )
     if (!user) {
       return respond(404, {
-        error: "This magic link is not linked to an application account",
+        error: "This sign-in session is not linked to an application account",
       })
     }
     if (
@@ -478,12 +706,12 @@ export async function handleAuthRoutes(context) {
         Date.now() + config.sessionDays * 86_400_000,
       ).toISOString(),
     })
-    audit(db, user, "LOGIN_MAGIC_LINK", "user", user.id)
+    audit(db, user, "LOGIN_OTP", "user", user.id)
     await saveDb(db)
     return respond(200, {
       token,
       user: sanitizeUser(user),
-      authProvider: "supabase-magic-link",
+      authProvider: "supabase-otp",
     })
   }
 
@@ -617,6 +845,43 @@ export async function handleAuthRoutes(context) {
           String(error?.message || error),
         )
       }
+    } else if (
+      !user &&
+      !pending &&
+      credentialEmail &&
+      config.supabaseUrl &&
+      config.supabaseServiceRoleKey
+    ) {
+      try {
+        const authExisting = await supabaseAdminFindUserByEmail(credentialEmail)
+        if (authExisting?.id) {
+          if (!authExisting.email_confirmed_at) {
+            return respond(403, {
+              error:
+                "Please verify your email before signing in. Check your inbox for the 6-digit code or link.",
+              unconfirmed: true,
+              email: credentialEmail,
+            })
+          }
+          const restoredPending = {
+            id: id("PSU"),
+            username: `LD${Math.floor(10000 + Math.random() * 90000)}`,
+            supabaseUserId: authExisting.id,
+            name: authExisting.user_metadata?.name || "Retailer",
+            businessName:
+              authExisting.user_metadata?.businessName || "Retailer Business",
+            email: credentialEmail,
+            mobile: authExisting.user_metadata?.mobile || "",
+            passwordHash: null,
+            createdAt: now(),
+            emailVerified: true,
+          }
+          user = await promotePendingSignup(db, restoredPending, authExisting)
+          if (user) await saveDb(db)
+        }
+      } catch (err) {
+        console.warn("Could not check/restore Supabase user on login:", err)
+      }
     }
 
     let authenticatedWithSupabase = false
@@ -633,11 +898,21 @@ export async function handleAuthRoutes(context) {
         }
         if (!authData.user.email_confirmed_at) {
           return respond(403, {
-            error: "Please verify your email before signing in",
+            error: "Please verify your email before signing in. Check your inbox for the 6-digit code or link.",
+            unconfirmed: true,
+            email: user.email,
           })
         }
         authenticatedWithSupabase = true
-      } catch {
+      } catch (authErr) {
+        const errMsg = String(authErr?.message || "")
+        if (/email not confirmed|confirm your email/i.test(errMsg)) {
+          return respond(403, {
+            error: "Please verify your email before signing in. Check your inbox for the 6-digit code or link.",
+            unconfirmed: true,
+            email: user.email,
+          })
+        }
         return respond(401, {
           error: "Invalid email or password",
         })
@@ -656,7 +931,9 @@ export async function handleAuthRoutes(context) {
     if (user.role === "retailer" && !user.emailVerifiedAt) {
       return respond(403, {
         error:
-          "Please verify your email from the confirmation link sent to your inbox before signing in",
+          "Please verify your email from the confirmation code or link sent to your inbox before signing in",
+        unconfirmed: true,
+        email: user.email,
       })
     }
     if (user.role === "retailer" && authenticatedWithSupabase) {
@@ -670,7 +947,9 @@ export async function handleAuthRoutes(context) {
         if (!authCheck?.email_confirmed_at) {
           return respond(403, {
             error:
-              "Please verify your email from the confirmation link sent to your Gmail before signing in",
+              "Please verify your email from the confirmation code or link sent to your Gmail before signing in",
+            unconfirmed: true,
+            email: user.email,
           })
         }
       } catch (error) {
@@ -725,17 +1004,24 @@ export async function handleAuthRoutes(context) {
       })
     }
     const input = await parseJson(req)
-    const email = String(input.email || "")
+    let email = String(input.email || input.credential || "")
       .trim()
       .toLowerCase()
     if (!isEmail(email)) {
-      return respond(400, { error: "Enter a valid email address" })
+      const mob = normalizeIndianMobile(email)
+      const u = db.users.find(
+        (candidate) =>
+          normalizeIndianMobile(candidate.mobile) === mob ||
+          String(candidate.username || "").toLowerCase() === email ||
+          String(candidate.id || "").toLowerCase() === email,
+      )
+      if (u?.email) email = u.email.toLowerCase()
+    }
+    if (!isEmail(email)) {
+      return respond(400, { error: "Enter a valid email address or registered mobile number" })
     }
     try {
-      await supabaseRequest("/auth/v1/recover", "POST", {
-        email,
-        redirect_to: `${config.publicAppUrl}/reset-password`,
-      })
+      await supabaseSendRecovery(email, `${config.publicAppUrl}/reset-password`)
     } catch (error) {
       console.error(
         "Password recovery request:",
@@ -744,8 +1030,9 @@ export async function handleAuthRoutes(context) {
     }
     return respond(200, {
       ok: true,
+      email,
       message:
-        "If an account exists for this email, a password reset link has been sent.",
+        "If an account exists, a 6-digit recovery code and reset link have been sent to your email.",
     })
   }
 
@@ -764,35 +1051,67 @@ export async function handleAuthRoutes(context) {
       return respond(503, { error: "Password recovery is not configured" })
     }
     const input = await parseJson(req)
-    const accessToken = String(input.accessToken || "")
+    let accessToken = String(input.accessToken || "").trim()
+    const tokenHash = String(input.tokenHash || input.token_hash || "").trim()
+    const email = String(input.email || "").trim().toLowerCase()
+    const otp = String(input.otp || input.code || "").trim()
     const password = String(input.password || "")
-    if (!accessToken || password.length < 8) {
+
+    if (password.length < 8) {
       return respond(400, {
-        error:
-          "A valid reset session and an 8+ character password are required",
+        error: "Password must be at least 8 characters",
       })
     }
-    const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
-      method: "PUT",
-      headers: {
-        apikey: config.supabaseAnonKey,
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ password }),
-    })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) {
+
+    if (!accessToken && tokenHash) {
+      try {
+        const authData = await supabaseVerifyOtp({
+          type: "recovery",
+          tokenHash,
+        })
+        accessToken = authData?.access_token || ""
+      } catch (err) {
+        return respond(400, {
+          error: String(err?.message || "Invalid or expired password reset link"),
+        })
+      }
+    }
+
+    if (!accessToken && email && otp) {
+      try {
+        const authData = await supabaseVerifyOtp({
+          type: "recovery",
+          email,
+          token: otp,
+        })
+        accessToken = authData?.access_token || ""
+      } catch (err) {
+        return respond(400, {
+          error: String(err?.message || "Invalid or expired recovery code"),
+        })
+      }
+    }
+
+    if (!accessToken) {
       return respond(400, {
         error:
-          data?.msg ||
-          data?.message ||
-          data?.error_description ||
-          "Unable to reset password",
+          "A valid reset session, token or 6-digit recovery code is required",
       })
     }
+
+    let data
+    try {
+      data = await supabaseUpdatePasswordWithToken(accessToken, password)
+    } catch (err) {
+      return respond(400, {
+        error: String(err?.message || "Unable to reset password"),
+      })
+    }
+
     const resetUser = db.users.find(
-      (candidate) => candidate.supabaseUserId === data.id,
+      (candidate) =>
+        (data?.id && candidate.supabaseUserId === data.id) ||
+        (email && String(candidate.email || "").toLowerCase() === email),
     )
     if (resetUser) {
       delete resetUser.passwordHash
