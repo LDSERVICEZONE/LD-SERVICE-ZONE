@@ -318,16 +318,13 @@ export default function RechargePage() {
         )}
 
         <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 text-xs text-blue-800">
-          <b>Recharge commission:</b> Pay2All commission is split 50/50 — half is
-          credited to your wallet after a successful recharge, and half is recorded
-          for admin.
+          <b>Instant Recharge:</b> Fast automated recharge processed directly from your wallet balance.
         </div>
 
         {lastTx && (
           <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs text-emerald-800">
-            <b>Last recharge:</b> {lastTx.status} · Provider commission ₹
-            {Number(lastTx.providerCommission || 0).toFixed(2)} · Your 50% ₹
-            {Number(lastTx.userCommission || 0).toFixed(2)}
+            <b>Last recharge:</b> {lastTx.status} · Amount: ₹
+            {Number(lastTx.amount || 0).toFixed(2)} · Order ID: {lastTx.clientOrderId || lastTx.id}
           </div>
         )}
 

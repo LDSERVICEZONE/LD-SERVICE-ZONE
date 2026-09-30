@@ -10,31 +10,29 @@ interface Props {
 }
 
 const services: Array<{ icon: LucideIcon; name: string; desc: string; color: string }> = [
-  { icon: Smartphone, name: "Recharge & Utilities", desc: "Mobile, DTH, Broadband, Electricity, Gas, Water", color: "from-blue-500 to-blue-600" },
-  { icon: CreditCard, name: "PAN & Tax", desc: "New PAN, Corrections, ITR Filing, GST Registration", color: "from-indigo-500 to-indigo-600" },
-  { icon: Building2, name: "Government Services", desc: "Voter ID, Driving Licence, RC, Certificates", color: "from-violet-500 to-violet-600" },
-  { icon: FileText, name: "Document Services", desc: "PDF Generation, Document Download & Preview", color: "from-cyan-500 to-cyan-600" },
-  { icon: IndianRupee, name: "Financial Services", desc: "Money Transfer, Insurance, Loans, Investment", color: "from-emerald-500 to-emerald-600" },
-  { icon: BarChart3, name: "Business Tools", desc: "Analytics, Commission Tracking, CRM, Reports", color: "from-amber-500 to-amber-600" },
-  { icon: WalletCards, name: "Digital Products", desc: "Vouchers, Gift Cards, Software Licenses", color: "from-pink-500 to-pink-600" },
-  { icon: Users, name: "Partner Services", desc: "B2B Store, CSP Services, Bulk Operations", color: "from-teal-500 to-teal-600" },
+  { icon: CreditCard, name: "UTI PSA PAN Services", desc: "Official UTI PSA paperless PAN, eKYC, and agency registration", color: "from-indigo-500 to-indigo-600" },
+  { icon: ShieldCheck, name: "NSDL / Protean eKYC PAN", desc: "Instant biometric & mobile OTP paperless 2-hour e-PAN processing", color: "from-blue-500 to-blue-600" },
+  { icon: FileText, name: "PAN Find Service", desc: "Instant lost PAN retrieval by Aadhaar card and live verification", color: "from-violet-500 to-violet-600" },
+  { icon: Receipt, name: "PAN Application Tracking", desc: "Real-time status tracking for both UTIITSL and NSDL TIN portals", color: "from-cyan-500 to-cyan-600" },
+  { icon: Sparkles, name: "UTI VLE Coupon Hub", desc: "Instant physical and electronic coupon management for agents", color: "from-amber-500 to-amber-600" },
+  { icon: Smartphone, name: "Recharge & Utilities", desc: "Mobile & DTH recharge gateway with automated operator confirmation", color: "from-emerald-500 to-emerald-600" },
 ];
 
 const features: Array<{ icon: LucideIcon; title: string; desc: string }> = [
-  { icon: Zap, title: "Faster Transactions", desc: "Process recharges and bill payments in under 3 seconds with our optimized infrastructure." },
-  { icon: BarChart3, title: "Higher Earning Potential", desc: "Track commissions from the services enabled for your account." },
+  { icon: Zap, title: "Faster Transactions", desc: "Process recharges and PAN services in seconds with our optimized infrastructure." },
+  { icon: BarChart3, title: "Operational Growth", desc: "Scale your citizen service center with high-demand PAN and digital utilities." },
   { icon: LayoutDashboard, title: "Centralized Operations", desc: "Manage every service, customer, and transaction from a single intelligent workspace." },
   { icon: Receipt, title: "Real-Time Tracking", desc: "Monitor your business with live dashboards, instant alerts, and detailed analytics." },
-  { icon: Sparkles, title: "Business Insights", desc: "AI-powered insights help you identify growth opportunities and optimize your services." },
-  { icon: ShieldCheck, title: "Dedicated Support", desc: "24/7 partner support via chat, call, and ticket system with guaranteed SLA." },
+  { icon: Sparkles, title: "Instant Receipts", desc: "Generate professional printable receipts and acknowledgments for every customer." },
+  { icon: ShieldCheck, title: "Dedicated Support", desc: "Partner support via chat, call, and ticket system with guaranteed SLA." },
 ];
 
 const faqs = [
   { q: "How do I get started?", a: "Register with your mobile number, complete KYC verification, add money to your wallet, and start offering services immediately. The entire process takes under 30 minutes." },
   { q: "What documents are required for KYC?", a: "You need your Aadhaar card, PAN card, a selfie, and bank account details for settlements. Business registration documents are optional but increase your daily transaction limits." },
-  { q: "How are commissions paid?", a: "Commissions are credited to your wallet instantly after each successful transaction. You can request settlement to your bank account daily, weekly, or monthly." },
-  { q: "What is the minimum wallet balance required?", a: "There is no minimum balance requirement. However, you need sufficient balance to process transactions. We recommend maintaining ₹5,000+ for smooth operations." },
-  { q: "Is the platform available on mobile?", a: "Yes, the platform is fully responsive and works on all devices. We also have a dedicated mobile app available for Android and iOS." },
+  { q: "How are service payments processed?", a: "Service charges are deducted directly from your verified LD Service Zone wallet balance. All transactions are logged instantly with official acknowledgments." },
+  { q: "What is the minimum wallet balance required?", a: "There is no minimum balance requirement. However, you need sufficient balance to process transactions. We recommend maintaining ₹1,000+ for smooth operations." },
+  { q: "Is the platform available on mobile?", a: "Yes, the platform is fully responsive and works on all devices including smartphones, tablets, and desktop computers." },
 ];
 
 export default function Landing({ onLogin }: Props) {
@@ -156,7 +154,7 @@ export default function Landing({ onLogin }: Props) {
                 {[
                   { label: "Wallet Balance", value: "Live", color: "text-cyan-400" },
                   { label: "Today's Sales", value: "Live", color: "text-emerald-400" },
-                  { label: "Commission", value: "Live", color: "text-amber-400" },
+                  { label: "Completed", value: "Live", color: "text-amber-400" },
                   { label: "Transactions", value: "Live", color: "text-blue-400" },
                 ].map(k => (
                   <div key={k.label} className="rounded-xl bg-white/5 border border-white/10 p-3">
@@ -280,7 +278,7 @@ export default function Landing({ onLogin }: Props) {
                 </div>
                 <ul className="space-y-2.5 text-xs text-white/70 mb-6">
                   <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Official government processing fee</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Earn up to ₹32 retailer commission</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Direct submission to government portal</li>
                   <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Biometric & OTP eKYC support</li>
                   <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Instant digital acknowledgment</li>
                 </ul>
@@ -293,23 +291,23 @@ export default function Landing({ onLogin }: Props) {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col justify-between hover:border-violet-500/50 transition-all">
               <div>
                 <span className="inline-block px-3 py-1 rounded-full bg-violet-500/10 text-violet-400 text-xs font-semibold mb-4">
-                  Citizen Hub
+                  PAN Utility Hub
                 </span>
-                <h3 className="font-bold text-xl text-white mb-1">Government & Tax</h3>
-                <p className="text-white/50 text-xs mb-4">Voter ID, DL, RC, ITR, GST Registration</p>
+                <h3 className="font-bold text-xl text-white mb-1">PAN Find & Tracking</h3>
+                <p className="text-white/50 text-xs mb-4">Instant PAN search, verification & status check</p>
                 <div className="mb-6">
-                  <span className="font-display text-3xl font-extrabold text-white">₹30 – ₹500</span>
-                  <span className="text-white/40 text-xs ml-1.5">/ service</span>
+                  <span className="font-display text-3xl font-extrabold text-white">₹0 – ₹20</span>
+                  <span className="text-white/40 text-xs ml-1.5">/ query</span>
                 </div>
                 <ul className="space-y-2.5 text-xs text-white/70 mb-6">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Direct government fee schedule</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> High retailer commission margins</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Verified document storage & review</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> 24 to 72 business hours turnaround</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Instant lost PAN retrieval by Aadhaar</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Live UTI & NSDL application status</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Official acknowledgment verification</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Printable customer search report</li>
                 </ul>
               </div>
               <button onClick={handleStartBusiness} className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all">
-                Explore Services
+                Explore PAN Utilities
               </button>
             </div>
 
@@ -327,7 +325,7 @@ export default function Landing({ onLogin }: Props) {
                 <ul className="space-y-2.5 text-xs text-white/70 mb-6">
                   <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Zero convenience surcharge</li>
                   <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Real-time operator confirmation</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Instant commission to wallet</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Instant digital invoice & receipt</li>
                   <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Automated refund on failed recharges</li>
                 </ul>
               </div>
@@ -340,13 +338,13 @@ export default function Landing({ onLogin }: Props) {
           {/* Business KPI row */}
           <div className="text-center mb-8">
             <h3 className="font-display text-2xl font-bold text-white mb-2">Live Business Metrics</h3>
-            <p className="text-white/40 text-xs">Real-time visibility into every rupee earned and every service delivered</p>
+            <p className="text-white/40 text-xs">Real-time visibility into every rupee processed and every service delivered</p>
           </div>
           <div className="grid md:grid-cols-5 gap-4 max-w-4xl mx-auto">
             {[
               { label: "Wallet Balance", value: "Live", sub: "From your backend", color: "border-cyan-500/40 bg-cyan-500/10" },
               { label: "Today's Revenue", value: "Live", sub: "Computed from transactions", color: "border-emerald-500/40 bg-emerald-500/10" },
-              { label: "Today's Commission", value: "Live", sub: "Computed from records", color: "border-amber-500/40 bg-amber-500/10" },
+              { label: "Processed Orders", value: "Live", sub: "Computed from records", color: "border-amber-500/40 bg-amber-500/10" },
               { label: "Transactions", value: "Live", sub: "Real-time backend data", color: "border-blue-500/40 bg-blue-500/10" },
               { label: "Success Rate", value: "Live", sub: "Computed from status", color: "border-violet-500/40 bg-violet-500/10" },
             ].map(k => (
@@ -373,7 +371,7 @@ export default function Landing({ onLogin }: Props) {
               ["01", "Create your account", "Register your business and verify your mobile number.", Users],
               ["02", "Complete KYC", "Submit the required documents for partner activation.", ShieldCheck],
               ["03", "Fund your wallet", "Add working balance and unlock the services you need.", WalletCards],
-              ["04", "Serve & earn", "Process applications, payments and recharges while tracking commissions.", IndianRupee],
+              ["04", "Serve Customers", "Process PAN applications, recharges and utilities with instant confirmations.", IndianRupee],
             ] as Array<[string, string, string, LucideIcon]>).map(([step, title, desc, Icon]) => (
               <div key={String(step)} className="relative rounded-2xl border border-white/10 bg-white/5 p-6">
                 <div className="flex items-center justify-between mb-6"><span className="font-mono-data text-xs text-blue-300">{step}</span><span className="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-300 flex items-center justify-center"><Icon size={18}/></span></div>
@@ -390,7 +388,7 @@ export default function Landing({ onLogin }: Props) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
             <h2 className="font-display text-4xl font-extrabold mb-4">Built to Help You Grow</h2>
-            <p className="text-white/50">Every feature designed to maximize your earnings and minimize your effort.</p>
+            <p className="text-white/50">Every feature designed to maximize your efficiency and minimize your effort.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map(f => (
@@ -408,7 +406,7 @@ export default function Landing({ onLogin }: Props) {
       <section className="py-24 bg-white/3 border-y border-white/10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="font-display text-4xl font-extrabold mb-4">No fabricated dashboard numbers.</h2>
-          <p className="text-white/50 leading-relaxed">After registration, wallet balances, transactions, commissions, customer counts and analytics are populated from your authenticated backend records. A new account starts empty — exactly as it should.</p>
+          <p className="text-white/50 leading-relaxed">After registration, wallet balances, transactions, applications, customer counts and analytics are populated from your authenticated backend records. A new account starts empty — exactly as it should.</p>
         </div>
       </section>
 

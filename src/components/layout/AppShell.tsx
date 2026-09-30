@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   Building2,
+  CreditCard,
   FileText,
   Headphones,
   LayoutDashboard,
@@ -29,7 +30,7 @@ const NAV = [
   { label: "Wallet", path: "/dashboard/wallet", icon: WalletCards },
   { group: "Services" },
   { label: "Recharge", path: "/dashboard/recharge", icon: Smartphone },
-  { label: "Govt Services", path: "/dashboard/services", icon: Building2 },
+  { label: "PAN Services", path: "/dashboard/services", icon: CreditCard },
   { label: "My Applications", path: "/dashboard/applications", icon: FileText },
   { group: "Business" },
   { label: "Analytics", path: "/dashboard/analytics", icon: BarChart3 },

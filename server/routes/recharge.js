@@ -171,12 +171,9 @@ export async function handleRechargeRoutes(context) {
       const providerCommission = Number(
         providerResult.data?.commission || providerResult.commission || 0,
       )
-      const userCommission =
-        status === "success" ? Number((providerCommission / 2).toFixed(2)) : 0
+      const userCommission = 0
       const adminCommission =
-        status === "success"
-          ? Number((providerCommission - userCommission).toFixed(2))
-          : 0
+        status === "success" ? Number(providerCommission.toFixed(2)) : 0
       const transaction = {
         id: createId("RC"),
         clientId: providerResult.clientId,
@@ -344,10 +341,8 @@ export async function handleRechargeRoutes(context) {
       const providerCommission = Number(
         input.commission ?? transaction.providerCommission ?? 0,
       )
-      const userCommission = Number((providerCommission / 2).toFixed(2))
-      const adminCommission = Number(
-        (providerCommission - userCommission).toFixed(2),
-      )
+      const userCommission = 0
+      const adminCommission = Number(providerCommission.toFixed(2))
       Object.assign(transaction, {
         providerCommission,
         userCommission,

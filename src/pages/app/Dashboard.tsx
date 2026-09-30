@@ -109,10 +109,10 @@ export default function Dashboard() {
           icon="📈"
         />
         <KpiCard
-          label="Today's Commission"
-          value={`₹${Number(k.todayEarnings || 0).toLocaleString("en-IN")}`}
-          sub="Recorded commission"
-          icon="💰"
+          label="Total Applications"
+          value={String(apps.length || 0)}
+          sub="Submitted requests"
+          icon="📋"
         />
         <KpiCard
           label="Pending Settlement"

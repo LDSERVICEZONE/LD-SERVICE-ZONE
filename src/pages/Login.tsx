@@ -229,14 +229,14 @@ export default function Login({ onLogin }: Props) {
             Run every digital service from <span className="gradient-text">one place.</span>
           </h2>
           <p className="text-white/45 mt-5 leading-7">
-            Applications, payments, commissions, customer records and government services — managed
+            Applications, payments, customer records and PAN services — managed
             in a single professional workspace.
           </p>
           <div className="grid grid-cols-2 gap-3 mt-8">
             {[
               "Instant Supabase SMTP OTP",
               "Biometric & OTP PAN Cards",
-              "Live Retailer Commissions",
+              "Real-Time Wallet Passbook",
               "Admin Approval Workflow",
             ].map((x) => (
               <div key={x} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">

@@ -37,7 +37,7 @@ export default function ApplicationsPage() {
       "Customer Name",
       "Customer Mobile",
       "Customer Price",
-      "Commission",
+      "Service Code",
       "Payment Status",
       "Application Status",
       "Payment ID",
@@ -53,7 +53,7 @@ export default function ApplicationsPage() {
         cName,
         cMobile,
         a.customerPrice,
-        a.commission,
+        a.serviceId || "PAN",
         a.paymentId ? "Paid" : "Pending",
         a.status,
         a.paymentId || "",
@@ -166,8 +166,8 @@ export default function ApplicationsPage() {
                     <b className="font-mono">₹{a.customerPrice}</b>
                   </div>
                   <div>
-                    <p className="text-[10px] text-[#94A3B8]">Commission</p>
-                    <b className="font-mono text-emerald-600">₹{a.commission}</b>
+                    <p className="text-[10px] text-[#94A3B8]">Service Type</p>
+                    <b className="font-mono text-slate-700">{a.serviceId || "PAN"}</b>
                   </div>
                   <div>
                     <p className="text-[10px] text-[#94A3B8]">Payment</p>

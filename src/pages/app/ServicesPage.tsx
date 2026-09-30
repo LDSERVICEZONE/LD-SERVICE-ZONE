@@ -2,54 +2,57 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/shared/api/client";
 import { useWallet } from "@/features/session/AppContext";
 
-const BASE_CATEGORIES = ["All", "Government", "PAN", "Tax", "Certificate", "Recharge", "Bills", "Other"];
+const BASE_CATEGORIES = ["All Services", "UTI PAN", "NSDL PAN", "Coupons & VLE", "Status Tracking"];
 
 const PAN_SERVICES = [
-  { id: "PAN-UTI", name: "UTI PAN", icon: "🏢", commission: 10, processingTime: "Instant / 3-5 days", customerPrice: 107, documents: ["Aadhaar", "Biometric / OTP"], color: "#7C3AED", description: "Official UTI PSA Paperless PAN (ID issued via LD Service Zone)" },
-  { id: "PAN-FIND", name: "PAN Find", icon: "🔍", commission: 10, processingTime: "Instant", customerPrice: 20, documents: ["Aadhaar Number", "Mobile Number"], color: "#4F46E5", description: "Find lost PAN number by Aadhaar card" },
-  { id: "PAN-NSDL", name: "NSDL PAN", icon: "📑", commission: 10, processingTime: "Instant / 2 hours", customerPrice: 107, documents: ["Aadhaar", "Biometric / OTP"], color: "#1D56D8", description: "Instant paperless eKYC PAN card application" },
-  { id: "PAN-UTI-STATUS", name: "UTI PAN Status", icon: "⏱️", commission: 0, processingTime: "Instant", customerPrice: 0, documents: ["Application / Coupon No"], color: "#10B981", description: "Track UTIITSL PAN application status online" },
-  { id: "PAN-NSDL-STATUS", name: "NSDL PAN Status", icon: "🔎", commission: 0, processingTime: "Instant", customerPrice: 0, documents: ["15-Digit Ack No"], color: "#06B6D4", description: "Track NSDL TIN application status online" },
-  { id: "PAN-UTI-COUPON", name: "UTI Coupon Add", icon: "🎟️", commission: 5, processingTime: "Instant", customerPrice: 107, documents: ["UTI VLE ID"], color: "#F59E0B", description: "Add Physical & Electronic coupons to your UTI ID" },
+  { id: "PAN-UTI", name: "UTI PAN", icon: "🏢", processingTime: "Instant / 3-5 days", customerPrice: 107, documents: ["Aadhaar", "Biometric / OTP"], color: "#7C3AED", description: "Official UTI PSA Paperless PAN (ID issued via LD Service Zone)" },
+  { id: "PAN-FIND", name: "PAN Find", icon: "🔍", processingTime: "Instant", customerPrice: 20, documents: ["Aadhaar Number", "Mobile Number"], color: "#4F46E5", description: "Find lost PAN number by Aadhaar card" },
+  { id: "PAN-NSDL", name: "NSDL PAN", icon: "📑", processingTime: "Instant / 2 hours", customerPrice: 107, documents: ["Aadhaar", "Biometric / OTP"], color: "#1D56D8", description: "Instant paperless eKYC PAN card application" },
+  { id: "PAN-UTI-STATUS", name: "UTI PAN Status", icon: "⏱️", processingTime: "Instant", customerPrice: 0, documents: ["Application / Coupon No"], color: "#10B981", description: "Track UTIITSL PAN application status online" },
+  { id: "PAN-NSDL-STATUS", name: "NSDL PAN Status", icon: "🔎", processingTime: "Instant", customerPrice: 0, documents: ["15-Digit Ack No"], color: "#06B6D4", description: "Track NSDL TIN application status online" },
+  { id: "PAN-UTI-COUPON", name: "UTI Coupon Add", icon: "🎟️", processingTime: "Instant", customerPrice: 107, documents: ["UTI VLE ID"], color: "#F59E0B", description: "Add Physical & Electronic coupons to your UTI ID" },
 ];
 
+/*
+// Non-implemented services temporarily commented out until live API integrations are active:
 const SERVICE_SUBSERVICES: Record<string, any[]> = {
   "Voter ID Card": [
-    { id: "VOTER-NEW", name: "New Voter ID", icon: "🆕", processingTime: "7-15 days", customerPrice: 100, commission: 40, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#4F46E5" },
-    { id: "VOTER-CORRECTION", name: "Voter ID Correction", icon: "✏️", processingTime: "7-15 days", customerPrice: 100, commission: 35, documents: ["Voter ID", "Aadhaar", "Supporting Proof"], color: "#F59E0B" },
-    { id: "VOTER-ADDRESS", name: "Voter ID Address Change", icon: "🏠", processingTime: "7-15 days", customerPrice: 100, commission: 35, documents: ["Voter ID", "Address Proof"], color: "#06B6D4" },
-    { id: "VOTER-DOWNLOAD", name: "Voter ID Download", icon: "⬇️", processingTime: "Instant", customerPrice: 30, commission: 10, documents: ["EPIC Number", "Mobile Number"], color: "#10B981" },
+    { id: "VOTER-NEW", name: "New Voter ID", icon: "🆕", processingTime: "7-15 days", customerPrice: 100, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#4F46E5" },
+    { id: "VOTER-CORRECTION", name: "Voter ID Correction", icon: "✏️", processingTime: "7-15 days", customerPrice: 100, documents: ["Voter ID", "Aadhaar", "Supporting Proof"], color: "#F59E0B" },
+    { id: "VOTER-ADDRESS", name: "Voter ID Address Change", icon: "🏠", processingTime: "7-15 days", customerPrice: 100, documents: ["Voter ID", "Address Proof"], color: "#06B6D4" },
+    { id: "VOTER-DOWNLOAD", name: "Voter ID Download", icon: "⬇️", processingTime: "Instant", customerPrice: 30, documents: ["EPIC Number", "Mobile Number"], color: "#10B981" },
   ],
   "Driving Licence": [
-    { id: "DL-NEW", name: "New Driving Licence", icon: "🆕", processingTime: "15-30 days", customerPrice: 500, commission: 100, documents: ["Aadhaar", "Medical Cert", "Age Proof"], color: "#1D56D8" },
-    { id: "DL-LEARNER", name: "Learner Licence", icon: "📘", processingTime: "7-15 days", customerPrice: 300, commission: 70, documents: ["Aadhaar", "Age Proof"], color: "#4F46E5" },
-    { id: "DL-RENEWAL", name: "Driving Licence Renewal", icon: "🔄", processingTime: "7-15 days", customerPrice: 400, commission: 80, documents: ["Driving Licence", "Aadhaar"], color: "#10B981" },
-    { id: "DL-CORRECTION", name: "Driving Licence Correction", icon: "✏️", processingTime: "7-15 days", customerPrice: 400, commission: 75, documents: ["Driving Licence", "Supporting Proof"], color: "#F59E0B" },
-    { id: "DL-DUPLICATE", name: "Duplicate Driving Licence", icon: "📄", processingTime: "7-15 days", customerPrice: 450, commission: 90, documents: ["Driving Licence", "Aadhaar"], color: "#7C3AED" },
+    { id: "DL-NEW", name: "New Driving Licence", icon: "🆕", processingTime: "15-30 days", customerPrice: 500, documents: ["Aadhaar", "Medical Cert", "Age Proof"], color: "#1D56D8" },
+    { id: "DL-LEARNER", name: "Learner Licence", icon: "📘", processingTime: "7-15 days", customerPrice: 300, documents: ["Aadhaar", "Age Proof"], color: "#4F46E5" },
+    { id: "DL-RENEWAL", name: "Driving Licence Renewal", icon: "🔄", processingTime: "7-15 days", customerPrice: 400, documents: ["Driving Licence", "Aadhaar"], color: "#10B981" },
+    { id: "DL-CORRECTION", name: "Driving Licence Correction", icon: "✏️", processingTime: "7-15 days", customerPrice: 400, documents: ["Driving Licence", "Supporting Proof"], color: "#F59E0B" },
+    { id: "DL-DUPLICATE", name: "Duplicate Driving Licence", icon: "📄", processingTime: "7-15 days", customerPrice: 450, documents: ["Driving Licence", "Aadhaar"], color: "#7C3AED" },
   ],
   "RC Smart Card": [
-    { id: "RC-NEW", name: "New RC Smart Card", icon: "🆕", processingTime: "10-20 days", customerPrice: 400, commission: 80, documents: ["RC Book", "Insurance", "PUC"], color: "#06B6D4" },
-    { id: "RC-TRANSFER", name: "RC Transfer", icon: "🔄", processingTime: "10-20 days", customerPrice: 500, commission: 100, documents: ["RC Book", "Sale Agreement", "Insurance"], color: "#4F46E5" },
-    { id: "RC-CORRECTION", name: "RC Correction", icon: "✏️", processingTime: "10-20 days", customerPrice: 350, commission: 70, documents: ["RC Book", "Supporting Proof"], color: "#F59E0B" },
-    { id: "RC-DUPLICATE", name: "Duplicate RC", icon: "📄", processingTime: "10-20 days", customerPrice: 400, commission: 80, documents: ["Vehicle Details", "Insurance", "PUC"], color: "#7C3AED" },
+    { id: "RC-NEW", name: "New RC Smart Card", icon: "🆕", processingTime: "10-20 days", customerPrice: 400, documents: ["RC Book", "Insurance", "PUC"], color: "#06B6D4" },
+    { id: "RC-TRANSFER", name: "RC Transfer", icon: "🔄", processingTime: "10-20 days", customerPrice: 500, documents: ["RC Book", "Sale Agreement", "Insurance"], color: "#4F46E5" },
+    { id: "RC-CORRECTION", name: "RC Correction", icon: "✏️", processingTime: "10-20 days", customerPrice: 350, documents: ["RC Book", "Supporting Proof"], color: "#F59E0B" },
+    { id: "RC-DUPLICATE", name: "Duplicate RC", icon: "📄", processingTime: "10-20 days", customerPrice: 400, documents: ["Vehicle Details", "Insurance", "PUC"], color: "#7C3AED" },
   ],
   "ITR-1 Filing": [
-    { id: "ITR-1", name: "ITR-1 Filing", icon: "📊", processingTime: "Same day", customerPrice: 299, commission: 120, documents: ["PAN", "Form 16", "Bank Statement"], color: "#10B981" },
-    { id: "ITR-1-REVISED", name: "Revised ITR-1", icon: "✏️", processingTime: "Same day", customerPrice: 399, commission: 150, documents: ["PAN", "Form 16", "Original ITR"], color: "#F59E0B" },
+    { id: "ITR-1", name: "ITR-1 Filing", icon: "📊", processingTime: "Same day", customerPrice: 299, documents: ["PAN", "Form 16", "Bank Statement"], color: "#10B981" },
+    { id: "ITR-1-REVISED", name: "Revised ITR-1", icon: "✏️", processingTime: "Same day", customerPrice: 399, documents: ["PAN", "Form 16", "Original ITR"], color: "#F59E0B" },
   ],
   "GST Registration": [
-    { id: "GST-REG", name: "New GST Registration", icon: "🆕", processingTime: "3-7 days", customerPrice: 999, commission: 300, documents: ["PAN", "Aadhaar", "Business Proof"], color: "#F59E0B" },
-    { id: "GST-CORRECTION", name: "GST Amendment", icon: "✏️", processingTime: "3-7 days", customerPrice: 699, commission: 200, documents: ["GSTIN", "Supporting Proof"], color: "#4F46E5" },
+    { id: "GST-REG", name: "New GST Registration", icon: "🆕", processingTime: "3-7 days", customerPrice: 999, documents: ["PAN", "Aadhaar", "Business Proof"], color: "#F59E0B" },
+    { id: "GST-CORRECTION", name: "GST Amendment", icon: "✏️", processingTime: "3-7 days", customerPrice: 699, documents: ["GSTIN", "Supporting Proof"], color: "#4F46E5" },
   ],
   "Income Certificate": [
-    { id: "INCOME-NEW", name: "New Income Certificate", icon: "🆕", processingTime: "7-10 days", customerPrice: 150, commission: 50, documents: ["Aadhaar", "Ration Card"], color: "#7C3AED" },
-    { id: "INCOME-RENEW", name: "Income Certificate Renewal", icon: "🔄", processingTime: "7-10 days", customerPrice: 150, commission: 45, documents: ["Old Certificate", "Aadhaar"], color: "#10B981" },
+    { id: "INCOME-NEW", name: "New Income Certificate", icon: "🆕", processingTime: "7-10 days", customerPrice: 150, documents: ["Aadhaar", "Ration Card"], color: "#7C3AED" },
+    { id: "INCOME-RENEW", name: "Income Certificate Renewal", icon: "🔄", processingTime: "7-10 days", customerPrice: 150, documents: ["Old Certificate", "Aadhaar"], color: "#10B981" },
   ],
   "Caste Certificate": [
-    { id: "CASTE-NEW", name: "New Caste Certificate", icon: "🆕", processingTime: "10-15 days", customerPrice: 100, commission: 40, documents: ["Aadhaar", "Old Caste Cert"], color: "#06B6D4" },
-    { id: "CASTE-CORRECTION", name: "Caste Certificate Correction", icon: "✏️", processingTime: "10-15 days", customerPrice: 100, commission: 35, documents: ["Certificate", "Supporting Proof"], color: "#F59E0B" },
+    { id: "CASTE-NEW", name: "New Caste Certificate", icon: "🆕", processingTime: "10-15 days", customerPrice: 100, documents: ["Aadhaar", "Old Caste Cert"], color: "#06B6D4" },
+    { id: "CASTE-CORRECTION", name: "Caste Certificate Correction", icon: "✏️", processingTime: "10-15 days", customerPrice: 100, documents: ["Certificate", "Supporting Proof"], color: "#F59E0B" },
   ],
 };
+*/
 
 const serviceColor = (service: any) => service?.color || "#4F46E5";
 
@@ -59,7 +62,7 @@ const iconFor = (category: string) =>
 export default function ServicesPage() {
   const [services, setServices] = useState<any[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeCategory, setActiveCategory] = useState("All Services");
   const [search, setSearch] = useState("");
   const [selectedService, setSelectedService] = useState<any>(null);
   const [selectedParentService, setSelectedParentService] = useState<any>(null);
@@ -95,17 +98,22 @@ export default function ServicesPage() {
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
   }, []);
 
-  const categories = useMemo(() => Array.from(new Set([...BASE_CATEGORIES, ...services.map(s => s.category).filter(Boolean)])), [services]);
+  const categories = BASE_CATEGORIES;
 
-  const filtered = useMemo(() => services.filter(s =>
-    s.category !== "PAN" &&
-    s.status !== "disabled" &&
-    s.active !== false &&
-    (activeCategory === "All" || s.category === activeCategory) &&
-    s.name.toLowerCase().includes(search.toLowerCase())
-  ), [services, activeCategory, search]);
-
-  const livePan = services.find(s => s.category === "PAN");
+  const filteredPanServices = useMemo(() => {
+    return PAN_SERVICES.filter((p) => {
+      const matchesSearch =
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.description.toLowerCase().includes(search.toLowerCase());
+      if (!matchesSearch) return false;
+      if (activeCategory === "All Services" || activeCategory === "All") return true;
+      if (activeCategory === "UTI PAN") return p.id.includes("UTI") && !p.id.includes("STATUS");
+      if (activeCategory === "NSDL PAN") return p.id.includes("NSDL") && !p.id.includes("STATUS");
+      if (activeCategory === "Coupons & VLE") return p.id.includes("COUPON") || p.id === "PAN-UTI";
+      if (activeCategory === "Status Tracking") return p.id.includes("STATUS");
+      return true;
+    });
+  }, [search, activeCategory]);
 
   const openApplication = (service: any) => {
     setForm({});
@@ -150,7 +158,7 @@ export default function ServicesPage() {
         body: JSON.stringify({
           serviceId: selectedService.id, serviceName: selectedService.name,
           category: selectedService.category || "Government", customerPrice: selectedService.customerPrice,
-          commission: selectedService.commission, applicant: form,
+          commission: 0, applicant: form,
           documents: selectedService.documents.map((name: string) => ({ name, fileName: files[name] || null })),
         }),
       });
@@ -240,16 +248,16 @@ export default function ServicesPage() {
         <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#E2E8F0] text-xs font-semibold text-[#4F46E5] shadow-sm">
-              ✨ Retailer Service Hub
+              ✨ Official PAN Card Agency & Services Hub
             </div>
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0F172A] mt-3">Government & Digital Services</h1>
-            <p className="text-[#64748B] text-sm mt-1 max-w-xl">Apply for government documents, certificates, tax services and digital services — with clear pricing and retailer commission.</p>
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0F172A] mt-3">PAN Card Services</h1>
+            <p className="text-[#64748B] text-sm mt-1 max-w-xl">Official paperless PAN card issuance, lost PAN search, UTI PSA agency enablement, and live application tracking.</p>
           </div>
           <div className="grid grid-cols-3 gap-2 min-w-[290px]">
             {[
-              ["24/7", "Service access", "bg-blue-50 text-blue-700"],
-              ["100%", "Digital process", "bg-emerald-50 text-emerald-700"],
-              ["Fast", "Application flow", "bg-violet-50 text-violet-700"],
+              ["24/7", "Digital Access", "bg-blue-50 text-blue-700"],
+              ["UTIITSL", "PSA Channel", "bg-emerald-50 text-emerald-700"],
+              ["Fast", "e-KYC & Status", "bg-violet-50 text-violet-700"],
             ].map(([v, l, c]) => (
               <div key={l} className={`rounded-2xl p-3 ${c}`}>
                 <p className="font-bold text-sm">{v}</p><p className="text-[10px] mt-0.5 opacity-80">{l}</p>
@@ -259,59 +267,176 @@ export default function ServicesPage() {
         </div>
       </section>
 
+      {/* VLE Agency Banner */}
+      {vleProfile?.hasVle ? (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-900 via-indigo-950 to-slate-900 p-5 text-white shadow-lg border border-violet-800/40">
+          <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Official UTI PSA Agency</span>
+                <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
+                  ID: {vleProfile.vleId}
+                </span>
+                <span className="text-[10px] text-violet-300 bg-white/10 px-2 py-0.5 rounded-full">via LD Service Zone</span>
+              </div>
+              <h4 className="font-display text-lg font-extrabold">UTIITSL Paperless Agent Portal Active</h4>
+              <p className="text-xs text-slate-300">
+                Available Coupons: <span className="font-bold text-emerald-400 font-mono text-sm">{vleProfile.vleStatus?.couponsAvailable ?? "Active"}</span>
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={() => setBuyCouponOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition shadow-md shadow-violet-500/30 flex items-center gap-1.5"
+              >
+                <span>🎟️</span> Buy / Add Coupons
+              </button>
+              <a
+                href="https://www.psaonline.utiitsl.com/psaonline/"
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition flex items-center gap-1.5"
+              >
+                <span>↗</span> Launch UTI PSA Portal
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-3xl bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 border border-blue-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center text-2xl">🏢</div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-violet-700 bg-violet-100 px-2 py-0.5 rounded-md">Direct Agent ID</span>
+                <span className="text-[11px] font-semibold text-slate-500">Issued by LD Service Zone</span>
+              </div>
+              <p className="font-bold text-sm text-[#0F172A] mt-0.5">Official UTI PSA Partner ID</p>
+              <p className="text-[11px] text-[#64748B]">
+                Get your official UTI PSA VLE credentials through LD Service Zone to process paperless PAN cards directly.
+              </p>
+              {requestVleMsg && (
+                <p className="text-xs font-semibold text-emerald-700 mt-1">{requestVleMsg}</p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={handleRequestVle}
+            disabled={requestingVle || vleProfile?.vleRequested}
+            className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:bg-emerald-600 text-white text-xs font-bold transition shadow-md shadow-violet-500/20 whitespace-nowrap"
+          >
+            {requestingVle ? "Submitting..." : vleProfile?.vleRequested ? "✓ ID Requested (Pending Admin Approval)" : "Request UTI ID Activation →"}
+          </button>
+        </div>
+      )}
+
+      {couponFeedback && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex justify-between items-center">
+          <span>{couponFeedback}</span>
+          <button onClick={() => setCouponFeedback("")} className="text-emerald-700 font-bold text-sm">×</button>
+        </div>
+      )}
+
+      {/* Filter and Search Bar */}
       <div className="flex flex-col lg:flex-row gap-3">
         <div className="flex-1 relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg">🔍</span>
-          <input aria-label="Search services" placeholder="Search services, customers, transactions..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-[#E2E8F0] bg-white text-[#0F172A] text-sm shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-[#1D56D8] placeholder-[#A0AEC0]" />
+          <input
+            aria-label="Search services"
+            placeholder="Search PAN services, UTI, NSDL, tracking..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-[#E2E8F0] bg-white text-[#0F172A] text-sm shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-[#1D56D8] placeholder-[#A0AEC0]"
+          />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {categories.map(c => (
-            <button key={c} onClick={() => setActiveCategory(c)}
-              className={`whitespace-nowrap px-4 py-3 rounded-2xl text-sm font-semibold border transition-all ${activeCategory === c ? "bg-[#1D56D8] text-white border-[#1D56D8] shadow-md shadow-blue-200" : "bg-white border-[#E2E8F0] text-[#475569] hover:border-blue-300 hover:bg-blue-50/50"}`}>
+            <button
+              key={c}
+              onClick={() => setActiveCategory(c)}
+              className={`whitespace-nowrap px-4 py-3 rounded-2xl text-sm font-semibold border transition-all ${
+                activeCategory === c
+                  ? "bg-[#1D56D8] text-white border-[#1D56D8] shadow-md shadow-blue-200"
+                  : "bg-white border-[#E2E8F0] text-[#475569] hover:border-blue-300 hover:bg-blue-50/50"
+              }`}
+            >
               {c}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Direct Grid of PAN Services */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <div><h2 className="font-display font-bold text-[#0F172A]">Choose a Service</h2><p className="text-xs text-[#94A3B8]">Select a main service to see its available options.</p></div>
-          <span className="text-xs font-semibold text-[#64748B] bg-[#F8FAFC] px-3 py-1.5 rounded-full border border-[#E2E8F0]">{filtered.length + ((activeCategory === "All" || activeCategory === "PAN") ? 1 : 0)} services</span>
+          <div>
+            <h2 className="font-display font-bold text-[#0F172A]">Available Services</h2>
+            <p className="text-xs text-[#94A3B8]">Select an option to apply, buy coupons, or track status.</p>
+          </div>
+          <span className="text-xs font-semibold text-[#64748B] bg-[#F8FAFC] px-3 py-1.5 rounded-full border border-[#E2E8F0]">
+            {filteredPanServices.length} PAN Services Active
+          </span>
         </div>
 
-        {catalogLoading && <div className="col-span-full rounded-2xl bg-white border border-[#E2E8F0] p-8 text-center text-sm text-[#94A3B8]">Loading live service catalogue…</div>}
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {(activeCategory === "All" || activeCategory === "PAN") && (
-            <button type="button" onClick={() => setShowPanServices(true)}
-              className="group relative overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-white via-violet-50/60 to-blue-50 p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all">
-              <div className="absolute right-0 top-0 w-28 h-28 rounded-full bg-violet-200/30 blur-2xl" />
-              <div className="relative flex items-start justify-between"><div className="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center text-2xl shadow-inner">🪪</div><span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-violet-100 text-violet-700">PAN</span></div>
-              <h3 className="relative font-display font-bold text-lg text-[#0F172A] mt-4">PAN Card</h3>
-              <p className="relative text-xs text-[#64748B] mt-1">7 professional PAN services available</p>
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                <div className="rounded-2xl bg-white/90 border border-white p-3"><p className="text-[10px] text-[#94A3B8]">Customer Price</p><p className="font-bold text-[#0F172A] mt-1">From ₹20{livePan ? ` · New ₹${livePan.customerPrice}` : ""}</p></div>
-                <div className="rounded-2xl bg-emerald-50/90 border border-emerald-100 p-3"><p className="text-[10px] text-emerald-600">Your Commission</p><p className="font-bold text-emerald-700 mt-1">Up to ₹40{livePan ? ` · New ₹${livePan.commission}` : ""}</p></div>
-              </div>
-              <span className="relative mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-gradient-to-r from-[#4F46E5] to-[#1D56D8] text-white text-sm font-bold shadow-lg shadow-indigo-200 group-hover:shadow-indigo-300">Open PAN Services <span>→</span></span>
-            </button>
-          )}
-
-          {filtered.map(s => {
-            const count = SERVICE_SUBSERVICES[s.name]?.length || 1;
+          {filteredPanServices.map(p => {
+            const matched = services.find(s => s.id === p.id);
+            const item = matched ? { ...p, ...matched } : p;
             return (
-              <button key={s.id} type="button" onClick={() => setSelectedParentService(s)}
-                className="group relative overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all">
-                <div className="absolute right-0 top-0 w-28 h-28 rounded-full opacity-40 blur-2xl" style={{ backgroundColor: serviceColor(s) + "30" }} />
-                <div className="relative flex items-start justify-between"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner" style={{ backgroundColor: serviceColor(s) + "18" }}>{iconFor(s.category)}</div><span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0]">{s.category}</span></div>
-                <h3 className="relative font-display font-bold text-lg text-[#0F172A] mt-4">{s.name}</h3>
-                <div className="relative flex items-center gap-2 text-xs text-[#64748B] mt-1"><span>⏱</span>{s.processingTime}<span className="text-[#CBD5E1]">•</span><span>{count} options</span></div>
-                <div className="grid grid-cols-2 gap-2 mt-4">
-                  <div className="rounded-2xl bg-[#F8FAFC] border border-[#EEF2F7] p-3"><p className="text-[10px] text-[#94A3B8]">Customer Price</p><p className="font-bold text-[#0F172A] mt-1">₹{s.customerPrice}</p></div>
-                  <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-3"><p className="text-[10px] text-emerald-600">Your Commission</p><p className="font-bold text-emerald-700 mt-1">₹{s.commission}</p></div>
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  if (item.id === "PAN-UTI") {
+                    setUtiModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "PAN-UTI-COUPON") {
+                    setBuyCouponOpen(true);
+                    return;
+                  }
+                  if (item.id === "PAN-UTI-STATUS") {
+                    setUtiStatusOpen(true);
+                    return;
+                  }
+                  if (item.id === "PAN-NSDL-STATUS") {
+                    setNsdlStatusOpen(true);
+                    return;
+                  }
+                  if (item.id === "PAN-NSDL") {
+                    setNsdlModalOpen(true);
+                    return;
+                  }
+                  openApplication({ ...item, category: "PAN" });
+                }}
+                className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-violet-300 hover:shadow-xl hover:-translate-y-1 transition-all"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner" style={{ backgroundColor: item.color + "20" }}>
+                    {item.icon}
+                  </div>
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700">PAN SERVICE</span>
                 </div>
-                <div className="mt-4 flex items-center justify-between"><span className="text-[11px] text-[#94A3B8]">Documents ready</span><span className="text-sm font-bold text-[#1D56D8] group-hover:translate-x-1 transition-transform">Open Services →</span></div>
+                <h4 className="font-bold text-[#0F172A] mt-4">{item.name}</h4>
+                <p className="text-xs text-[#64748B] mt-1">⏱ {item.processingTime}</p>
+                <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">{item.description}</p>
+                <div className="mt-4 rounded-xl bg-[#F8FAFC] border border-[#EEF2F7] p-3 flex justify-between items-center">
+                  <span className="text-[11px] text-[#64748B]">Official Fee</span>
+                  <span className="font-bold text-sm text-[#0F172A]">
+                    {item.customerPrice === 0 ? "Free" : `₹${item.customerPrice}`}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-4">
+                  {item.documents?.map((d: string) => (
+                    <span key={d} className="text-[9px] px-2 py-1 rounded-full bg-[#F1F4F9] text-[#475569]">{d}</span>
+                  ))}
+                </div>
+                <div className="mt-4 text-sm font-bold text-[#4F46E5] group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                  <span>Open {item.name}</span>
+                  <span>→</span>
+                </div>
               </button>
             );
           })}
@@ -320,187 +445,18 @@ export default function ServicesPage() {
 
       <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          ["💰", "Best Commission", "Transparent earnings on every service", "bg-emerald-50"],
-          ["⚡", "Fast Processing", "Simple digital application flow", "bg-amber-50"],
-          ["🛡️", "Secure & Safe", "Protected form submission workflow", "bg-blue-50"],
+          ["🏛️", "Authorized Channel", "Direct UTIITSL & NSDL paperless portal access", "bg-emerald-50"],
+          ["⚡", "Fast Processing", "Instant biometric & OTP verification", "bg-amber-50"],
+          ["🛡️", "Secure & Safe", "Protected government application workflow", "bg-blue-50"],
           ["🎧", "24/7 Support", "Help your customers with confidence", "bg-violet-50"],
-        ].map(([i, t, d, bg]) => <div key={t} className={`rounded-2xl border border-[#E2E8F0] ${bg} p-4`}><div className="text-2xl">{i}</div><p className="font-bold text-sm text-[#0F172A] mt-2">{t}</p><p className="text-[11px] text-[#64748B] mt-1">{d}</p></div>)}
+        ].map(([i, t, d, bg]) => (
+          <div key={t} className={`rounded-2xl border border-[#E2E8F0] ${bg} p-4`}>
+            <div className="text-2xl">{i}</div>
+            <p className="font-bold text-sm text-[#0F172A] mt-2">{t}</p>
+            <p className="text-[11px] text-[#64748B] mt-1">{d}</p>
+          </div>
+        ))}
       </section>
-
-      {selectedParentService && (
-        <div className="fixed inset-0 bg-[#07111F]/65 backdrop-blur-sm z-40 flex items-center justify-center p-3 sm:p-6" onClick={() => setSelectedParentService(null)}>
-          <div className="bg-[#F8FAFC] w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl border border-white/40" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-[#E2E8F0] p-5 sm:p-6 flex items-center justify-between">
-              <div><div className="inline-flex px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase">{selectedParentService.category}</div><h3 className="font-display font-extrabold text-[#0F172A] text-xl mt-2">{selectedParentService.name} Services</h3><p className="text-xs text-[#64748B] mt-1">Choose an option below to start the application.</p></div>
-              <button onClick={() => setSelectedParentService(null)} className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] text-xl">×</button>
-            </div>
-            <div className="p-5 sm:p-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(SERVICE_SUBSERVICES[selectedParentService.name] || [selectedParentService]).filter((sub: any) => services.some(s => s.id === sub.id)).map((sub: any) => ({ ...sub, ...services.find(s => s.id === sub.id) })).map((sub: any) => (
-                <button key={sub.id} type="button" onClick={() => { setSelectedParentService(null); openApplication({ ...sub, category: selectedParentService.category }); }}
-                  className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-[#8B5CF6]/40 hover:shadow-xl hover:-translate-y-1 transition-all">
-                  <div className="flex items-start justify-between"><div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: sub.color + "20" }}>{sub.icon || "📄"}</div><span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">START</span></div>
-                  <h4 className="font-bold text-[#0F172A] mt-4">{sub.name}</h4><p className="text-xs text-[#64748B] mt-1">⏱ {sub.processingTime}</p>
-                  <div className="grid grid-cols-2 gap-2 mt-4"><div className="rounded-xl bg-[#F8FAFC] p-3"><p className="text-[9px] text-[#94A3B8]">Customer</p><p className="font-bold text-sm">₹{sub.customerPrice}</p></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-[9px] text-emerald-600">Commission</p><p className="font-bold text-sm text-emerald-700">₹{sub.commission}</p></div></div>
-                  <div className="flex flex-wrap gap-1.5 mt-4">{sub.documents.map((d: string) => <span key={d} className="text-[9px] px-2 py-1 rounded-full bg-[#F1F4F9] text-[#475569]">{d}</span>)}</div>
-                  <div className="mt-4 text-sm font-bold text-[#1D56D8] group-hover:translate-x-1 transition-transform">Open application →</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showPanServices && (
-        <div className="fixed inset-0 bg-[#07111F]/65 backdrop-blur-sm z-40 flex items-center justify-center p-3 sm:p-6" onClick={() => setShowPanServices(false)}>
-          <div className="bg-[#F8FAFC] w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-[#E2E8F0] p-5 sm:p-6 flex items-center justify-between">
-              <div><div className="inline-flex px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 text-[10px] font-bold uppercase">PAN AGENCY</div><h3 className="font-display font-extrabold text-[#0F172A] text-xl mt-2">PAN Card & Government Agency Hub</h3><p className="text-xs text-[#64748B] mt-1">Apply for consumer PAN cards, or issue UTIITSL / NSDL coupons directly.</p></div>
-              <button onClick={() => setShowPanServices(false)} className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] text-xl">×</button>
-            </div>
-
-            <div className="p-5 sm:p-6 space-y-5">
-              {couponFeedback && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex justify-between items-center">
-                  <span>{couponFeedback}</span>
-                  <button onClick={() => setCouponFeedback("")} className="text-emerald-700 font-bold text-sm">×</button>
-                </div>
-              )}
-
-              {/* VLE Agency Banner */}
-              {vleProfile?.hasVle ? (
-                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-900 via-indigo-950 to-slate-900 p-5 text-white shadow-lg border border-violet-800/40">
-                  <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Official UTI PSA Agency</span>
-                        <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
-                          ID: {vleProfile.vleId}
-                        </span>
-                        <span className="text-[10px] text-violet-300 bg-white/10 px-2 py-0.5 rounded-full">via LD Service Zone</span>
-                      </div>
-                      <h4 className="font-display text-lg font-extrabold">UTIITSL Paperless Agent Portal Active</h4>
-                      <p className="text-xs text-slate-300">
-                        Available Coupons: <span className="font-bold text-emerald-400 font-mono text-sm">{vleProfile.vleStatus?.couponsAvailable ?? "Active"}</span>
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <button
-                        onClick={() => setBuyCouponOpen(true)}
-                        className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition shadow-md shadow-violet-500/30 flex items-center gap-1.5"
-                      >
-                        <span>🎟️</span> Buy / Add Coupons
-                      </button>
-                      <a
-                        href="https://www.psaonline.utiitsl.com/psaonline/"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition flex items-center gap-1.5"
-                      >
-                        <span>↗</span> Launch UTI PSA Portal
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-3xl bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 border border-blue-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center text-2xl">🏢</div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-violet-700 bg-violet-100 px-2 py-0.5 rounded-md">Direct Agent ID</span>
-                        <span className="text-[11px] font-semibold text-slate-500">Issued by LD Service Zone</span>
-                      </div>
-                      <p className="font-bold text-sm text-[#0F172A] mt-0.5">Official UTI PSA Partner ID</p>
-                      <p className="text-[11px] text-[#64748B]">
-                        Get your official UTI PSA VLE credentials through LD Service Zone to process paperless PAN cards directly.
-                      </p>
-                      {requestVleMsg && (
-                        <p className="text-xs font-semibold text-emerald-700 mt-1">{requestVleMsg}</p>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleRequestVle}
-                    disabled={requestingVle || vleProfile?.vleRequested}
-                    className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:bg-emerald-600 text-white text-xs font-bold transition shadow-md shadow-violet-500/20 whitespace-nowrap"
-                  >
-                    {requestingVle ? "Submitting..." : vleProfile?.vleRequested ? "✓ ID Requested (Pending Admin Approval)" : "Request UTI ID Activation →"}
-                  </button>
-                </div>
-              )}
-
-              {/* Grid of the 6 Client-Specified PAN Services */}
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {PAN_SERVICES.map(p => {
-                  const matched = services.find(s => s.id === p.id);
-                  const item = matched ? { ...p, ...matched } : p;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        if (item.id === "PAN-UTI") {
-                          setUtiModalOpen(true);
-                          return;
-                        }
-                        if (item.id === "PAN-UTI-COUPON") {
-                          setBuyCouponOpen(true);
-                          return;
-                        }
-                        if (item.id === "PAN-UTI-STATUS") {
-                          setUtiStatusOpen(true);
-                          return;
-                        }
-                        if (item.id === "PAN-NSDL-STATUS") {
-                          setNsdlStatusOpen(true);
-                          return;
-                        }
-                        if (item.id === "PAN-NSDL") {
-                          setNsdlModalOpen(true);
-                          return;
-                        }
-                        setShowPanServices(false);
-                        openApplication({ ...item, category: "PAN" });
-                      }}
-                      className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-violet-300 hover:shadow-xl hover:-translate-y-1 transition-all"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: item.color + "20" }}>
-                          {item.icon}
-                        </div>
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700">PAN SERVICE</span>
-                      </div>
-                      <h4 className="font-bold text-[#0F172A] mt-4">{item.name}</h4>
-                      <p className="text-xs text-[#64748B] mt-1">⏱ {item.processingTime}</p>
-                      <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">{item.description}</p>
-                      <div className="grid grid-cols-2 gap-2 mt-4">
-                        <div className="rounded-xl bg-[#F8FAFC] p-3">
-                          <p className="text-[9px] text-[#94A3B8]">Customer Price</p>
-                          <p className="font-bold text-sm">{item.customerPrice === 0 ? "Free" : `₹${item.customerPrice}`}</p>
-                        </div>
-                        <div className="rounded-xl bg-emerald-50 p-3">
-                          <p className="text-[9px] text-emerald-600">Your Commission</p>
-                          <p className="font-bold text-sm text-emerald-700">{item.commission === 0 ? "Free" : `₹${item.commission}`}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 mt-4">
-                        {item.documents?.map((d: string) => (
-                          <span key={d} className="text-[9px] px-2 py-1 rounded-full bg-[#F1F4F9] text-[#475569]">{d}</span>
-                        ))}
-                      </div>
-                      <div className="mt-4 text-sm font-bold text-[#4F46E5] group-hover:translate-x-1 transition-transform">
-                        Open {item.name} →
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Buy Coupons Modal */}
       {buyCouponOpen && (
@@ -662,7 +618,7 @@ export default function ServicesPage() {
                     onClick={() => {
                       setUtiModalOpen(false);
                       setShowPanServices(false);
-                      const s = services.find(x => x.id === "PAN-NEW") || { id: "PAN-NEW", name: "New PAN Card", customerPrice: 107, commission: 32, documents: ["Aadhaar", "DOB Proof", "Photograph"] };
+                      const s = services.find(x => x.id === "PAN-NEW") || { id: "PAN-NEW", name: "New PAN Card", customerPrice: 107, commission: 0, documents: ["Aadhaar", "DOB Proof", "Photograph"] };
                       openApplication({ ...s, category: "PAN" });
                     }}
                     className="text-xs font-bold text-violet-700 hover:underline"
@@ -839,7 +795,7 @@ export default function ServicesPage() {
         <div className="fixed inset-0 bg-[#07111F]/70 backdrop-blur-sm z-50 flex items-center justify-end" onClick={() => setSelectedService(null)}>
           <div className="bg-[#F8FAFC] w-full max-w-xl h-full overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-[#E2E8F0] p-5 sm:p-6 flex items-start justify-between">
-              <div><div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase">{selectedService.category || "SERVICE"}</div><h3 className="font-display font-extrabold text-[#0F172A] text-xl mt-2">{selectedService.name}</h3><div className="flex gap-2 mt-2"><span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">Commission ₹{selectedService.commission}</span><span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold">Customer ₹{selectedService.customerPrice}</span></div></div>
+              <div><div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase">{selectedService.category || "SERVICE"}</div><h3 className="font-display font-extrabold text-[#0F172A] text-xl mt-2">{selectedService.name}</h3><div className="flex gap-2 mt-2"><span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold">Government Processing Fee: ₹{selectedService.customerPrice}</span></div></div>
               <button onClick={() => setSelectedService(null)} className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] text-xl">×</button>
             </div>
 
