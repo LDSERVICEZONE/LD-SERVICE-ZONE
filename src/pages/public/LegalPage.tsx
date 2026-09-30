@@ -116,7 +116,7 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                   not manufacture or ship physical consumer goods.
                 </p>
                 <p className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs leading-relaxed">
-                  <b>Statutory Disclaimer:</b> LD SERVICE ZONE is an independent private facilitation and retail enablement portal operated by Bilson Digal. We are not an official government entity or department. All government names, schemes, and marks belong to their respective statutory authorities.
+                  <b>Statutory Disclaimer:</b> LD SERVICE ZONE is an independent private facilitation and retail enablement portal operated by Laban Digal. We are not an official government entity or department. All government names, schemes, and marks belong to their respective statutory authorities.
                 </p>
               </section>
 
@@ -415,7 +415,7 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                   </div>
                   <div className="text-xs text-slate-300 space-y-1">
                     <p className="font-bold text-white text-sm">LD SERVICE ZONE</p>
-                    <p>Proprietor: Bilson Digal</p>
+                    <p>Proprietor: Laban Digal</p>
                     <p>Digital Citizen Hub, Odisha, India</p>
                     <p>District: Khordha / Kandhamal · PIN: 751007</p>
                   </div>

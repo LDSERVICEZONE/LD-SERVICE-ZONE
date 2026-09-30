@@ -510,7 +510,7 @@ export default function Landing({ onLogin }: Props) {
             ))}
           </div>
           <div className="border-t border-white/10 pt-6 flex flex-wrap items-center justify-between gap-4 text-white/30 text-xs">
-            <p>© 2026 LD SERVICE ZONE. All rights reserved. Proprietor: Bilson Digal.</p>
+            <p>© 2026 LD SERVICE ZONE. All rights reserved. Proprietor: Laban Digal.</p>
             <div className="flex flex-wrap gap-4 sm:gap-6">
               <Link to="/terms" className="hover:text-white/60 transition-colors">Terms of Service</Link>
               <Link to="/privacy" className="hover:text-white/60 transition-colors">Privacy Policy</Link>
@@ -520,7 +520,7 @@ export default function Landing({ onLogin }: Props) {
             </div>
           </div>
           <p className="mt-4 text-[11px] leading-relaxed text-white/25 border-t border-white/5 pt-3">
-            <b>Disclaimer:</b> LD SERVICE ZONE is an independent citizen facilitation and retail technology portal operated by Bilson Digal. We provide assisted application processing, digital utility payments, and partner agency enablement. We are a private enterprise and are not directly affiliated with, sponsored by, or an official agency of any government ministry or department. All government trademarks and logos belong to their respective statutory authorities.
+            <b>Disclaimer:</b> LD SERVICE ZONE is an independent citizen facilitation and retail technology portal operated by Laban Digal. We provide assisted application processing, digital utility payments, and partner agency enablement. We are a private enterprise and are not directly affiliated with, sponsored by, or an official agency of any government ministry or department. All government trademarks and logos belong to their respective statutory authorities.
           </p>
         </div>
       </footer>
