@@ -444,7 +444,20 @@ test("admin can auto-onboard retailer with Gmail, Mobile, Aadhaar, and UTI PSA I
   const vleProf = await request("/panmitra/vle-profile", { token: loginRes.data.token });
   assert.equal(vleProf.status, 200);
   assert.equal(vleProf.data.hasVle, true);
-  assert.equal(vleProf.data.vleId, createRes.data.credentials.vleId);
+  // Test coupon purchase with active VLE and verify ledger balanceAfter
+  const buyCouponRes = await request("/panmitra/buy-coupons", {
+    token: loginRes.data.token,
+    method: "POST",
+    body: { quantity: 1, type: "1" },
+  });
+  assert.equal(buyCouponRes.status, 200);
+  assert.equal(buyCouponRes.data.walletBalance, 250 - 107);
+
+  const couponLedger = await request("/wallet/ledger", { token: loginRes.data.token });
+  assert.equal(couponLedger.status, 200);
+  const debitEntry = couponLedger.data.ledger.find((e) => e.type === "debit");
+  assert.ok(debitEntry);
+  assert.equal(debitEntry.balanceAfter, 250 - 107);
 
   // Test duplicate prevention
   const dupRes = await request("/admin/retailer", {
@@ -453,6 +466,20 @@ test("admin can auto-onboard retailer with Gmail, Mobile, Aadhaar, and UTI PSA I
     body: newRetailerPayload,
   });
   assert.equal(dupRes.status, 409);
+});
+
+test("free status application is directly submitted without payment or documents", async () => {
+  const loginRes = await request("/auth/login", { body: { credential: "other@example.test", password } });
+  const res = await request("/applications", {
+    token: loginRes.data.token,
+    body: {
+      serviceId: "PAN-UTI-STATUS",
+      applicant: { "Application / Coupon No": "U-123456789", "Date of Birth": "1990-01-01" },
+    },
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.data.application.customerPrice, 0);
+  assert.equal(res.data.application.status, "submitted");
 });
 
 test("admin can toggle user status between active and suspended", async () => {

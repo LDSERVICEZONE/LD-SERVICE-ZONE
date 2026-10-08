@@ -658,9 +658,7 @@
       "processingTime": "Instant",
       "customerPrice": 0,
       "commission": 0,
-      "documents": [
-        "Application / Coupon No"
-      ],
+      "documents": [],
       "color": "#10B981",
       "createdAt": "2026-10-01T13:54:17.658Z",
       "updatedAt": "2026-10-01T13:54:17.658Z"
@@ -672,9 +670,7 @@
       "processingTime": "Instant",
       "customerPrice": 0,
       "commission": 0,
-      "documents": [
-        "15-Digit Ack No"
-      ],
+      "documents": [],
       "color": "#06B6D4",
       "createdAt": "2026-10-01T13:54:17.658Z",
       "updatedAt": "2026-10-01T13:54:17.658Z"
@@ -686,9 +682,7 @@
       "processingTime": "Instant",
       "customerPrice": 107,
       "commission": 0,
-      "documents": [
-        "UTI VLE ID"
-      ],
+      "documents": [],
       "color": "#F59E0B",
       "createdAt": "2026-10-01T13:54:17.658Z",
       "updatedAt": "2026-10-01T13:54:17.658Z"

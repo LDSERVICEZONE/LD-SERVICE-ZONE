@@ -219,6 +219,7 @@ export async function handlePanMitraRoutes(context) {
         description: `PanMitra PAN Coupons Purchase (${quantity} ${type === "2" ? "Electronic" : "Physical"} Coupons)`,
         status: "success",
         createdAt: now(),
+        balanceAfter: wallet.balance,
       }
       db.walletLedger.unshift(txn)
 

@@ -92,7 +92,7 @@ export default function ServicesPage() {
   const [nsdlModalOpen, setNsdlModalOpen] = useState(false);
 
   useEffect(() => {
-    api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([])).finally(() => setCatalogLoading(false));
+    api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
   }, []);
 
@@ -648,7 +648,6 @@ export default function ServicesPage() {
                   <button
                     onClick={() => {
                       setUtiModalOpen(false);
-                      setShowPanServices(false);
                       const s = services.find(x => x.id === "PAN-NEW") || { id: "PAN-NEW", name: "New PAN Card", customerPrice: 107, commission: 0, documents: ["Aadhaar", "DOB Proof", "Photograph"] };
                       openApplication({ ...s, category: "PAN" });
                     }}

@@ -41,9 +41,9 @@ export const SERVICE_SEED = [
   { id: "PAN-UTI", category: "PAN", name: "UTI PAN", processingTime: "Instant / 3-5 days", customerPrice: 107, commission: 0, documents: ["Aadhaar", "Biometric / OTP"], color: "#7C3AED" },
   { id: "PAN-FIND", category: "PAN", name: "PAN Find", processingTime: "Instant", customerPrice: 20, commission: 0, documents: ["Aadhaar"], color: "#4F46E5" },
   { id: "PAN-NSDL", category: "PAN", name: "NSDL PAN", processingTime: "Instant / 2 hours", customerPrice: 107, commission: 0, documents: ["Aadhaar", "Biometric / OTP"], color: "#1D56D8" },
-  { id: "PAN-UTI-STATUS", category: "PAN", name: "UTI PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: ["Application / Coupon No"], color: "#10B981" },
-  { id: "PAN-NSDL-STATUS", category: "PAN", name: "NSDL PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: ["15-Digit Ack No"], color: "#06B6D4" },
-  { id: "PAN-UTI-COUPON", category: "PAN", name: "UTI Coupon Add", processingTime: "Instant", customerPrice: 107, commission: 0, documents: ["UTI VLE ID"], color: "#F59E0B" },
-  { id: "PAN-STATUS", category: "PAN", name: "PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: ["Acknowledgement Number"], color: "#10B981" },
+  { id: "PAN-UTI-STATUS", category: "PAN", name: "UTI PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: [], color: "#10B981" },
+  { id: "PAN-NSDL-STATUS", category: "PAN", name: "NSDL PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: [], color: "#06B6D4" },
+  { id: "PAN-UTI-COUPON", category: "PAN", name: "UTI Coupon Add", processingTime: "Instant", customerPrice: 107, commission: 0, documents: [], color: "#F59E0B" },
+  { id: "PAN-STATUS", category: "PAN", name: "PAN Status", processingTime: "Instant", customerPrice: 0, commission: 0, documents: [], color: "#10B981" },
 ];
 

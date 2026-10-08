@@ -105,7 +105,7 @@ export async function handleApplicationRoutes(context) {
       commission: Number(service.commission || 0),
       applicant,
       documents: (service.documents || []).map((name) => ({ name })),
-      status: "payment_pending",
+      status: Number(service.customerPrice) === 0 ? "submitted" : "payment_pending",
       adminNote: "",
       createdAt: now(),
       updatedAt: now(),
