@@ -35,10 +35,9 @@ export const SERVICE_SEED = [
   */
 
   // Live PAN Services
-  { id: "S007", category: "PAN", name: "New PAN Card", processingTime: "7-15 days", customerPrice: 107, commission: 0, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171" },
-  { id: "PAN-NEW", category: "PAN", name: "New PAN", processingTime: "7-15 days", customerPrice: 107, commission: 0, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171" },
+  { id: "PAN-NEW", category: "PAN", name: "New PAN Card", processingTime: "7-15 days", customerPrice: 107, commission: 0, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171" },
   { id: "PAN-CORRECTION", category: "PAN", name: "PAN Correction", processingTime: "7-15 days", customerPrice: 107, commission: 0, documents: ["PAN Card", "Aadhaar", "Supporting Proof"], color: "#F59E0B" },
-  { id: "PAN-REPRINT", category: "PAN", name: "PAN Reprint", processingTime: "7-15 days", customerPrice: 50, commission: 0, documents: ["PAN Number", "Aadhaar"], color: "#06B6D4" },
+  { id: "PAN-REPRINT", category: "PAN", name: "PAN Reprint", processingTime: "7-15 days", customerPrice: 50, commission: 0, documents: ["PAN Copy", "Aadhaar"], color: "#06B6D4" },
   { id: "PAN-UTI", category: "PAN", name: "UTI PAN", processingTime: "Instant / 3-5 days", customerPrice: 107, commission: 0, documents: ["Aadhaar", "Biometric / OTP"], color: "#7C3AED" },
   { id: "PAN-FIND", category: "PAN", name: "PAN Find", processingTime: "Instant", customerPrice: 20, commission: 0, documents: ["Aadhaar"], color: "#4F46E5" },
   { id: "PAN-NSDL", category: "PAN", name: "NSDL PAN", processingTime: "Instant / 2 hours", customerPrice: 107, commission: 0, documents: ["Aadhaar", "Biometric / OTP"], color: "#1D56D8" },

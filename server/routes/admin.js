@@ -470,14 +470,14 @@ export async function handleAdminRoutes(context) {
     })
 
     let panMitraResult = null
-    const vleId = `LDVLE${mobile.slice(-6)}`
+    const requestedVleId = `LD${mobile.slice(-6)}`
     if (createPanMitraVle) {
-      newRetailer.panMitraVleId = vleId
-      newRetailer.panMitraRegisteredAt = now()
+      let realVleId = `PANM-${requestedVleId}`
+      let registrationCode = null
       if (provider && typeof provider.configured === "function" && provider.configured()) {
         try {
           const providerRes = await provider.createVle({
-            vleId,
+            vleId: requestedVleId,
             vleName: name,
             vleMobile: mobile,
             vleEmail: email,
@@ -489,11 +489,24 @@ export async function handleAdminRoutes(context) {
             vlePan: pan && /^[A-Z]{5}\d{4}[A-Z]$/i.test(pan) ? pan : "ABCDE1234F",
           })
           panMitraResult = providerRes
+          realVleId = providerRes.vleId || `PANM-${requestedVleId}`
+          registrationCode = providerRes.code || null
+          newRetailer.panmitraVleId = realVleId
+          newRetailer.panMitraVleId = realVleId
+          newRetailer.panMitraRegistrationCode = registrationCode
+          newRetailer.panMitraRegisteredAt = now()
+          newRetailer.vleStatus = "APPROVED"
         } catch (err) {
-          panMitraResult = { status: "offline", message: err.message || "PanMitra API offline" }
+          panMitraResult = { status: "failed", message: err.message || "PanMitra API error" }
+          // Still save requested ID for later sync
+          newRetailer.panmitraVleId = realVleId
+          newRetailer.panMitraVleId = realVleId
         }
       } else {
-        panMitraResult = { status: "local", vleId }
+        panMitraResult = { status: "local", vleId: realVleId }
+        newRetailer.panmitraVleId = realVleId
+        newRetailer.panMitraVleId = realVleId
+        newRetailer.panMitraRegisteredAt = now()
       }
     }
 
@@ -501,7 +514,7 @@ export async function handleAdminRoutes(context) {
       audit(db, auth.user, "ADMIN_RETAILER_CREATED", "user", newRetailer.id, {
         email,
         mobile,
-        vleId: newRetailer.panMitraVleId || null,
+        vleId: newRetailer.panmitraVleId || newRetailer.panMitraVleId || null,
         initialBalance,
       })
     }
@@ -516,7 +529,7 @@ export async function handleAdminRoutes(context) {
         email,
         mobile,
         password: plainPassword,
-        vleId: newRetailer.panMitraVleId || null,
+        vleId: newRetailer.panmitraVleId || newRetailer.panMitraVleId || null,
         initialBalance,
       },
       panMitraResult,

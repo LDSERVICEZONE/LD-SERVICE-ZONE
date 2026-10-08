@@ -302,18 +302,30 @@ function seedAdmin(db) {
 }
 function seedServices(db) {
   if (!Array.isArray(db.services)) db.services = []
-  const existingIds = new Set(db.services.map((s) => s.id))
+  const serviceMap = new Map(db.services.map((s) => [s.id, s]))
   for (const service of SERVICE_SEED) {
-    if (!existingIds.has(service.id)) {
+    const existing = serviceMap.get(service.id)
+    if (!existing) {
       db.services.push({
         ...service,
         documents: [...service.documents],
         createdAt: now(),
         updatedAt: now(),
       })
-      existingIds.add(service.id)
+    } else {
+      if (existing.customerPrice === undefined || existing.customerPrice === null) {
+        existing.customerPrice = service.customerPrice
+      }
+      if (!Array.isArray(existing.documents) || existing.documents.length === 0) {
+        existing.documents = [...service.documents]
+      }
+      existing.category = existing.category || service.category
+      existing.name = existing.name || service.name
+      existing.processingTime = existing.processingTime || service.processingTime
+      existing.color = existing.color || service.color
     }
   }
+  db.services = db.services.filter((s) => s.id !== "S007")
 }
 function applicationHelpSnapshot(app) {
   if (!app) return null

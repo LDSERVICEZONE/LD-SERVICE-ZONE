@@ -3,7 +3,7 @@ import { Mail, MessageCircle, Phone, Globe, X, Headphones, ExternalLink } from "
 
 const SUPPORT = {
   whatsapp: "https://wa.me/918280123459?text=Hello%20LD%20SERVICE%20ZONE%2C%20I%20need%20assistance.",
-  email: "mailto:ldservicezone@gmail.com",
+  email: "mailto:support@ldservicezone.in",
   call: "tel:+918280123459",
   contact: "/contact",
 };
@@ -22,7 +22,7 @@ export default function SupportWidget() {
     },
     {
       label: "Email Support",
-      description: "ldservicezone@gmail.com",
+      description: "support@ldservicezone.in",
       href: SUPPORT.email,
       icon: Mail,
       iconClass: "text-blue-300 bg-blue-500/15 border-blue-400/20",

@@ -180,7 +180,7 @@ export default function Login({ onLogin }: Props) {
       setOtpSent(true);
       setOtpTargetEmail(res.email || otpCredential);
       setOtpCooldown(60);
-      setConfirmationMessage(res.message || "A 6-digit OTP code was sent to your email.");
+      setConfirmationMessage(res.message || "An OTP code was sent to your email.");
     } catch (err: any) {
       setError(err.message || "Unable to send sign-in OTP");
     } finally {
@@ -191,8 +191,8 @@ export default function Login({ onLogin }: Props) {
   async function verifyOtpLogin(e: React.FormEvent) {
     e.preventDefault();
     const cleanOtp = otpCode.trim().replace(/\D/g, "");
-    if (cleanOtp.length !== 6) {
-      return setError("Enter the 6-digit verification code");
+    if (cleanOtp.length < 6 || cleanOtp.length > 8) {
+      return setError("Enter the verification code (6-8 digits)");
     }
     setOtpLoading(true);
     setError("");
@@ -300,7 +300,7 @@ export default function Login({ onLogin }: Props) {
                     }
                     className="mt-2 text-xs font-semibold text-blue-300 hover:text-blue-200 underline block"
                   >
-                    Enter 6-digit email OTP now →
+                    Enter email OTP now →
                   </button>
                 )}
               </div>
@@ -396,14 +396,14 @@ export default function Login({ onLogin }: Props) {
                       onChange={(v) => setOtpCredential(v)}
                     />
                     <p className="text-white/40 text-xs leading-5">
-                      We will send a secure 6-digit OTP code to your registered email via Supabase SMTP.
+                      We will send a secure OTP code to your registered email via Supabase SMTP.
                     </p>
                     <button
                       type="submit"
                       disabled={otpLoading || !otpCredential.trim()}
                       className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3.5 text-white font-semibold shadow-lg shadow-blue-900/20 hover:brightness-110 disabled:opacity-60 transition cursor-pointer flex items-center justify-center gap-2"
                     >
-                      {otpLoading ? "Sending OTP…" : "Send 6-Digit OTP"}
+                      {otpLoading ? "Sending OTP…" : "Send OTP Code"}
                       <ArrowRight size={16} />
                     </button>
                   </form>
@@ -420,22 +420,22 @@ export default function Login({ onLogin }: Props) {
 
                     <div>
                       <input
-                        aria-label="6-Digit Verification Code"
+                        aria-label="Verification Code"
                         autoFocus
                         required
-                        maxLength={6}
+                        maxLength={8}
                         type="text"
                         inputMode="numeric"
-                        placeholder="• • • • • •"
+                        placeholder="• • • • • • • •"
                         value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        className="w-full text-center text-2xl font-mono tracking-[0.5em] rounded-xl bg-white/5 border border-white/15 px-4 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500 transition"
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                        className="w-full text-center text-2xl font-mono tracking-[0.35em] rounded-xl bg-white/5 border border-white/15 px-4 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500 transition"
                       />
                     </div>
 
                     <button
                       type="submit"
-                      disabled={otpLoading || otpCode.length !== 6}
+                      disabled={otpLoading || otpCode.length < 6 || otpCode.length > 8}
                       className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3.5 text-white font-semibold disabled:opacity-50 transition cursor-pointer"
                     >
                       {otpLoading ? "Signing in…" : "Verify OTP & Sign In"}
@@ -516,7 +516,7 @@ export default function Login({ onLogin }: Props) {
               </button>
             </div>
             <p className="text-white/60 text-sm leading-6">
-              Enter your registered email or mobile. We will send a 6-digit recovery code and reset link.
+              Enter your registered email or mobile. We will send a recovery code and reset link.
             </p>
             {resetMessage && (
               <div
@@ -532,7 +532,7 @@ export default function Login({ onLogin }: Props) {
                   }}
                   className="mt-2 text-xs font-semibold text-blue-300 hover:text-blue-200 underline block"
                 >
-                  Enter 6-digit recovery code now →
+                  Enter recovery code now →
                 </button>
               </div>
             )}

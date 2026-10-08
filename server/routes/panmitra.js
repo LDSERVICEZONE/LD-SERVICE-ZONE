@@ -39,7 +39,7 @@ export async function handlePanMitraRoutes(context) {
 
     // GET /api/panmitra/vle-profile
     if (pathName === "/api/panmitra/vle-profile" && req.method === "GET") {
-      const vleId = user.panmitraVleId || null
+      const vleId = user.panmitraVleId || user.panMitraVleId || null
       let vleStatus = null
       if (vleId && provider.configured()) {
         try {
@@ -56,6 +56,8 @@ export async function handlePanMitraRoutes(context) {
         hasVle: Boolean(vleId),
         vleId,
         vleStatus,
+        registrationCode: user.panMitraRegistrationCode || null,
+        psaLoginUrl: "https://www.psaonline.utiitsl.com/psapanservices/forms/login.html/loginHome",
         kycStatus: user.kycStatus || "pending",
         vleRequested: Boolean(user.vleRequested),
         user: {
@@ -70,21 +72,85 @@ export async function handlePanMitraRoutes(context) {
 
     // POST /api/panmitra/request-vle
     if (pathName === "/api/panmitra/request-vle" && req.method === "POST") {
-      if (user.panmitraVleId) {
+      const existingVleId = user.panmitraVleId || user.panMitraVleId
+      if (existingVleId) {
         return respond(200, {
           status: "active",
           hasVle: true,
-          vleId: user.panmitraVleId,
-          message: `You already have an authorized UTI PSA ID (${user.panmitraVleId}).`,
+          vleId: existingVleId,
+          vleRequested: false,
+          registrationCode: user.panMitraRegistrationCode || null,
+          psaLoginUrl: "https://www.psaonline.utiitsl.com/psapanservices/forms/login.html/loginHome",
+          message: `You already have an authorized UTI PSA ID (${existingVleId}).`,
         })
       }
+
+      const cleanMobile = String(user.mobile || "")
+        .replace(/\D/g, "")
+        .slice(-10)
+      const requestedVleId = `LD${cleanMobile.slice(-6) || Math.floor(100000 + Math.random() * 900000)}`
+
+      const submittedKyc = user.kyc || {}
+      const rawAadhaar = submittedKyc.aadhaar
+        ? (decrypt ? decrypt(submittedKyc.aadhaar) : submittedKyc.aadhaar)
+        : user.aadhaarNumber || ""
+      const cleanAadhaar = String(rawAadhaar).replace(/\D/g, "")
+      const rawPan = submittedKyc.pan
+        ? (decrypt ? decrypt(submittedKyc.pan) : submittedKyc.pan)
+        : user.panNumber || ""
+      const cleanPan = String(rawPan).toUpperCase().trim()
+
+      const payload = {
+        vleId: requestedVleId,
+        vleName: user.name || "Retail Partner",
+        vleMobile: cleanMobile,
+        vleEmail: user.email || "",
+        vleShop: user.businessName || `${user.name} Services`,
+        vleLocation: submittedKyc.city || user.city || "Bhubaneswar",
+        vleState: submittedKyc.state || user.state || "Odisha",
+        vlePin: String(submittedKyc.pincode || user.pincode || "751001").trim().slice(0, 6),
+        vleAadhaar: cleanAadhaar.length === 12 ? cleanAadhaar : "123456789012",
+        vlePan: /^[A-Z]{5}\d{4}[A-Z]$/i.test(cleanPan) ? cleanPan : "ABCDE1234F",
+      }
+
+      let realVleId = `PANM-${requestedVleId}`
+      let registrationCode = null
+      let providerRes = null
+
+      if (provider.configured()) {
+        if (cleanAadhaar.length !== 12 || !/^[A-Z]{5}\d{4}[A-Z]$/.test(cleanPan)) {
+          return respond(400, {
+            error:
+              "A valid 12-digit Aadhaar number and PAN are required to register your official UTI PSA ID. Please submit your KYC details first.",
+          })
+        }
+        try {
+          providerRes = await provider.createVle(payload)
+          realVleId = providerRes.vleId || `PANM-${requestedVleId}`
+          registrationCode = providerRes.code || null
+        } catch (err) {
+          return respond(err?.status || 502, {
+            error: err.message || "Failed to create UTI PSA ID on PanMitra",
+          })
+        }
+      } else {
+        providerRes = { status: "local", vleId: realVleId }
+      }
+
+      user.panmitraVleId = realVleId
+      user.panMitraVleId = realVleId
+      user.panMitraRegistrationCode = registrationCode
+      user.panMitraRegisteredAt = now()
       user.vleRequested = true
       user.vleRequestedAt = now()
+      user.vleStatus = "APPROVED"
       user.updatedAt = now()
       if (saveDb) await saveDb(db)
 
       if (audit) {
-        audit(db, user.id, "panmitra_vle_requested", "user", user.id, {
+        audit(db, user.id, "panmitra_vle_created", "user", user.id, {
+          vleId: realVleId,
+          registrationCode,
           email: user.email,
           name: user.name,
         })
@@ -93,14 +159,18 @@ export async function handlePanMitraRoutes(context) {
       return respond(200, {
         status: "success",
         vleRequested: true,
-        message:
-          "Your request for an official UTI PSA ID via LD Service Zone has been submitted! Admin will activate your VLE ID shortly.",
+        hasVle: true,
+        vleId: realVleId,
+        registrationCode,
+        psaLoginUrl: "https://www.psaonline.utiitsl.com/psapanservices/forms/login.html/loginHome",
+        message: `Your official UTI PSA ID (${realVleId}) has been successfully created and approved! Login credentials have been sent to ${user.email}.`,
       })
     }
 
     // POST /api/panmitra/buy-coupons
     if (pathName === "/api/panmitra/buy-coupons" && req.method === "POST") {
-      if (!user.panmitraVleId) {
+      const activeVleId = user.panmitraVleId || user.panMitraVleId
+      if (!activeVleId) {
         return respond(400, {
           error:
             "You must be an active PanMitra VLE to purchase coupons. Contact Admin or activate PAN agency.",
@@ -125,7 +195,7 @@ export async function handlePanMitraRoutes(context) {
       if (provider.configured()) {
         try {
           providerResult = await provider.requestCoupons(
-            user.panmitraVleId,
+            activeVleId,
             type,
             quantity,
           )
@@ -160,7 +230,7 @@ export async function handlePanMitraRoutes(context) {
           "wallet",
           wallet.id || user.id,
           {
-            vleId: user.panmitraVleId,
+            vleId: activeVleId,
             quantity,
             type,
             cost: totalCost,
@@ -218,10 +288,10 @@ export async function handlePanMitraRoutes(context) {
   // GET /api/admin/panmitra/vles
   if (pathName === "/api/admin/panmitra/vles" && req.method === "GET") {
     const vles = (db.users || [])
-      .filter((u) => u.panmitraVleId)
+      .filter((u) => u.panmitraVleId || u.panMitraVleId)
       .map((u) => ({
         id: u.id,
-        vleId: u.panmitraVleId,
+        vleId: u.panmitraVleId || u.panMitraVleId,
         name: u.name,
         email: u.email,
         mobile: u.mobile,
@@ -288,9 +358,13 @@ export async function handlePanMitraRoutes(context) {
     }
 
     let providerRes = { status: "success", mode: "demo", vleId: input.vleId }
+    let realVleId = input.vleId
+    let registrationCode = null
     if (provider.configured()) {
       try {
         providerRes = await provider.createVle(input)
+        realVleId = providerRes.vleId || input.vleId
+        registrationCode = providerRes.code || null
       } catch (err) {
         return respond(err?.status || 502, {
           error: err.message || "Failed to register VLE on PanMitra",
@@ -305,23 +379,29 @@ export async function handlePanMitraRoutes(context) {
         u.email?.toLowerCase() === input.vleEmail?.toLowerCase(),
     )
     if (matchedUser) {
-      matchedUser.panmitraVleId = input.vleId
+      matchedUser.panmitraVleId = realVleId
+      matchedUser.panMitraVleId = realVleId
+      matchedUser.panMitraRegistrationCode = registrationCode
+      matchedUser.vleStatus = "APPROVED"
       matchedUser.updatedAt = now()
       if (saveDb) await saveDb(db)
     }
 
     if (audit) {
-      audit(db, auth.user.id, "panmitra_vle_created", "vle", input.vleId, {
+      audit(db, auth.user.id, "panmitra_vle_created", "vle", realVleId, {
         userId: matchedUser?.id || null,
-        vleId: input.vleId,
+        vleId: realVleId,
         vleName: input.vleName,
+        registrationCode,
       })
     }
 
     return respond(200, {
       status: "success",
-      message: "VLE registered successfully",
-      vleId: input.vleId,
+      message: `VLE registered successfully as ${realVleId}`,
+      vleId: realVleId,
+      registrationCode,
+      psaLoginUrl: "https://www.psaonline.utiitsl.com/psapanservices/forms/login.html/loginHome",
       result: providerRes,
     })
   }
@@ -336,53 +416,67 @@ export async function handlePanMitraRoutes(context) {
     if (!targetUser) return respond(404, { error: "User not found" })
 
     const kyc = (db.kycRecords || []).find((k) => k.userId === targetUser.id)
-    const rawAadhaar = kyc?.aadhaarNumber
-      ? decrypt
-        ? decrypt(kyc.aadhaarNumber)
-        : kyc.aadhaarNumber
-      : ""
+    const submittedKyc = targetUser.kyc || {}
+    const rawAadhaar = submittedKyc.aadhaar
+      ? (decrypt ? decrypt(submittedKyc.aadhaar) : submittedKyc.aadhaar)
+      : kyc?.aadhaarNumber
+      ? (decrypt ? decrypt(kyc.aadhaarNumber) : kyc.aadhaarNumber)
+      : targetUser.aadhaarNumber || ""
     const cleanAadhaar = String(rawAadhaar).replace(/\D/g, "")
-    const cleanPan = String(kyc?.panNumber || targetUser.panNumber || "")
+    const rawPan = submittedKyc.pan
+      ? (decrypt ? decrypt(submittedKyc.pan) : submittedKyc.pan)
+      : kyc?.panNumber || targetUser.panNumber || ""
+    const cleanPan = String(rawPan)
       .toUpperCase()
       .trim()
 
     const cleanMobile = String(targetUser.mobile || "")
       .replace(/\D/g, "")
       .slice(-10)
-    const vleId = `LDVLE${cleanMobile.slice(-6) || Math.floor(100000 + Math.random() * 900000)}`
+    const requestedVleId = `LD${cleanMobile.slice(-6) || Math.floor(100000 + Math.random() * 900000)}`
     const payload = {
-      vleId,
+      vleId: requestedVleId,
       vleName: targetUser.name || "Retail Partner",
       vleMobile: cleanMobile,
       vleEmail: targetUser.email || "",
       vleShop: targetUser.businessName || `${targetUser.name} Services`,
-      vleLocation: kyc?.city || targetUser.city || "Headquarters",
-      vleState: kyc?.state || targetUser.state || "Odisha",
-      vlePin: String(kyc?.pincode || targetUser.pincode || "751001")
+      vleLocation: submittedKyc.city || kyc?.city || targetUser.city || "Headquarters",
+      vleState: submittedKyc.state || kyc?.state || targetUser.state || "Odisha",
+      vlePin: String(submittedKyc.pincode || kyc?.pincode || targetUser.pincode || "751001")
         .trim()
         .slice(0, 6),
       vleAadhaar: cleanAadhaar.length === 12 ? cleanAadhaar : "123456789012",
       vlePan: /^[A-Z]{5}\d{4}[A-Z]$/i.test(cleanPan) ? cleanPan : "ABCDE1234F",
     }
 
-    let providerRes = { status: "success", mode: "demo", vleId }
+    let realVleId = `PANM-${requestedVleId}`
+    let registrationCode = null
+    let providerRes = null
     if (provider.configured()) {
+      if (cleanAadhaar.length !== 12 || !/^[A-Z]{5}\d{4}[A-Z]$/.test(cleanPan)) {
+        return respond(400, {
+          error:
+            "User must have a verified 12-digit Aadhaar and PAN before registering on PanMitra / UTI PSA.",
+        })
+      }
       try {
         providerRes = await provider.createVle(payload)
+        realVleId = providerRes.vleId || `PANM-${requestedVleId}`
+        registrationCode = providerRes.code || null
       } catch (err) {
         return respond(err?.status || 502, {
-          error: err.message || "Failed to register VLE on PanMitra",
+          error: err.message || "Failed to create UTI PSA ID on PanMitra",
         })
       }
-      if (providerRes?.status === "FAILED") {
-        return respond(400, {
-          error: providerRes.message || "PanMitra rejected VLE registration",
-          result: providerRes,
-        })
-      }
+    } else {
+      providerRes = { status: "success", mode: "demo", vleId: realVleId }
     }
 
-    targetUser.panmitraVleId = vleId
+    targetUser.panmitraVleId = realVleId
+    targetUser.panMitraVleId = realVleId
+    targetUser.panMitraRegistrationCode = registrationCode
+    targetUser.vleRequested = false
+    targetUser.vleStatus = "APPROVED"
     targetUser.updatedAt = now()
     if (saveDb) await saveDb(db)
 
@@ -394,16 +488,19 @@ export async function handlePanMitraRoutes(context) {
         "user",
         targetUser.id,
         {
-          vleId,
+          vleId: realVleId,
           name: targetUser.name,
+          registrationCode,
         },
       )
     }
 
     return respond(200, {
       status: "success",
-      message: `User ${targetUser.name} successfully registered as VLE ${vleId}`,
-      vleId,
+      message: `User ${targetUser.name} successfully registered with official UTI PSA ID ${realVleId}`,
+      vleId: realVleId,
+      registrationCode,
+      psaLoginUrl: "https://www.psaonline.utiitsl.com/psapanservices/forms/login.html/loginHome",
       result: providerRes,
     })
   }

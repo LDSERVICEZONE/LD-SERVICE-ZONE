@@ -8,9 +8,10 @@ export default function PublicNav() {
         <img src={ldLogo} alt="" className="h-9 w-9 shrink-0 rounded-full" />
         <span className="font-display text-xs font-bold sm:text-lg">LD SERVICE ZONE</span>
       </Link>
-      <div className="flex shrink-0 items-center gap-3 text-sm text-white/80">
+      <div className="flex shrink-0 items-center gap-3 sm:gap-5 text-sm text-white/80">
+        <NavLink to="/contact" className={({ isActive }) => isActive ? "font-semibold text-blue-300" : "hover:text-white"}>Contact & Support</NavLink>
         <NavLink to="/login" className={({ isActive }) => isActive ? "font-semibold text-blue-300" : "hover:text-white"}>Sign In</NavLink>
-        <NavLink to="/register" className="rounded-lg bg-[#1D56D8] px-3 py-2 font-semibold text-white">Register</NavLink>
+        <NavLink to="/register" className="rounded-lg bg-[#1D56D8] px-3.5 py-2 font-semibold text-white hover:bg-blue-600 transition-colors">Register</NavLink>
       </div>
     </nav>
   </header>;

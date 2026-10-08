@@ -20,8 +20,11 @@
     "audit:browser": "node tests/browser-audit.mjs"
   },
   "dependencies": {
+    "@types/qrcode": "^1.5.6",
     "@vercel/analytics": "^1.4.1",
     "lucide-react": "^0.468.0",
+    "paytmchecksum": "^1.5.1",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.18.2",

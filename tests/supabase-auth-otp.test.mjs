@@ -95,7 +95,7 @@ globalThis.fetch = async (url, options) => {
 
     // 1. Verify OTP endpoint
     if (urlStr.includes("/auth/v1/verify")) {
-      if (body.token === "123456" || body.token_hash === "valid-hash") {
+      if (body.token === "123456" || body.token === "12345678" || body.token_hash === "valid-hash") {
         const isRetailer = body.email === "retailer1@example.com";
         return Response.json({
           access_token: "mock-access-token-12345",
@@ -205,9 +205,9 @@ test("signup/verify-email validates 6-digit OTP and logs in retailer", async () 
   });
   assert.equal(badRes.status, 400);
 
-  // Test valid 6-digit OTP promotes user and returns session token
+  // Test valid 6-digit or 8-digit OTP promotes user and returns session token
   const goodRes = await apiReq("/auth/signup/verify-email", {
-    body: { email: "pending@example.com", code: "123456" },
+    body: { email: "pending@example.com", code: "12345678" },
   });
   assert.equal(goodRes.status, 200);
   assert.ok(goodRes.data.token, "Should return an app session token");

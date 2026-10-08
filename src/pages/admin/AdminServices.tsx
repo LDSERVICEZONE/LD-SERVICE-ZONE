@@ -327,7 +327,7 @@ export default function AdminServices() {
   };
 
   const unassignedRetailers = allUsers.filter(
-    (u) => u.role === "retailer" && !u.panmitraVleId,
+    (u) => u.role === "retailer" && !u.panmitraVleId && !u.panMitraVleId,
   );
 
   return (

@@ -37,7 +37,7 @@ export default function Register({ onLogin }: Props) {
     if (state?.email) {
       setForm((f) => ({ ...f, email: state.email || "" }));
       setPending(true);
-      setSuccess("Enter the 6-digit verification code sent to your email.");
+      setSuccess("Enter the verification code sent to your email.");
     }
   }, [location.state]);
 
@@ -89,7 +89,7 @@ export default function Register({ onLogin }: Props) {
       setCooldown(60);
       setSuccess(
         d.message ||
-          "Account created! Check your email for the 6-digit verification code or confirmation link.",
+          "Account created! Check your email for the verification code or confirmation link.",
       );
     } catch (e: any) {
       setError(e.message || "Unable to create account");
@@ -103,8 +103,8 @@ export default function Register({ onLogin }: Props) {
     setError("");
     setSuccess("");
     const cleanOtp = otp.trim().replace(/\D/g, "");
-    if (cleanOtp.length !== 6) {
-      return setError("Enter the 6-digit verification code received in your email");
+    if (cleanOtp.length < 6 || cleanOtp.length > 8) {
+      return setError("Enter the verification code received in your email (6-8 digits)");
     }
     setVerifying(true);
     try {
@@ -141,7 +141,7 @@ export default function Register({ onLogin }: Props) {
         body: JSON.stringify({ email: form.email.trim().toLowerCase() }),
       });
       setCooldown(60);
-      setSuccess(d.message || "A new 6-digit verification code was sent to your email.");
+      setSuccess(d.message || "A new verification code was sent to your email.");
     } catch (e: any) {
       setError(e.message || "Unable to resend verification code");
     } finally {
@@ -179,7 +179,7 @@ export default function Register({ onLogin }: Props) {
                   Start growing your service business.
                 </h1>
                 <p className="text-white/40 text-sm mt-1">
-                  We send a secure 6-digit OTP code to your Gmail via Supabase SMTP for instant verification.
+                  We send a secure OTP code to your Gmail via Supabase SMTP for instant verification.
                 </p>
               </div>
 
@@ -258,7 +258,7 @@ export default function Register({ onLogin }: Props) {
                   }}
                   className="text-blue-300 hover:text-blue-200 font-medium"
                 >
-                  Enter 6-digit email OTP →
+                  Enter email OTP →
                 </button>
               </div>
             </>
@@ -275,7 +275,7 @@ export default function Register({ onLogin }: Props) {
                 )}
                 <h1 className="text-2xl text-white font-bold mt-3">Verify your email</h1>
                 <p className="text-white/50 text-sm mt-1.5 max-w-md mx-auto">
-                  We sent a 6-digit verification code to{" "}
+                  We sent a verification code to{" "}
                   <strong className="text-white font-semibold">{form.email || "your email"}</strong>.
                   Enter the code below to complete activation.
                 </p>
@@ -301,27 +301,27 @@ export default function Register({ onLogin }: Props) {
                 )}
                 <div>
                   <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-2 text-center">
-                    Enter 6-Digit OTP Code
+                    Enter OTP Code
                   </label>
                   <input
-                    aria-label="6-Digit Verification Code"
+                    aria-label="Verification Code"
                     autoFocus
                     required
-                    maxLength={6}
-                    pattern="\d{6}"
+                    maxLength={8}
+                    pattern="\d{6,8}"
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    placeholder="• • • • • •"
+                    placeholder="• • • • • • • •"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    className="w-full text-center text-2xl font-mono tracking-[0.5em] rounded-2xl bg-white/5 border border-white/15 px-4 py-4 text-white placeholder-white/20 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                    className="w-full text-center text-2xl font-mono tracking-[0.35em] rounded-2xl bg-white/5 border border-white/15 px-4 py-4 text-white placeholder-white/20 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={verifying || otp.length !== 6}
+                  disabled={verifying || otp.length < 6 || otp.length > 8}
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold disabled:opacity-50 shadow-lg shadow-blue-900/30 hover:brightness-110 transition cursor-pointer flex items-center justify-center gap-2"
                 >
                   {verifying ? "Verifying code…" : "Verify OTP & Continue"}

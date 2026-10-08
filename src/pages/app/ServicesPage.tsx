@@ -2,9 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/shared/api/client";
 import { useWallet } from "@/features/session/AppContext";
 
-const BASE_CATEGORIES = ["All Services", "UTI PAN", "NSDL PAN", "Coupons & VLE", "Status Tracking"];
+const BASE_CATEGORIES = ["All Services", "New PAN", "Correction & Reprint", "UTI PAN", "NSDL PAN", "Coupons & VLE", "Status Tracking"];
 
 const PAN_SERVICES = [
+  { id: "PAN-NEW", name: "New PAN Card", icon: "🆕", processingTime: "7-15 days", customerPrice: 107, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171", description: "Direct citizen Form 49A application with physical PAN card dispatch" },
+  { id: "PAN-CORRECTION", name: "PAN Correction", icon: "✏️", processingTime: "7-15 days", customerPrice: 107, documents: ["PAN Card", "Aadhaar", "Supporting Proof"], color: "#F59E0B", description: "Update name, photo, father name, or DOB on existing PAN card" },
+  { id: "PAN-REPRINT", name: "PAN Reprint", icon: "🔄", processingTime: "7-15 days", customerPrice: 50, documents: ["PAN Copy", "Aadhaar"], color: "#06B6D4", description: "Reprint damaged or lost physical PAN card with existing details" },
   { id: "PAN-UTI", name: "UTI PAN", icon: "🏢", processingTime: "Instant / 3-5 days", customerPrice: 107, documents: ["Aadhaar", "Biometric / OTP"], color: "#7C3AED", description: "Official UTI PSA Paperless PAN (ID issued via LD Service Zone)" },
   { id: "PAN-FIND", name: "PAN Find", icon: "🔍", processingTime: "Instant", customerPrice: 20, documents: ["Aadhaar Number", "Mobile Number"], color: "#4F46E5", description: "Find lost PAN number by Aadhaar card" },
   { id: "PAN-NSDL", name: "NSDL PAN", icon: "📑", processingTime: "Instant / 2 hours", customerPrice: 107, documents: ["Aadhaar", "Biometric / OTP"], color: "#1D56D8", description: "Instant paperless eKYC PAN card application" },
@@ -54,19 +57,14 @@ const SERVICE_SUBSERVICES: Record<string, any[]> = {
 };
 */
 
-const serviceColor = (service: any) => service?.color || "#4F46E5";
-
 const iconFor = (category: string) =>
   category === "Government" ? "🏛️" : category === "Tax" ? "📊" : category === "Certificate" ? "📜" : "🪪";
 
 export default function ServicesPage() {
   const [services, setServices] = useState<any[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All Services");
   const [search, setSearch] = useState("");
   const [selectedService, setSelectedService] = useState<any>(null);
-  const [selectedParentService, setSelectedParentService] = useState<any>(null);
-  const [showPanServices, setShowPanServices] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, string>>({});
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
@@ -107,6 +105,8 @@ export default function ServicesPage() {
         p.description.toLowerCase().includes(search.toLowerCase());
       if (!matchesSearch) return false;
       if (activeCategory === "All Services" || activeCategory === "All") return true;
+      if (activeCategory === "New PAN") return p.id === "PAN-NEW" || p.id === "PAN-NSDL" || p.id === "PAN-UTI";
+      if (activeCategory === "Correction & Reprint") return p.id === "PAN-CORRECTION" || p.id === "PAN-REPRINT";
       if (activeCategory === "UTI PAN") return p.id.includes("UTI") && !p.id.includes("STATUS");
       if (activeCategory === "NSDL PAN") return p.id.includes("NSDL") && !p.id.includes("STATUS");
       if (activeCategory === "Coupons & VLE") return p.id.includes("COUPON") || p.id === "PAN-UTI";
@@ -121,7 +121,14 @@ export default function ServicesPage() {
     setSelectedFiles({});
     setSubmitMessage("");
     const current = services.find(s => s.id === service.id);
-    if (!current) { setSubmitMessage("This service is currently unavailable. Refresh the catalogue."); return; }
+    if (!current) {
+      setSelectedService({
+        ...service,
+        customerPrice: service.customerPrice ?? 107,
+        documents: service.documents || [],
+      });
+      return;
+    }
     setSelectedService({ ...service, ...current });
   };
 
@@ -133,6 +140,7 @@ export default function ServicesPage() {
       if (selectedService.id === "PAN-STATUS" || selectedService.id === "PAN-UTI-STATUS") return ["Application / Coupon No", "Date of Birth"];
       if (selectedService.id === "PAN-NSDL-STATUS") return ["15-Digit Acknowledgement No"];
       if (selectedService.id === "PAN-REPRINT") return ["Full Name", "PAN Number", "Aadhaar Number", "Mobile Number"];
+      if (selectedService.id === "PAN-CORRECTION") return ["Full Name", "PAN Number", "Date of Birth", "Mobile Number", "Father's Name", "Aadhaar Number"];
       if (selectedService.id === "PAN-NSDL") return ["Full Name", "Date of Birth", "Mobile Number", "Email Address", "Aadhaar Number"];
       return ["Full Name", "Date of Birth", "Mobile Number", "Email Address", "Father's Name", "Aadhaar Number"];
     }
@@ -269,37 +277,60 @@ export default function ServicesPage() {
 
       {/* VLE Agency Banner */}
       {vleProfile?.hasVle ? (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-900 via-indigo-950 to-slate-900 p-5 text-white shadow-lg border border-violet-800/40">
-          <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Official UTI PSA Agency</span>
-                <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
-                  ID: {vleProfile.vleId}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-950 via-indigo-950 to-slate-900 p-6 text-white shadow-xl border border-violet-700/50">
+          <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                  Official UTI PSA Agency Active
                 </span>
-                <span className="text-[10px] text-violet-300 bg-white/10 px-2 py-0.5 rounded-full">via LD Service Zone</span>
+                <span className="text-[10px] text-violet-300 bg-white/10 px-2.5 py-0.5 rounded-full">
+                  via LD Service Zone & PanMitra
+                </span>
               </div>
-              <h4 className="font-display text-lg font-extrabold">UTIITSL Paperless Agent Portal Active</h4>
-              <p className="text-xs text-slate-300">
-                Available Coupons: <span className="font-bold text-emerald-400 font-mono text-sm">{vleProfile.vleStatus?.couponsAvailable ?? "Active"}</span>
+              <div className="flex flex-wrap items-baseline gap-3">
+                <h4 className="font-display text-xl font-extrabold text-white">UTIITSL Paperless Agent Portal</h4>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-violet-800/40 border border-violet-500/40">
+                  <span className="text-xs text-violet-300">PSA Login ID:</span>
+                  <span className="font-mono text-sm font-black text-amber-300 tracking-wide select-all">{vleProfile.vleId}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(vleProfile.vleId);
+                      alert("PSA Login ID copied: " + vleProfile.vleId);
+                    }}
+                    title="Copy PSA ID"
+                    className="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-violet-700/60 hover:bg-violet-600 text-white font-medium"
+                  >
+                    Copy
+                  </button>
+                </div>
+                {vleProfile.registrationCode && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-900/40 border border-emerald-500/40">
+                    <span className="text-xs text-emerald-300">Reg Code:</span>
+                    <span className="font-mono text-sm font-black text-emerald-200 tracking-wide select-all">{vleProfile.registrationCode}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                🔐 <strong>First Login Instructions:</strong> Log in at UTI PSA portal using your ID <span className="font-mono text-amber-300 font-semibold">{vleProfile.vleId}</span>. Check your email ({vleProfile.user?.email || "registered email"}) for your initial login password sent by UTIITSL/PanMitra.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setBuyCouponOpen(true)}
-                className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition shadow-md shadow-violet-500/30 flex items-center gap-1.5"
+                className="px-4 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 active:scale-95 text-white text-xs font-bold transition shadow-lg shadow-violet-600/30 flex items-center gap-2"
               >
-                <span>🎟️</span> Buy / Add Coupons
+                <span>🎟️</span> Buy PAN Coupons
               </button>
               <a
-                href="https://www.psaonline.utiitsl.com/psaonline/"
+                href={vleProfile.psaLoginUrl || "https://www.psaonline.utiitsl.com/psapanservices/forms/login.html/loginHome"}
                 target="_blank"
                 rel="noreferrer"
-                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition flex items-center gap-1.5"
+                className="px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white text-xs font-bold transition shadow-lg shadow-emerald-700/30 flex items-center gap-1.5"
               >
-                <span>↗</span> Launch UTI PSA Portal
+                <span>↗</span> Launch PSA Login Portal
               </a>
             </div>
           </div>

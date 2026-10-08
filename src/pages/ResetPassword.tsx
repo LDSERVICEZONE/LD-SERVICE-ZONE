@@ -73,14 +73,14 @@ export default function ResetPassword() {
       payload.tokenHash = tokenHash;
     } else if (email.trim() && otp.trim()) {
       const cleanOtp = otp.trim().replace(/\D/g, "");
-      if (cleanOtp.length !== 6) {
-        return setError("Enter the 6-digit recovery code sent to your email");
+      if (cleanOtp.length < 6 || cleanOtp.length > 8) {
+        return setError("Enter the recovery code sent to your email (6-8 digits)");
       }
       payload.email = email.trim().toLowerCase();
       payload.otp = cleanOtp;
     } else {
       return setError(
-        "Please provide your registered email and 6-digit recovery code from your email.",
+        "Please provide your registered email and recovery code from your email.",
       );
     }
 
@@ -111,7 +111,7 @@ export default function ResetPassword() {
           <p className="text-white/40 text-xs mt-1">
             {hasToken
               ? "Verified recovery session detected. Choose your new password."
-              : "Enter your registered email and the 6-digit recovery code sent to your inbox."}
+              : "Enter your registered email and the recovery code sent to your inbox."}
           </p>
         </div>
 
@@ -155,18 +155,18 @@ export default function ResetPassword() {
 
               <div>
                 <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-1.5">
-                  6-Digit Recovery Code
+                  Recovery Code
                 </label>
                 <input
                   aria-label="Recovery Code"
                   required
-                  maxLength={6}
+                  maxLength={8}
                   type="text"
                   inputMode="numeric"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="• • • • • •"
-                  className="w-full text-center text-xl font-mono tracking-[0.4em] rounded-xl bg-white/5 border border-white/10 px-4 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500/60 transition"
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  placeholder="• • • • • • • •"
+                  className="w-full text-center text-xl font-mono tracking-[0.35em] rounded-xl bg-white/5 border border-white/10 px-4 py-3.5 text-white placeholder-white/20 outline-none focus:border-blue-500/60 transition"
                 />
               </div>
             </>

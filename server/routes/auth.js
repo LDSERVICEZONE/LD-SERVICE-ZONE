@@ -250,9 +250,9 @@ export async function handleAuthRoutes(context) {
       .trim()
       .toLowerCase()
     const code = String(input.code || input.otp || "").trim()
-    if (!email || !/^\d{6}$/.test(code)) {
+    if (!email || !/^\d{6,8}$/.test(code)) {
       return respond(400, {
-        error: "Enter the 6-digit email verification code",
+        error: "Enter the valid email verification code",
       })
     }
 

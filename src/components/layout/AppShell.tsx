@@ -29,7 +29,6 @@ const NAV = [
   { group: "Money" },
   { label: "Wallet", path: "/dashboard/wallet", icon: WalletCards },
   { group: "Services" },
-  { label: "Recharge", path: "/dashboard/recharge", icon: Smartphone },
   { label: "PAN Services", path: "/dashboard/services", icon: CreditCard },
   { label: "My Applications", path: "/dashboard/applications", icon: FileText },
   { group: "Business" },

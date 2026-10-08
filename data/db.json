@@ -142,6 +142,7 @@
   },
   "walletLedger": [],
   "rechargeTransactions": [],
+  "rechargeStatusHistory": [],
   "commissionLedger": [],
   "supportTickets": [
     {
@@ -234,22 +235,6 @@
         "Business Proof"
       ],
       "color": "#F59E0B",
-      "createdAt": "2026-09-10T04:36:33.860Z",
-      "updatedAt": "2026-09-10T04:36:33.860Z"
-    },
-    {
-      "id": "S007",
-      "category": "PAN",
-      "name": "New PAN Card",
-      "processingTime": "7-15 days",
-      "customerPrice": 107,
-      "commission": 32,
-      "documents": [
-        "Aadhaar",
-        "DOB Proof",
-        "Photograph"
-      ],
-      "color": "#F87171",
       "createdAt": "2026-09-10T04:36:33.860Z",
       "updatedAt": "2026-09-10T04:36:33.860Z"
     },
@@ -564,7 +549,7 @@
     {
       "id": "PAN-NEW",
       "category": "PAN",
-      "name": "New PAN",
+      "name": "New PAN Card",
       "processingTime": "7-15 days",
       "customerPrice": 107,
       "commission": 32,
@@ -575,7 +560,7 @@
       ],
       "color": "#F87171",
       "createdAt": "2026-09-11T09:30:41.466Z",
-      "updatedAt": "2026-09-11T09:30:41.466Z"
+      "updatedAt": "2026-10-01T13:54:17.657Z"
     },
     {
       "id": "PAN-CORRECTION",
@@ -591,7 +576,7 @@
       ],
       "color": "#F59E0B",
       "createdAt": "2026-09-11T09:30:41.466Z",
-      "updatedAt": "2026-09-11T09:30:41.466Z"
+      "updatedAt": "2026-10-01T13:54:17.658Z"
     },
     {
       "id": "PAN-REPRINT",
@@ -601,12 +586,12 @@
       "customerPrice": 50,
       "commission": 20,
       "documents": [
-        "PAN Number",
+        "PAN Copy",
         "Aadhaar"
       ],
       "color": "#06B6D4",
       "createdAt": "2026-09-11T09:30:41.466Z",
-      "updatedAt": "2026-09-11T09:30:41.466Z"
+      "updatedAt": "2026-10-01T13:54:17.658Z"
     },
     {
       "id": "PAN-FIND",
@@ -620,7 +605,7 @@
       ],
       "color": "#4F46E5",
       "createdAt": "2026-09-11T09:30:41.466Z",
-      "updatedAt": "2026-09-11T09:30:41.466Z"
+      "updatedAt": "2026-10-01T13:54:17.658Z"
     },
     {
       "id": "PAN-STATUS",
@@ -634,37 +619,79 @@
       ],
       "color": "#10B981",
       "createdAt": "2026-09-11T09:30:41.466Z",
-      "updatedAt": "2026-09-11T09:30:41.466Z"
+      "updatedAt": "2026-10-01T13:54:17.658Z"
     },
     {
       "id": "PAN-UTI",
       "category": "PAN",
-      "name": "UTI Services",
-      "processingTime": "7-15 days",
-      "customerPrice": 120,
+      "name": "UTI PAN",
+      "processingTime": "Instant / 3-5 days",
+      "customerPrice": 107,
       "commission": 40,
       "documents": [
         "Aadhaar",
-        "PAN"
+        "Biometric / OTP"
       ],
       "color": "#7C3AED",
       "createdAt": "2026-09-11T09:30:41.466Z",
-      "updatedAt": "2026-09-11T09:30:41.466Z"
+      "updatedAt": "2026-10-01T13:54:17.658Z"
     },
     {
       "id": "PAN-NSDL",
       "category": "PAN",
-      "name": "NSDL Services",
-      "processingTime": "7-15 days",
-      "customerPrice": 120,
+      "name": "NSDL PAN",
+      "processingTime": "Instant / 2 hours",
+      "customerPrice": 107,
       "commission": 35,
       "documents": [
         "Aadhaar",
-        "PAN"
+        "Biometric / OTP"
       ],
       "color": "#1D56D8",
       "createdAt": "2026-09-11T09:30:41.466Z",
-      "updatedAt": "2026-09-11T09:30:41.466Z"
+      "updatedAt": "2026-10-01T13:54:17.658Z"
+    },
+    {
+      "id": "PAN-UTI-STATUS",
+      "category": "PAN",
+      "name": "UTI PAN Status",
+      "processingTime": "Instant",
+      "customerPrice": 0,
+      "commission": 0,
+      "documents": [
+        "Application / Coupon No"
+      ],
+      "color": "#10B981",
+      "createdAt": "2026-10-01T13:54:17.658Z",
+      "updatedAt": "2026-10-01T13:54:17.658Z"
+    },
+    {
+      "id": "PAN-NSDL-STATUS",
+      "category": "PAN",
+      "name": "NSDL PAN Status",
+      "processingTime": "Instant",
+      "customerPrice": 0,
+      "commission": 0,
+      "documents": [
+        "15-Digit Ack No"
+      ],
+      "color": "#06B6D4",
+      "createdAt": "2026-10-01T13:54:17.658Z",
+      "updatedAt": "2026-10-01T13:54:17.658Z"
+    },
+    {
+      "id": "PAN-UTI-COUPON",
+      "category": "PAN",
+      "name": "UTI Coupon Add",
+      "processingTime": "Instant",
+      "customerPrice": 107,
+      "commission": 0,
+      "documents": [
+        "UTI VLE ID"
+      ],
+      "color": "#F59E0B",
+      "createdAt": "2026-10-01T13:54:17.658Z",
+      "updatedAt": "2026-10-01T13:54:17.658Z"
     }
   ],
   "pendingSignups": [

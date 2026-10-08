@@ -219,7 +219,7 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                 <h3 className="text-base font-semibold text-white">5. Grievance Redressal</h3>
                 <p>
                   For any privacy inquiries or data update requests, please write to our Grievance
-                  Officer at <b>ldservicezone@gmail.com</b> or call <b>+91 8280123459</b>.
+                  Officer at <b>support@ldservicezone.in</b> or call <b>+91 8280123459</b>.
                 </p>
               </section>
             </div>
@@ -275,7 +275,7 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                 <h3 className="text-base font-semibold text-white">4. Refund Request Procedure</h3>
                 <p>
                   To report any billing discrepancies or request manual assistance, please contact our
-                  dedicated support helpline at <b>+91 8280123459</b> or email <b>ldservicezone@gmail.com</b> with your
+                  dedicated support helpline at <b>+91 8280123459</b> or email <b>support@ldservicezone.in</b> with your
                   Application Number / Transaction ID. All refund requests are reviewed within 24–48 hours.
                 </p>
               </section>
@@ -392,14 +392,14 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
                     <span>Email Support</span>
                   </div>
                   <p className="text-white text-sm font-mono font-semibold break-all">
-                    ldservicezone@gmail.com
+                    support@ldservicezone.in
                   </p>
                   <p className="text-xs text-slate-400">
                     Send official inquiries, bank verification documents, or billing dispute emails.
                   </p>
                   <div className="pt-1">
                     <a
-                      href="mailto:ldservicezone@gmail.com"
+                      href="mailto:support@ldservicezone.in"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition"
                     >
                       <Mail className="w-3.5 h-3.5" />

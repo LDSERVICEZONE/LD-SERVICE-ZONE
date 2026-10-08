@@ -247,6 +247,76 @@ test("demo wallet top-up adds funds to wallet and ledger", async () => {
   assert.equal(ledger.data.ledger[0].amount, 250);
 });
 
+test("dynamic UPI QR wallet top-up creates order, checks status, and verifies credit", async () => {
+  const created = await request("/wallet/create-order", {
+    token: "retailer",
+    body: { amount: 500, mode: "upi_qr" },
+  });
+  assert.equal(created.status, 200);
+  assert.equal(created.data.mode, "upi_qr");
+  assert.ok(created.data.orderId.startsWith("LD-ORD-"));
+  assert.ok(created.data.upiString.includes("upi://pay"));
+  assert.equal(created.data.amountRupees, 500);
+
+  // Check initial pending status
+  const pendingStatus = await request(`/wallet/check-status?orderId=${created.data.orderId}`, {
+    token: "retailer",
+  });
+  assert.equal(pendingStatus.status, 200);
+  assert.equal(pendingStatus.data.status, "created");
+
+  // Verify payment
+  const verified = await request("/wallet/verify", {
+    token: "retailer",
+    body: { mode: "upi_qr", orderId: created.data.orderId },
+  });
+  assert.equal(verified.status, 200);
+  assert.equal(verified.data.ok, true);
+  assert.ok(verified.data.wallet.balance >= 500);
+
+  // Check paid status
+  const paidStatus = await request(`/wallet/check-status?orderId=${created.data.orderId}`, {
+    token: "retailer",
+  });
+  assert.equal(paidStatus.status, 200);
+  assert.equal(paidStatus.data.status, "paid");
+  assert.equal(paidStatus.data.wallet.balance, verified.data.wallet.balance);
+
+  // Ledger verification
+  const ledger = await request("/wallet/ledger", { token: "retailer" });
+  assert.equal(ledger.status, 200);
+  assert.ok(ledger.data.ledger.some(entry => entry.reference === created.data.paymentId && entry.amount === 500));
+});
+
+test("paytm callback verifies order and credits user wallet", async () => {
+  const created = await request("/wallet/create-order", {
+    token: "retailer",
+    body: { amount: 300, mode: "upi_qr" },
+  });
+  assert.equal(created.status, 200);
+
+  // Call paytm callback with TXN_SUCCESS
+  const callbackRes = await request("/wallet/paytm-callback", {
+    method: "POST",
+    body: {
+      ORDERID: created.data.orderId,
+      STATUS: "TXN_SUCCESS",
+      TXNID: "PAYTM-TXN-123456",
+      TXNAMOUNT: "300.00",
+    },
+  });
+  assert.equal(callbackRes.status, 200);
+  assert.equal(callbackRes.data.status, "OK");
+  assert.equal(callbackRes.data.paymentStatus, "paid");
+
+  // Verify status reflects paid
+  const statusRes = await request(`/wallet/check-status?orderId=${created.data.orderId}`, {
+    token: "retailer",
+  });
+  assert.equal(statusRes.status, 200);
+  assert.equal(statusRes.data.status, "paid");
+});
+
 test("password reset revokes existing local sessions", async () => {
   assert.equal((await request("/auth/reset-password", { body: { accessToken: "audit-reset", password: "NewAuditPassword123!" } })).status, 200);
   assert.equal((await request("/auth/me", { token: "retailer" })).status, 401);
@@ -365,6 +435,16 @@ test("admin can auto-onboard retailer with Gmail, Mobile, Aadhaar, and UTI PSA I
   const createdUser = usersRes.data.users.find((u) => u.email === "subash.mohanty@gmail.com");
   assert.ok(createdUser);
   assert.equal(createdUser.wallet, 250);
+
+  // Verify retailer login and VLE profile recognition
+  const loginRes = await request("/auth/login", {
+    body: { credential: "subash.mohanty@gmail.com", password: createRes.data.credentials.password },
+  });
+  assert.equal(loginRes.status, 200);
+  const vleProf = await request("/panmitra/vle-profile", { token: loginRes.data.token });
+  assert.equal(vleProf.status, 200);
+  assert.equal(vleProf.data.hasVle, true);
+  assert.equal(vleProf.data.vleId, createRes.data.credentials.vleId);
 
   // Test duplicate prevention
   const dupRes = await request("/admin/retailer", {

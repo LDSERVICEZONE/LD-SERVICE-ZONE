@@ -195,8 +195,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-3">
             {[
               ["💳", "Add Money", "/dashboard/wallet"],
-              ["📱", "Recharge", "/dashboard/recharge"],
-              ["🪪", "Services", "/dashboard/services"],
+              ["📋", "Applications", "/dashboard/applications"],
+              ["🪪", "PAN Services", "/dashboard/services"],
               ["📊", "Analytics", "/dashboard/analytics"],
             ].map(([icon, label, path]) => (
               <button

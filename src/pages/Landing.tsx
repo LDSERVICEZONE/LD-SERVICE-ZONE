@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Building2, Car, CheckCircle2, CreditCard, FileBadge2, FileText, IndianRupee, LayoutDashboard, Menu, Receipt, ShieldCheck, Smartphone, Sparkles, Users, Vote, WalletCards, X, Zap } from "lucide-react";
+import { BarChart3, CheckCircle2, CreditCard, FileText, IndianRupee, LayoutDashboard, Menu, Receipt, ShieldCheck, Sparkles, Users, WalletCards, X, Zap } from "lucide-react";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
 import SupportWidget from "../components/SupportWidget";
 
@@ -15,11 +15,11 @@ const services: Array<{ icon: LucideIcon; name: string; desc: string; color: str
   { icon: FileText, name: "PAN Find Service", desc: "Instant lost PAN retrieval by Aadhaar card and live verification", color: "from-violet-500 to-violet-600" },
   { icon: Receipt, name: "PAN Application Tracking", desc: "Real-time status tracking for both UTIITSL and NSDL TIN portals", color: "from-cyan-500 to-cyan-600" },
   { icon: Sparkles, name: "UTI VLE Coupon Hub", desc: "Instant physical and electronic coupon management for agents", color: "from-amber-500 to-amber-600" },
-  { icon: Smartphone, name: "Recharge & Utilities", desc: "Mobile & DTH recharge gateway with automated operator confirmation", color: "from-emerald-500 to-emerald-600" },
+  { icon: FileText, name: "e-PAN Download & Status", desc: "Instant e-PAN verification, duplicate copy reprint, and live TIN tracking", color: "from-emerald-500 to-emerald-600" },
 ];
 
 const features: Array<{ icon: LucideIcon; title: string; desc: string }> = [
-  { icon: Zap, title: "Faster Transactions", desc: "Process recharges and PAN services in seconds with our optimized infrastructure." },
+  { icon: Zap, title: "Faster Transactions", desc: "Process paperless PAN applications in seconds with our optimized infrastructure." },
   { icon: BarChart3, title: "Operational Growth", desc: "Scale your citizen service center with high-demand PAN and digital utilities." },
   { icon: LayoutDashboard, title: "Centralized Operations", desc: "Manage every service, customer, and transaction from a single intelligent workspace." },
   { icon: Receipt, title: "Real-Time Tracking", desc: "Monitor your business with live dashboards, instant alerts, and detailed analytics." },
@@ -56,6 +56,7 @@ export default function Landing({ onLogin }: Props) {
             <a href="#features" className="hover:text-white transition-colors">Platform</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+            <Link to="/contact" className="hover:text-white transition-colors">Contact & Support</Link>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -181,9 +182,9 @@ export default function Landing({ onLogin }: Props) {
               {/* Quick actions */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  ["Recharge", "/register", Smartphone],
+                  ["UTI PSA", "/register", CreditCard],
                   ["Add Money", "/register", WalletCards],
-                  ["PAN", "/register", CreditCard],
+                  ["PAN Find", "/register", FileText],
                 ].map(([label, href, Icon]) => (
                   <button key={String(label)} onClick={() => navigate(String(href))} className="rounded-lg bg-white/5 border border-white/10 p-2 text-center text-xs text-white/70 hover:bg-white/10 hover:text-white transition-colors flex items-center justify-center gap-1.5">
                     <Icon size={13} /> {String(label)}
@@ -314,23 +315,23 @@ export default function Landing({ onLogin }: Props) {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col justify-between hover:border-emerald-500/50 transition-all">
               <div>
                 <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold mb-4">
-                  BBPS & Utilities
+                  Biometric eKYC
                 </span>
-                <h3 className="font-bold text-xl text-white mb-1">Recharge & Utilities</h3>
-                <p className="text-white/50 text-xs mb-4">Prepaid, Postpaid, DTH, Electricity, Gas</p>
+                <h3 className="font-bold text-xl text-white mb-1">NSDL / Protean PAN</h3>
+                <p className="text-white/50 text-xs mb-4">Paperless OTP & Biometric 2-Hour e-PAN</p>
                 <div className="mb-6">
-                  <span className="font-display text-3xl font-extrabold text-white">0%</span>
-                  <span className="text-white/40 text-xs ml-1.5">Gateway Fee</span>
+                  <span className="font-display text-3xl font-extrabold text-white">₹107</span>
+                  <span className="text-white/40 text-xs ml-1.5">/ application</span>
                 </div>
                 <ul className="space-y-2.5 text-xs text-white/70 mb-6">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Zero convenience surcharge</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Real-time operator confirmation</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Instant digital invoice & receipt</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Automated refund on failed recharges</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Fast 2-hour digital e-PAN delivery</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Mantra, Morpho & SecuGen scanner support</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Zero physical document courier needed</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Automated refund on failed submissions</li>
                 </ul>
               </div>
               <button onClick={handleStartBusiness} className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all">
-                Start Recharge
+                Start eKYC PAN
               </button>
             </div>
           </div>
@@ -474,7 +475,7 @@ export default function Landing({ onLogin }: Props) {
               { title: "Support", links: [
                 ["FAQ", "#faq"],
                 ["WhatsApp", "https://wa.me/918280123459?text=Hello%20LD%20SERVICE%20ZONE%2C%20I%20have%20an%20inquiry."],
-                ["Email", "mailto:ldservicezone@gmail.com"],
+                ["Email", "mailto:support@ldservicezone.in"],
                 ["Call", "tel:+918280123459"],
                 ["Contact & Office", "/contact"],
               ] },
