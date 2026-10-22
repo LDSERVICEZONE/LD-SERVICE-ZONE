@@ -254,7 +254,7 @@ test("dynamic UPI QR wallet top-up creates order, checks status, and verifies cr
   });
   assert.equal(created.status, 200);
   assert.equal(created.data.mode, "upi_qr");
-  assert.ok(created.data.orderId.startsWith("LD-ORD-"));
+  assert.ok(created.data.orderId.startsWith("LDORD") || created.data.orderId.startsWith("LD-ORD-"));
   assert.ok(created.data.upiString.includes("upi://pay"));
   assert.equal(created.data.amountRupees, 500);
 
@@ -303,6 +303,36 @@ test("paytm callback verifies order and credits user wallet", async () => {
       STATUS: "TXN_SUCCESS",
       TXNID: "PAYTM-TXN-123456",
       TXNAMOUNT: "300.00",
+    },
+  });
+  assert.equal(callbackRes.status, 200);
+  assert.equal(callbackRes.data.status, "OK");
+  assert.equal(callbackRes.data.paymentStatus, "paid");
+
+  // Verify status reflects paid
+  const statusRes = await request(`/wallet/check-status?orderId=${created.data.orderId}`, {
+    token: "retailer",
+  });
+  assert.equal(statusRes.status, 200);
+  assert.equal(statusRes.data.status, "paid");
+});
+
+test("allapi webhook callback verifies order and credits user wallet", async () => {
+  const created = await request("/wallet/create-order", {
+    token: "retailer",
+    body: { amount: 250, mode: "upi_qr" },
+  });
+  assert.equal(created.status, 200);
+
+  // Call allapi callback with status=success
+  const callbackRes = await request("/wallet/allapi-callback", {
+    method: "POST",
+    body: {
+      order_id: created.data.orderId,
+      status: "success",
+      txn_id: "ALLAPI-TXN-987654",
+      utr_number: "UTR9876543210",
+      txn_amount: "250.00",
     },
   });
   assert.equal(callbackRes.status, 200);

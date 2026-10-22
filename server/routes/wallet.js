@@ -3,6 +3,7 @@ import { parseJson } from "../lib/http.js"
 import { createId, now } from "../lib/ids.js"
 import { safeEqual } from "../lib/security.js"
 import { createPaytmClient } from "../services/paytmProvider.js"
+import { createAllApiClient } from "../services/allapiProvider.js"
 
 export async function handleWalletRoutes(context) {
   const {
@@ -23,6 +24,7 @@ export async function handleWalletRoutes(context) {
   if (!pathName.startsWith("/api/wallet")) return false
 
   const paytmClient = createPaytmClient()
+  const allapiClient = createAllApiClient()
   const respond = (status, payload) => {
     send(res, status, payload)
     return true
@@ -98,6 +100,148 @@ export async function handleWalletRoutes(context) {
     return respond(200, { status: "OK", paymentStatus: payment.status })
   }
 
+  // Handle unauthenticated AllAPI gateway callback / webhook
+  if (pathName === "/api/wallet/allapi-callback") {
+    // 1. Browser GET redirect after customer completes payment on hosted page
+    if (req.method === "GET") {
+      const orderId =
+        url.searchParams.get("order_id") ||
+        url.searchParams.get("orderId") ||
+        url.searchParams.get("id")
+
+      if (orderId) {
+        const payment = db.payments.find((p) => p.orderId === orderId)
+        if (payment && payment.status !== "paid" && allapiClient.isConfigured) {
+          try {
+            const check = await allapiClient.checkStatus(orderId)
+            if (
+              check?.status === true &&
+              String(check.results?.status).toLowerCase() === "success"
+            ) {
+              payment.status = "paid"
+              payment.gatewayPaymentId =
+                check.results.txn_id ||
+                check.results.utr_number ||
+                `ALLAPI-${Date.now()}`
+              payment.utrNumber = check.results.utr_number
+              payment.paidAt = now()
+              const wallet = ensureWallet(payment.userId)
+              wallet.balance = Number(
+                (wallet.balance + Number(payment.amount)).toFixed(2),
+              )
+              wallet.updatedAt = now()
+              db.walletLedger.unshift({
+                id: createId("WL"),
+                userId: payment.userId,
+                type: "credit",
+                amount: Number(payment.amount),
+                reference: payment.paymentId,
+                description: `AllAPI Instant UPI Top-Up (${orderId.slice(-6)})`,
+                status: "success",
+                createdAt: now(),
+                balanceAfter: wallet.balance,
+              })
+              audit(
+                db,
+                { id: payment.userId, name: "AllAPI Gateway" },
+                "WALLET_TOPUP_ALLAPI",
+                "wallet",
+                payment.userId,
+                {
+                  amount: payment.amount,
+                  paymentId: payment.paymentId,
+                  orderId,
+                  utrNumber: check.results.utr_number,
+                },
+              )
+              await saveDb(db)
+              syncPayment(payment)
+            }
+          } catch {
+            // Ignore error on redirect check
+          }
+        }
+      }
+      res.writeHead(302, { Location: "/dashboard/wallet" })
+      res.end()
+      return true
+    }
+
+    // 2. Automated POST Webhook from allapi.in server (Form Data or JSON)
+    if (req.method === "POST") {
+      let body = {}
+      try {
+        const contentType = req.headers["content-type"] || ""
+        if (contentType.includes("application/json")) {
+          body = await parseJson(req)
+        } else {
+          const chunks = []
+          for await (const chunk of req) chunks.push(chunk)
+          const raw = Buffer.concat(chunks).toString("utf8")
+          const params = new URLSearchParams(raw)
+          for (const [k, v] of params.entries()) {
+            body[k] = v
+          }
+        }
+      } catch {
+        return respond(400, { error: "Failed to parse AllAPI webhook payload" })
+      }
+
+      const orderId = body.order_id || body.orderId
+      if (!orderId) return respond(400, { error: "Missing order_id in callback" })
+
+      const payment = db.payments.find((p) => p.orderId === orderId)
+      if (!payment) return respond(404, { error: "Payment record not found" })
+
+      const status = String(body.status || body.STATUS || "").toLowerCase()
+      if (status === "success" && payment.status !== "paid") {
+        payment.status = "paid"
+        payment.gatewayPaymentId =
+          body.txn_id || body.utr_number || `ALLAPI-${Date.now()}`
+        payment.utrNumber = body.utr_number
+        payment.paidAt = now()
+        const wallet = ensureWallet(payment.userId)
+        wallet.balance = Number(
+          (wallet.balance + Number(payment.amount)).toFixed(2),
+        )
+        wallet.updatedAt = now()
+        db.walletLedger.unshift({
+          id: createId("WL"),
+          userId: payment.userId,
+          type: "credit",
+          amount: Number(payment.amount),
+          reference: payment.paymentId,
+          description: `AllAPI Instant UPI Top-Up (${orderId.slice(-6)})`,
+          status: "success",
+          createdAt: now(),
+          balanceAfter: wallet.balance,
+        })
+        audit(
+          db,
+          { id: payment.userId, name: "AllAPI Gateway" },
+          "WALLET_TOPUP_ALLAPI",
+          "wallet",
+          payment.userId,
+          {
+            amount: payment.amount,
+            paymentId: payment.paymentId,
+            orderId,
+            utrNumber: body.utr_number,
+          },
+        )
+        await saveDb(db)
+        syncPayment(payment)
+      }
+
+      if (req.headers.accept?.includes("text/html")) {
+        res.writeHead(302, { Location: "/dashboard/wallet" })
+        res.end()
+        return true
+      }
+      return respond(200, { status: "OK", paymentStatus: payment.status })
+    }
+  }
+
   const auth = requireAuth(req, res, db)
   if (!auth) return true
 
@@ -147,7 +291,53 @@ export async function handleWalletRoutes(context) {
     )
     if (!payment) return respond(404, { error: "Payment order not found" })
 
-    // Check Paytm live gateway status if configured and payment is not yet paid
+    // Check AllAPI live gateway status first if configured and payment is not yet paid
+    if (payment.status !== "paid" && allapiClient.isConfigured) {
+      try {
+        const txnStatus = await allapiClient.checkStatus(payment.orderId)
+        if (
+          txnStatus?.status === true &&
+          String(txnStatus.results?.status).toLowerCase() === "success"
+        ) {
+          payment.status = "paid"
+          payment.gatewayPaymentId =
+            txnStatus.results.txn_id ||
+            txnStatus.results.utr_number ||
+            `ALLAPI-${Date.now()}`
+          payment.utrNumber = txnStatus.results.utr_number
+          payment.paidAt = now()
+          const wallet = ensureWallet(auth.user.id)
+          wallet.balance = Number(
+            (wallet.balance + Number(payment.amount)).toFixed(2),
+          )
+          wallet.updatedAt = now()
+          db.walletLedger.unshift({
+            id: createId("WL"),
+            userId: auth.user.id,
+            type: "credit",
+            amount: Number(payment.amount),
+            reference: payment.paymentId,
+            description: `AllAPI UPI Payment Verified (${payment.orderId.slice(-6)})`,
+            status: "success",
+            createdAt: now(),
+            balanceAfter: wallet.balance,
+          })
+          audit(db, auth.user, "WALLET_TOPUP_ALLAPI", "wallet", auth.user.id, {
+            amount: payment.amount,
+            paymentId: payment.paymentId,
+            orderId: payment.orderId,
+            gatewayPaymentId: payment.gatewayPaymentId,
+            utrNumber: txnStatus.results.utr_number,
+          })
+          await saveDb(db)
+          syncPayment(payment)
+        }
+      } catch {
+        // Continue if gateway check is in-flight
+      }
+    }
+
+    // Check Paytm live gateway status fallback if configured and payment is not yet paid
     if (payment.status !== "paid" && payment.mode === "upi_qr" && paytmClient.isConfigured) {
       try {
         const txnStatus = await paytmClient.checkStatus(payment.orderId)
@@ -203,11 +393,80 @@ export async function handleWalletRoutes(context) {
 
     // Support Dynamic UPI QR mode
     if (input.mode === "upi_qr" || input.method === "upi_qr") {
-      const orderId = `LD-ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`
+      const amountRupees = Number((amount / 100).toFixed(2))
+      const orderId = `LDORD${Date.now()}${Math.floor(1000 + Math.random() * 9000)}`
+
+      // 1. Prioritize AllAPI if configured
+      if (allapiClient.isConfigured && String(process.env.DEMO_MODE).toLowerCase() !== "true") {
+        try {
+          const rawMobile = String(auth.user.mobile || "").replace(/\D/g, "")
+          const mobile = rawMobile.length >= 10 ? rawMobile.slice(-10) : "9999999999"
+          const allapiRes = await allapiClient.createOrder({
+            orderId,
+            amount: amountRupees,
+            note: `Wallet Topup - ${auth.user.username || auth.user.name || "Retailer"}`,
+            productName: "Wallet Balance",
+            customerName: auth.user.name || "Retailer",
+            customerMobile: mobile,
+            customerEmail: auth.user.email || "customer@ldservicezone.in",
+            redirectUrl: `${process.env.PUBLIC_APP_URL || "https://ldservicezone.in"}/api/wallet/allapi-callback`,
+          })
+
+          if (allapiRes?.status === true && allapiRes?.results) {
+            const results = allapiRes.results
+            const upiString =
+              results.upi_intent?.bhim ||
+              `upi://pay?pa=ldservicezone@ld&pn=LD%20SERVICE%20ZONE&am=${amountRupees}&cu=INR&tn=Wallet%20Topup&tr=${orderId}`
+            const expiresAt = Date.now() + 30 * 60 * 1000 // 30 minutes per AllAPI
+
+            const payment = {
+              paymentId: createId("PAY"),
+              applicationId: null,
+              userId: auth.user.id,
+              amount: amountRupees,
+              mode: "upi_qr",
+              provider: "allapi",
+              status: "created",
+              orderId,
+              allapiTxnId: results.txn_id,
+              paymentUrl: results.payment_url,
+              upiIntent: results.upi_intent,
+              qrImage: results.qr_image,
+              merchantVpa: "ldservicezone@ld",
+              expiresAt,
+              createdAt: now(),
+            }
+            db.payments.unshift(payment)
+            await saveDb(db)
+            syncPayment(payment)
+
+            return respond(200, {
+              mode: "upi_qr",
+              provider: "allapi",
+              orderId,
+              paymentId: payment.paymentId,
+              amount,
+              amountRupees,
+              currency: "INR",
+              upiString,
+              paymentUrl: results.payment_url,
+              upiIntent: results.upi_intent,
+              qrDataUrl: results.qr_image,
+              merchantVpa: "ldservicezone@ld",
+              merchantName: "LD SERVICE ZONE",
+              expiresAt,
+              isTestMode: false,
+            })
+          }
+        } catch (err) {
+          console.error("AllAPI order creation error, falling back to static UPI QR:", err)
+        }
+      }
+
+      // 2. Existing fallback logic (Paytm / Direct UPI QR / Demo)
       const vpa = process.env.PAYTM_UPI_VPA || process.env.MERCHANT_UPI_VPA || "paytmqr2810050501011@paytm"
       const merchantName = "LD SERVICE ZONE"
       const note = `WALLET-${auth.user.username || auth.user.id}-${orderId.slice(-6)}`
-      const amountRupees = (amount / 100).toFixed(2)
       const upiString = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(merchantName)}&am=${amountRupees}&cu=INR&tn=${encodeURIComponent(note)}&tr=${orderId}`
       const expiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes
 
@@ -215,7 +474,7 @@ export async function handleWalletRoutes(context) {
         paymentId: createId("PAY"),
         applicationId: null,
         userId: auth.user.id,
-        amount: amount / 100,
+        amount: amountRupees,
         mode: "upi_qr",
         status: "created",
         orderId,
@@ -237,7 +496,7 @@ export async function handleWalletRoutes(context) {
         orderId,
         paymentId: payment.paymentId,
         amount,
-        amountRupees: Number(amountRupees),
+        amountRupees,
         currency: "INR",
         upiString,
         merchantVpa: vpa,
@@ -359,8 +618,10 @@ export async function handleWalletRoutes(context) {
     // Handle Dynamic UPI QR verification (Test/Manual Confirmation or Webhook)
     if (
       input.mode === "upi_qr" ||
-      (typeof input.orderId === "string" && input.orderId.startsWith("LD-ORD-")) ||
-      (typeof input.razorpay_order_id === "string" && input.razorpay_order_id.startsWith("LD-ORD-"))
+      (typeof input.orderId === "string" &&
+        (input.orderId.startsWith("ORD") || input.orderId.startsWith("LD-ORD-"))) ||
+      (typeof input.razorpay_order_id === "string" &&
+        (input.razorpay_order_id.startsWith("ORD") || input.razorpay_order_id.startsWith("LD-ORD-")))
     ) {
       const targetOrderId = input.orderId || input.razorpay_order_id
       const payment = db.payments.find(
@@ -371,7 +632,23 @@ export async function handleWalletRoutes(context) {
       )
       if (!payment) return respond(404, { error: "UPI wallet payment not found" })
 
-      if (paytmClient.isConfigured && String(process.env.DEMO_MODE).toLowerCase() !== "true") {
+      if (allapiClient.isConfigured && String(process.env.DEMO_MODE).toLowerCase() !== "true") {
+        try {
+          const txnStatus = await allapiClient.checkStatus(payment.orderId)
+          if (
+            txnStatus?.status !== true ||
+            String(txnStatus.results?.status).toLowerCase() !== "success"
+          ) {
+            return respond(400, {
+              error: "Payment has not been confirmed by the UPI gateway yet",
+            })
+          }
+        } catch (err) {
+          return respond(502, {
+            error: err.message || "Failed to verify transaction with AllAPI provider",
+          })
+        }
+      } else if (paytmClient.isConfigured && String(process.env.DEMO_MODE).toLowerCase() !== "true") {
         try {
           const txnStatus = await paytmClient.checkStatus(payment.orderId)
           if (

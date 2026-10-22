@@ -160,14 +160,45 @@ export function createStateRepository(config) {
           user.kycStatus = String(kyc.status || "PENDING").toLowerCase() === "approved" ? "verified" : String(kyc.status || "PENDING").toLowerCase()
         }
       }
-      state.sessions = sessionRows.map((session) => ({
-        id: session.id,
-        userId: session.userId,
-        tokenHash: session.tokenHash,
-        createdAt: session.createdAt,
-        expiresAt: session.expiresAt,
-        revokedAt: session.revokedAt,
-      }))
+      // Merge relational sessions from Supabase with any active snapshot sessions
+      const validUserIds = new Set((state.users || []).map((u) => u.id))
+      const sessionMap = new Map()
+
+      // Preserve active sessions from state snapshot
+      if (Array.isArray(state.sessions)) {
+        for (const s of state.sessions) {
+          if (
+            s?.id &&
+            s?.tokenHash &&
+            new Date(s.expiresAt) > new Date() &&
+            validUserIds.has(s.userId)
+          ) {
+            sessionMap.set(s.tokenHash, s)
+          }
+        }
+      }
+
+      // Merge relational sessions from Supabase table
+      if (Array.isArray(sessionRows)) {
+        for (const s of sessionRows) {
+          if (
+            s?.id &&
+            s?.tokenHash &&
+            new Date(s.expiresAt) > new Date() &&
+            validUserIds.has(s.userId)
+          ) {
+            sessionMap.set(s.tokenHash, {
+              id: s.id,
+              userId: s.userId,
+              tokenHash: s.tokenHash,
+              createdAt: s.createdAt,
+              expiresAt: s.expiresAt,
+              revokedAt: s.revokedAt,
+            })
+          }
+        }
+      }
+      state.sessions = Array.from(sessionMap.values())
       if (serviceRows.length) {
         const categoryNames = new Map(categoryRows.map((category) => [category.id, category.name]))
         const relationalMap = new Map(serviceRows.map((s) => [s.id, s]))
@@ -458,21 +489,41 @@ export function createStateRepository(config) {
           }
 
           try {
-            await fetch(`${supabaseUrl}/rest/v1/Session?id=not.is.null`, {
-              method: "DELETE", headers: { ...authHeaders, Prefer: "return=minimal" },
-            })
-            const sessions = (snapshot.sessions || []).map((session) => ({
-              id: session.id,
-              userId: session.userId,
-              tokenHash: session.tokenHash,
-              expiresAt: session.expiresAt,
-              revokedAt: session.revokedAt || null,
-              createdAt: session.createdAt || new Date().toISOString(),
-            }))
+            // Prune only expired sessions from Supabase (never wipe active sessions!)
+            await fetch(
+              `${supabaseUrl}/rest/v1/Session?expiresAt=lt.${encodeURIComponent(new Date().toISOString())}`,
+              {
+                method: "DELETE",
+                headers: { ...authHeaders, Prefer: "return=minimal" },
+              },
+            )
+
+            // Only sync active sessions belonging to users that exist in Supabase
+            const validUserIds = new Set(
+              (snapshot.users || []).map((u) => u.id),
+            )
+            const sessions = (snapshot.sessions || [])
+              .filter(
+                (session) =>
+                  new Date(session.expiresAt) > new Date() &&
+                  validUserIds.has(session.userId),
+              )
+              .map((session) => ({
+                id: session.id,
+                userId: session.userId,
+                tokenHash: session.tokenHash,
+                expiresAt: session.expiresAt,
+                revokedAt: session.revokedAt || null,
+                createdAt: session.createdAt || new Date().toISOString(),
+              }))
+
             if (sessions.length) {
               await fetch(`${supabaseUrl}/rest/v1/Session?on_conflict=id`, {
                 method: "POST",
-                headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+                headers: {
+                  ...authHeaders,
+                  Prefer: "resolution=merge-duplicates,return=minimal",
+                },
                 body: JSON.stringify(sessions),
               })
             }

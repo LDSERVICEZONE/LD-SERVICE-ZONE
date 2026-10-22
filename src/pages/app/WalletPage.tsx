@@ -17,6 +17,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Lock,
+  ExternalLink,
 } from "lucide-react";
 import { exportToCsv } from "@/shared/utils/csvExport";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
@@ -49,6 +50,14 @@ interface UpiOrderDetails {
   merchantName: string;
   expiresAt: number;
   qrDataUrl: string;
+  paymentUrl?: string;
+  upiIntent?: {
+    bhim?: string;
+    phonepe?: string;
+    paytm?: string;
+    gpay?: string;
+  };
+  provider?: string;
   isTestMode?: boolean;
 }
 
@@ -178,29 +187,36 @@ export default function WalletPage() {
     setBusy(true);
 
     try {
-      // 1. Dynamic UPI QR Checkout Flow (Paytm / BHIM / PhonePe / GPay)
+      // 1. Dynamic UPI QR Checkout Flow (AllAPI / BHIM / PhonePe / GPay / Paytm)
       if (paymentMethod === "upi_qr") {
         const order = await api<any>("/wallet/create-order", {
           method: "POST",
           body: JSON.stringify({ amount: Number(amount), mode: "upi_qr" }),
         });
 
-        // Generate high-resolution QR Code data URL
-        const qrDataUrl = await QRCode.toDataURL(order.upiString, {
-          width: 320,
-          margin: 1,
-          color: {
-            dark: "#0F172A",
-            light: "#FFFFFF",
-          },
-          errorCorrectionLevel: "H",
-        });
+        // Use high-resolution QR image from provider or generate locally from upiString
+        let qrDataUrl = order.qrDataUrl;
+        if (!qrDataUrl && order.upiString) {
+          qrDataUrl = await QRCode.toDataURL(order.upiString, {
+            width: 320,
+            margin: 1,
+            color: {
+              dark: "#0F172A",
+              light: "#FFFFFF",
+            },
+            errorCorrectionLevel: "H",
+          });
+        }
+
+        const remainingSeconds = order.expiresAt
+          ? Math.max(60, Math.min(1800, Math.floor((order.expiresAt - Date.now()) / 1000)))
+          : 300;
 
         setUpiOrder({
           ...order,
           qrDataUrl,
         });
-        setTimeLeft(300); // 5 minutes
+        setTimeLeft(remainingSeconds);
         setOpen(false);
         setBusy(false);
         return;
@@ -704,43 +720,81 @@ export default function WalletPage() {
                     <h4 className="font-bold text-xs uppercase tracking-wider text-slate-600">
                       Scan with Any UPI App
                     </h4>
-                    {/* UPI App Icons Row */}
+                    {/* UPI App Icons Row (Interactive Deep Links) */}
                     <div className="flex items-center justify-center gap-3 pt-2">
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-9 h-9 rounded-xl bg-[#5f259f] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                      <a
+                        href={upiOrder.upiIntent?.phonepe || upiOrder.paymentUrl || upiOrder.upiString}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-1 group transition hover:scale-105"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-[#5f259f] text-white flex items-center justify-center font-bold text-xs shadow-xs group-hover:shadow-md">
                           Pe
                         </div>
                         <span className="text-[10px] text-slate-500 font-medium">PhonePe</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-xs">
+                      </a>
+                      <a
+                        href={upiOrder.upiIntent?.gpay || upiOrder.paymentUrl || upiOrder.upiString}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-1 group transition hover:scale-105"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shadow-xs group-hover:shadow-md">
                           <span className="text-blue-500">G</span>
                           <span className="text-red-500">P</span>
                           <span className="text-amber-500">a</span>
                           <span className="text-green-500">y</span>
                         </div>
                         <span className="text-[10px] text-slate-500 font-medium">GPay</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-9 h-9 rounded-xl bg-[#002e6e] text-[#00b9f5] flex items-center justify-center font-black text-xs shadow-xs">
+                      </a>
+                      <a
+                        href={upiOrder.upiIntent?.paytm || upiOrder.paymentUrl || upiOrder.upiString}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-1 group transition hover:scale-105"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-[#002e6e] text-[#00b9f5] flex items-center justify-center font-black text-xs shadow-xs group-hover:shadow-md">
                           paytm
                         </div>
                         <span className="text-[10px] text-slate-500 font-medium">Paytm</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-9 h-9 rounded-xl bg-[#0e3b68] text-white flex items-center justify-center font-bold text-[10px] shadow-xs">
+                      </a>
+                      <a
+                        href={upiOrder.upiIntent?.bhim || upiOrder.paymentUrl || upiOrder.upiString}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-1 group transition hover:scale-105"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-[#0e3b68] text-white flex items-center justify-center font-bold text-[10px] shadow-xs group-hover:shadow-md">
                           BHIM
                         </div>
                         <span className="text-[10px] text-slate-500 font-medium">BHIM</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-serif text-xs font-bold shadow-xs">
+                      </a>
+                      <a
+                        href={upiOrder.paymentUrl || upiOrder.upiString}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-1 group transition hover:scale-105"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-serif text-xs font-bold shadow-xs group-hover:shadow-md">
                           C
                         </div>
                         <span className="text-[10px] text-slate-500 font-medium">CRED</span>
-                      </div>
+                      </a>
                     </div>
                   </div>
+
+                  {/* Direct Payment Link button if available */}
+                  {upiOrder.paymentUrl && (
+                    <a
+                      href={upiOrder.paymentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2.5 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.99]"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Pay on Mobile / Open Checkout Page</span>
+                    </a>
+                  )}
 
                   {/* Countdown Timer with Pulsing Status */}
                   <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">

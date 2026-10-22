@@ -1127,22 +1127,18 @@ export async function handleAuthRoutes(context) {
   }
 
   if (pathName === "/api/auth/me" && req.method === "GET") {
-    const authDb = config.dataStore === "supabase" ? await loadDb() : db
-    const auth = requireAuth(req, res, authDb)
+    const auth = requireAuth(req, res, db)
     if (!auth) return true
     return respond(200, { user: sanitizeUser(auth.user) })
   }
 
   if (pathName === "/api/auth/logout" && req.method === "POST") {
-    const authDb = config.dataStore === "supabase" ? await loadDb() : db
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(bearerToken(req))
-      .digest("hex")
-    authDb.sessions = authDb.sessions.filter(
-      (session) => session.tokenHash !== tokenHash,
-    )
-    await saveDb(authDb)
+    const token = bearerToken(req)
+    if (token) {
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex")
+      db.sessions = db.sessions.filter((session) => session.tokenHash !== tokenHash)
+      await saveDb(db)
+    }
     return respond(200, { ok: true })
   }
 

@@ -202,18 +202,32 @@ function seedAdmin(db) {
     ? process.env.ADMIN_PASSWORD.trim()
     : ""
 
+  // Fix corrupted verifier user if it was wrongly assigned admin's email
+  const corruptedVerifier = db.users.find((u) => u.id === "USR-AE3C7873E1")
+  if (corruptedVerifier) {
+    corruptedVerifier.email = "verifier@ldservicezone.in"
+    corruptedVerifier.username = "verifier"
+    corruptedVerifier.role = "admin"
+    corruptedVerifier.adminRole = "verification_agent"
+  }
+
+  // Remove duplicate admin records
+  db.users = db.users.filter(
+    (u) => !(u.email === "admin@ldservicezone.in" && u.id !== "USR-C1D58AF9D2"),
+  )
+
   const adminUser = db.users.find(
     (u) =>
-      u.email === "admin@ldservicezone.in" ||
       u.id === "USR-C1D58AF9D2" ||
-      (u.role === "admin" && (!u.adminRole || u.adminRole === "super_admin")),
+      u.email === "admin@ldservicezone.in" ||
+      (envEmail && u.email === envEmail),
   )
   if (adminUser) {
-    if (!adminUser.id) adminUser.id = "USR-C1D58AF9D2"
-    if (!adminUser.username) adminUser.username = "admin"
+    adminUser.id = "USR-C1D58AF9D2"
+    adminUser.username = "admin"
     adminUser.role = "admin"
-    adminUser.adminRole = adminUser.adminRole || "super_admin"
-    adminUser.email = envEmail || adminUser.email || "admin@ldservicezone.in"
+    adminUser.adminRole = "super_admin"
+    adminUser.email = envEmail || "admin@ldservicezone.in"
     if (envPassword) adminUser.passwordHash = hashPassword(envPassword)
   } else {
     db.users.push({
