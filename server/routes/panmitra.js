@@ -39,7 +39,8 @@ export async function handlePanMitraRoutes(context) {
 
     // GET /api/panmitra/vle-profile
     if (pathName === "/api/panmitra/vle-profile" && req.method === "GET") {
-      const vleId = user.panmitraVleId || user.panMitraVleId || null
+      const rawVle = user.panmitraVleId || user.panMitraVleId || null
+      const vleId = rawVle ? String(rawVle).replace(/^PANM-/i, "LDSZ-") : null
       let vleStatus = null
       if (vleId && provider.configured()) {
         try {
@@ -113,7 +114,7 @@ export async function handlePanMitraRoutes(context) {
         vlePan: /^[A-Z]{5}\d{4}[A-Z]$/i.test(cleanPan) ? cleanPan : "ABCDE1234F",
       }
 
-      let realVleId = `PANM-${requestedVleId}`
+      let realVleId = `LDSZ-${requestedVleId}`
       let registrationCode = null
       let providerRes = null
 
@@ -126,7 +127,9 @@ export async function handlePanMitraRoutes(context) {
         }
         try {
           providerRes = await provider.createVle(payload)
-          realVleId = providerRes.vleId || `PANM-${requestedVleId}`
+          realVleId = providerRes.vleId
+            ? `LDSZ-${String(providerRes.vleId).replace(/^(PANM|LDSZ)[-_]/i, "")}`
+            : `LDSZ-${requestedVleId}`
           registrationCode = providerRes.code || null
         } catch (err) {
           return respond(err?.status || 502, {
@@ -450,7 +453,7 @@ export async function handlePanMitraRoutes(context) {
       vlePan: /^[A-Z]{5}\d{4}[A-Z]$/i.test(cleanPan) ? cleanPan : "ABCDE1234F",
     }
 
-    let realVleId = `PANM-${requestedVleId}`
+    let realVleId = `LDSZ-${requestedVleId}`
     let registrationCode = null
     let providerRes = null
     if (provider.configured()) {
@@ -462,7 +465,9 @@ export async function handlePanMitraRoutes(context) {
       }
       try {
         providerRes = await provider.createVle(payload)
-        realVleId = providerRes.vleId || `PANM-${requestedVleId}`
+        realVleId = providerRes.vleId
+          ? `LDSZ-${String(providerRes.vleId).replace(/^(PANM|LDSZ)[-_]/i, "")}`
+          : `LDSZ-${requestedVleId}`
         registrationCode = providerRes.code || null
       } catch (err) {
         return respond(err?.status || 502, {

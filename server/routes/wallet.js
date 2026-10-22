@@ -414,9 +414,14 @@ export async function handleWalletRoutes(context) {
 
           if (allapiRes?.status === true && allapiRes?.results) {
             const results = allapiRes.results
+            const vpaMatch = String(results.upi_intent?.bhim || "").match(/[?&]pa=([^&]+)/i)
+            const realMerchantVpa = vpaMatch
+              ? decodeURIComponent(vpaMatch[1])
+              : (process.env.ALLAPI_MERCHANT_VPA || "ldservicezone@sbi")
+
             const upiString =
               results.upi_intent?.bhim ||
-              `upi://pay?pa=ldservicezone@ld&pn=LD%20SERVICE%20ZONE&am=${amountRupees}&cu=INR&tn=Wallet%20Topup&tr=${orderId}`
+              `upi://pay?pa=${encodeURIComponent(realMerchantVpa)}&pn=LD%20SERVICE%20ZONE&am=${amountRupees}&cu=INR&tn=Wallet%20Topup&tr=${orderId}`
             const expiresAt = Date.now() + 30 * 60 * 1000 // 30 minutes per AllAPI
 
             const payment = {
@@ -432,7 +437,7 @@ export async function handleWalletRoutes(context) {
               paymentUrl: results.payment_url,
               upiIntent: results.upi_intent,
               qrImage: results.qr_image,
-              merchantVpa: "ldservicezone@ld",
+              merchantVpa: realMerchantVpa,
               expiresAt,
               createdAt: now(),
             }
@@ -452,7 +457,7 @@ export async function handleWalletRoutes(context) {
               paymentUrl: results.payment_url,
               upiIntent: results.upi_intent,
               qrDataUrl: results.qr_image,
-              merchantVpa: "ldservicezone@ld",
+              merchantVpa: realMerchantVpa,
               merchantName: "LD SERVICE ZONE",
               expiresAt,
               isTestMode: false,

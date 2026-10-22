@@ -154,10 +154,17 @@ export function createStateRepository(config) {
         }
         for (const user of state.users) {
           const kyc = kycByUser.get(user.id)
-          if (!kyc) continue
-          const details = typeof kyc.encryptedData === "string" ? JSON.parse(kyc.encryptedData || "{}") : (kyc.encryptedData || {})
-          user.kyc = { ...details, documents: docsByKyc.get(kyc.id) || {}, reviewedAt: kyc.reviewedAt, adminNote: kyc.rejectionReason || details.adminNote || "" }
-          user.kycStatus = String(kyc.status || "PENDING").toLowerCase() === "approved" ? "verified" : String(kyc.status || "PENDING").toLowerCase()
+          if (kyc) {
+            const details = typeof kyc.encryptedData === "string" ? JSON.parse(kyc.encryptedData || "{}") : (kyc.encryptedData || {})
+            user.kyc = { ...details, documents: docsByKyc.get(kyc.id) || {}, reviewedAt: kyc.reviewedAt, adminNote: kyc.rejectionReason || details.adminNote || "" }
+            user.kycStatus = String(kyc.status || "PENDING").toLowerCase() === "approved" ? "verified" : String(kyc.status || "PENDING").toLowerCase()
+          }
+          if (typeof user.panmitraVleId === "string" && user.panmitraVleId.startsWith("PANM-")) {
+            user.panmitraVleId = user.panmitraVleId.replace(/^PANM-/i, "LDSZ-")
+          }
+          if (typeof user.panMitraVleId === "string" && user.panMitraVleId.startsWith("PANM-")) {
+            user.panMitraVleId = user.panMitraVleId.replace(/^PANM-/i, "LDSZ-")
+          }
         }
       }
       // Merge relational sessions from Supabase with any active snapshot sessions

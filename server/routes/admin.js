@@ -472,7 +472,7 @@ export async function handleAdminRoutes(context) {
     let panMitraResult = null
     const requestedVleId = `LD${mobile.slice(-6)}`
     if (createPanMitraVle) {
-      let realVleId = `PANM-${requestedVleId}`
+      let realVleId = `LDSZ-${requestedVleId}`
       let registrationCode = null
       if (provider && typeof provider.configured === "function" && provider.configured()) {
         try {
@@ -489,7 +489,9 @@ export async function handleAdminRoutes(context) {
             vlePan: pan && /^[A-Z]{5}\d{4}[A-Z]$/i.test(pan) ? pan : "ABCDE1234F",
           })
           panMitraResult = providerRes
-          realVleId = providerRes.vleId || `PANM-${requestedVleId}`
+          realVleId = providerRes.vleId
+            ? `LDSZ-${String(providerRes.vleId).replace(/^(PANM|LDSZ)[-_]/i, "")}`
+            : `LDSZ-${requestedVleId}`
           registrationCode = providerRes.code || null
           newRetailer.panmitraVleId = realVleId
           newRetailer.panMitraVleId = realVleId

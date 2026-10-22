@@ -53,8 +53,8 @@ function clean(value) {
 }
 
 function cleanVleId(value) {
-  // Strip any PANM- prefix because PanMitra automatically prefixes it with PANM-
-  return clean(value).replace(/^PANM[-_]/i, "")
+  // Strip any LDSZ- or PANM- prefix when interacting with PanMitra
+  return clean(value).replace(/^(PANM|LDSZ)[-_]/i, "")
 }
 
 export function createPanMitraClient({
@@ -143,7 +143,9 @@ export function createPanMitraClient({
         const msg = String(res.message || "")
         if (msg.toLowerCase().includes("already exist")) {
           // If already exists, return with the existing VLE ID and registration code
-          const existingId = res.vle_id || `PANM-${rawVleId}`
+          const existingId = res.vle_id
+            ? `LDSZ-${cleanVleId(res.vle_id)}`
+            : `LDSZ-${rawVleId}`
           return {
             status: "SUCCESS",
             vleId: existingId,
@@ -159,9 +161,12 @@ export function createPanMitraClient({
         )
       }
 
+      const assignedVleId = res.vle_id
+        ? `LDSZ-${cleanVleId(res.vle_id)}`
+        : `LDSZ-${rawVleId}`
       return {
         status: "SUCCESS",
-        vleId: res.vle_id || `PANM-${rawVleId}`,
+        vleId: assignedVleId,
         code: res.code || res.psa_otp || null,
         message: res.message || "Vle Created Successfully",
         raw: res,
