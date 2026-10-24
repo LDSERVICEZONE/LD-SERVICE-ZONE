@@ -159,11 +159,11 @@ export function createStateRepository(config) {
             user.kyc = { ...details, documents: docsByKyc.get(kyc.id) || {}, reviewedAt: kyc.reviewedAt, adminNote: kyc.rejectionReason || details.adminNote || "" }
             user.kycStatus = String(kyc.status || "PENDING").toLowerCase() === "approved" ? "verified" : String(kyc.status || "PENDING").toLowerCase()
           }
-          if (typeof user.panmitraVleId === "string" && user.panmitraVleId.startsWith("PANM-")) {
-            user.panmitraVleId = user.panmitraVleId.replace(/^PANM-/i, "LDSZ-")
+          if (typeof user.panmitraVleId === "string" && user.panmitraVleId.startsWith("LDSZ-")) {
+            user.panmitraVleId = user.panmitraVleId.replace(/^LDSZ-/i, "PANM-")
           }
-          if (typeof user.panMitraVleId === "string" && user.panMitraVleId.startsWith("PANM-")) {
-            user.panMitraVleId = user.panMitraVleId.replace(/^PANM-/i, "LDSZ-")
+          if (typeof user.panMitraVleId === "string" && user.panMitraVleId.startsWith("LDSZ-")) {
+            user.panMitraVleId = user.panMitraVleId.replace(/^LDSZ-/i, "PANM-")
           }
         }
       }

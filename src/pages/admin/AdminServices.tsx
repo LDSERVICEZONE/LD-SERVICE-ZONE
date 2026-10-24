@@ -579,7 +579,7 @@ export default function AdminServices() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Enter VLE ID (e.g. LDVLE...)"
+                  placeholder="Enter VLE ID (e.g. PANM-LD...)"
                   value={lookupVleId}
                   onChange={(e) => setLookupVleId(e.target.value)}
                   className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs uppercase outline-none focus:border-violet-500"
@@ -916,7 +916,7 @@ export default function AdminServices() {
                 <span className="font-semibold text-slate-700 mb-1 block">VLE ID *</span>
                 <input
                   type="text"
-                  placeholder="e.g. LDVLE001"
+                  placeholder="e.g. PANM-LD001"
                   value={manualVleForm.vleId}
                   onChange={(e) => setManualVleForm({ ...manualVleForm, vleId: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none focus:border-violet-500 uppercase"

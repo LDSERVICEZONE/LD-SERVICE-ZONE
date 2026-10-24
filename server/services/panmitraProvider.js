@@ -57,6 +57,14 @@ function cleanVleId(value) {
   return clean(value).replace(/^(PANM|LDSZ)[-_]/i, "")
 }
 
+function normalizeVleId(value) {
+  const val = clean(value)
+  if (/^LDSZ[-_]/i.test(val)) {
+    return val.replace(/^LDSZ[-_]/i, "PANM-")
+  }
+  return val
+}
+
 export function createPanMitraClient({
   apiKey = process.env.PANMITRA_API_KEY,
   baseUrl = process.env.PANMITRA_BASE_URL || DEFAULT_BASE_URL,
@@ -144,8 +152,8 @@ export function createPanMitraClient({
         if (msg.toLowerCase().includes("already exist")) {
           // If already exists, return with the existing VLE ID and registration code
           const existingId = res.vle_id
-            ? `LDSZ-${cleanVleId(res.vle_id)}`
-            : `LDSZ-${rawVleId}`
+            ? `PANM-${cleanVleId(res.vle_id)}`
+            : `PANM-${rawVleId}`
           return {
             status: "SUCCESS",
             vleId: existingId,
@@ -162,8 +170,8 @@ export function createPanMitraClient({
       }
 
       const assignedVleId = res.vle_id
-        ? `LDSZ-${cleanVleId(res.vle_id)}`
-        : `LDSZ-${rawVleId}`
+        ? `PANM-${cleanVleId(res.vle_id)}`
+        : `PANM-${rawVleId}`
       return {
         status: "SUCCESS",
         vleId: assignedVleId,
@@ -172,12 +180,12 @@ export function createPanMitraClient({
         raw: res,
       }
     },
-    getVleStatus: (vleId) => request("vle_status", { vle_id: clean(vleId) }),
-    resetPassword: (vleId) => request("pass_reset", { vle_id: clean(vleId) }),
+    getVleStatus: (vleId) => request("vle_status", { vle_id: normalizeVleId(vleId) }),
+    resetPassword: (vleId) => request("pass_reset", { vle_id: normalizeVleId(vleId) }),
     getBalance: () => request("balance"),
     requestCoupons: async (vleId, type, quantity) => {
       const res = await request("coupon_req", {
-        vle_id: clean(vleId),
+        vle_id: normalizeVleId(vleId),
         type: clean(type || "1"),
         qty: quantity,
       })
