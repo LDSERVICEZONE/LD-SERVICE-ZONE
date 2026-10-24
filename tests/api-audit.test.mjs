@@ -319,6 +319,14 @@ test("dynamic UPI QR wallet top-up verifies 12-digit UTR and blocks duplicate UT
   );
   assert.equal(duplicateRes.status, 400);
   assert.ok(duplicateRes.data.error.includes("already been used"));
+
+  // 3. Invalid non-12-digit UTR is rejected with 400
+  const invalidRes = await request(
+    `/wallet/check-status?orderId=${created2.data.orderId}&utr=12345`,
+    { token: "retailer" }
+  );
+  assert.equal(invalidRes.status, 400);
+  assert.ok(invalidRes.data.error.includes("exactly 12 numeric digits"));
 });
 
 test("paytm callback verifies order and credits user wallet", async () => {

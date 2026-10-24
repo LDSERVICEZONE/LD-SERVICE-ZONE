@@ -304,7 +304,28 @@ export async function handleWalletRoutes(context) {
     if (!payment) return respond(404, { error: "Payment order not found" })
 
     const cleanUtr = utr ? String(utr).trim() : null
-    if (cleanUtr && cleanUtr.length >= 8) {
+    if (cleanUtr) {
+      if (!/^\d{12}$/.test(cleanUtr)) {
+        return respond(400, { error: "UPI UTR must be exactly 12 numeric digits (e.g. 429812345678)" })
+      }
+
+      // Anti-spam attempt limiter (max 5 tries per order before a 60-second cooldown)
+      payment.utrAttempts = payment.utrAttempts || 0
+      payment.lastUtrAttemptAt = payment.lastUtrAttemptAt || 0
+      const nowTs = Date.now()
+
+      if (payment.utrAttempts >= 5 && nowTs - payment.lastUtrAttemptAt < 60000) {
+        const waitSec = Math.ceil((60000 - (nowTs - payment.lastUtrAttemptAt)) / 1000)
+        return respond(429, {
+          error: `Too many incorrect UTR attempts. Please verify in your payment app and try again in ${waitSec}s.`,
+        })
+      }
+      if (nowTs - payment.lastUtrAttemptAt >= 60000) {
+        payment.utrAttempts = 0
+      }
+      payment.utrAttempts += 1
+      payment.lastUtrAttemptAt = nowTs
+
       const duplicateUtr = db.payments.find(
         (p) => p.utrNumber === cleanUtr && p.paymentId !== payment.paymentId && p.status === "paid"
       )

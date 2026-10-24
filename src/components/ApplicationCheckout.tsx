@@ -168,8 +168,8 @@ export default function ApplicationCheckout({
   async function handleVerifyTopUpUtr() {
     if (!upiOrder) return;
     const clean = topUpUtr.trim();
-    if (!clean || clean.length < 8) {
-      setTopUpUtrError("Please enter a valid 12-digit UPI UTR / Reference number.");
+    if (!/^\d{12}$/.test(clean)) {
+      setTopUpUtrError("UTR must be exactly 12 numeric digits from your PhonePe/GPay receipt.");
       return;
     }
     setTopUpUtrError("");
@@ -696,18 +696,20 @@ export default function ApplicationCheckout({
                         <div className="flex gap-2">
                           <input
                             type="text"
-                            maxLength={22}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={12}
                             value={topUpUtr}
                             onChange={(e) => {
-                              setTopUpUtr(e.target.value.replace(/[^a-zA-Z0-9]/g, ""));
+                              setTopUpUtr(e.target.value.replace(/\D/g, "").slice(0, 12));
                               setTopUpUtrError("");
                             }}
-                            placeholder="e.g. 429812345678"
+                            placeholder="12-digit UTR (e.g. 429812345678)"
                             className="flex-1 px-3 py-1.5 text-xs font-mono font-bold tracking-wider rounded-xl border border-amber-400 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-600 shadow-inner"
                           />
                           <button
                             type="button"
-                            disabled={topUpUtrLoading || topUpUtr.trim().length < 8}
+                            disabled={topUpUtrLoading || topUpUtr.trim().length !== 12}
                             onClick={handleVerifyTopUpUtr}
                             className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition active:scale-[0.98] shrink-0 flex items-center gap-1"
                           >
