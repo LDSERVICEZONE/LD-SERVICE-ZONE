@@ -52,7 +52,7 @@ export function createAllApiClient(config = {}) {
       return data
     },
 
-    async checkStatus(orderId) {
+    async checkStatus(orderId, utr) {
       if (!isConfigured) {
         return { status: false, message: "AllAPI token is not configured" }
       }
@@ -60,6 +60,9 @@ export function createAllApiClient(config = {}) {
       const payload = {
         token,
         order_id: String(orderId),
+      }
+      if (utr) {
+        payload.utr = String(utr).trim()
       }
 
       const response = await fetch(`${baseUrl}/order/status`, {

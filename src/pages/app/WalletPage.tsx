@@ -78,6 +78,9 @@ export default function WalletPage() {
   const [copiedVpa, setCopiedVpa] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [utrNumber, setUtrNumber] = useState("");
+  const [utrLoading, setUtrLoading] = useState(false);
+  const [utrError, setUtrError] = useState("");
 
   const pollIntervalRef = useRef<any>(null);
 
@@ -145,8 +148,38 @@ export default function WalletPage() {
       setUpiOrder(null);
       setPaymentCompleted(false);
       setAmount("");
+      setUtrNumber("");
+      setUtrError("");
     }, 3000);
   };
+
+  async function handleVerifyUtr() {
+    if (!upiOrder) return;
+    const clean = utrNumber.trim();
+    if (!clean || clean.length < 8) {
+      setUtrError("Please enter a valid 12-digit UPI UTR / Reference number.");
+      return;
+    }
+    setUtrError("");
+    setUtrLoading(true);
+    try {
+      const res = await api<any>(
+        `/wallet/check-status?orderId=${encodeURIComponent(upiOrder.orderId)}&utr=${encodeURIComponent(clean)}`
+      );
+      if (res.status === "paid") {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        handlePaymentSuccess(res.wallet?.balance);
+      } else {
+        setUtrError(
+          "Payment status is still pending with the UPI gateway. Please check your UPI app to confirm debit and re-check the 12-digit UTR."
+        );
+      }
+    } catch (e: any) {
+      setUtrError(e.message || "UTR verification failed. Please check the number and try again.");
+    } finally {
+      setUtrLoading(false);
+    }
+  }
 
   const handleExportLedger = () => {
     if (!ledger.length) return;
@@ -212,6 +245,8 @@ export default function WalletPage() {
           ? Math.max(60, Math.min(1800, Math.floor((order.expiresAt - Date.now()) / 1000)))
           : 300;
 
+        setUtrNumber("");
+        setUtrError("");
         setUpiOrder({
           ...order,
           qrDataUrl,
@@ -826,6 +861,58 @@ export default function WalletPage() {
                     </button>
                   </div>
 
+                  {/* 12-Digit UTR Manual Instant Verification Card */}
+                  <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-left space-y-2.5">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Already Paid? Instant Credit with UTR</span>
+                      </div>
+                      <p className="text-[11px] text-amber-700 leading-tight mt-0.5">
+                        If payment does not reflect in a few seconds, enter the 12-digit UTR / UPI Ref No. from your PhonePe, GPay, or Paytm receipt below:
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        maxLength={22}
+                        value={utrNumber}
+                        onChange={(e) => {
+                          setUtrNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, ""));
+                          setUtrError("");
+                        }}
+                        placeholder="12-digit UTR (e.g. 429812345678)"
+                        className="flex-1 px-3 py-2 text-xs font-mono tracking-wider rounded-xl border border-amber-300 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+                      />
+                      <button
+                        type="button"
+                        disabled={utrLoading || utrNumber.trim().length < 8}
+                        onClick={handleVerifyUtr}
+                        className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-xs shadow-sm transition active:scale-[0.98] shrink-0 flex items-center gap-1.5"
+                      >
+                        {utrLoading ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Verifying...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Verify UTR</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {utrError && (
+                      <p className="text-[11px] font-medium text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span>{utrError}</span>
+                      </p>
+                    )}
+                  </div>
+
                   {/* Test Mode Simulation Button (Only shown in sandbox/test mode) */}
                   {Boolean(upiOrder.isTestMode) && (
                     <div className="pt-2">
@@ -854,7 +941,11 @@ export default function WalletPage() {
 
                   {/* Cancel Button */}
                   <button
-                    onClick={() => setUpiOrder(null)}
+                    onClick={() => {
+                      setUpiOrder(null);
+                      setUtrNumber("");
+                      setUtrError("");
+                    }}
                     className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 transition"
                   >
                     Cancel Transaction

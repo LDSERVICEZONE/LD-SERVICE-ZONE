@@ -16,6 +16,7 @@ import {
   Check,
   Clock,
   ShieldCheck,
+  Sparkles,
   X,
 } from "lucide-react";
 import QRCode from "qrcode";
@@ -83,6 +84,9 @@ export default function ApplicationCheckout({
   const [timeLeft, setTimeLeft] = useState<number>(300);
   const [copiedVpa, setCopiedVpa] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [topUpUtr, setTopUpUtr] = useState("");
+  const [topUpUtrLoading, setTopUpUtrLoading] = useState(false);
+  const [topUpUtrError, setTopUpUtrError] = useState("");
   const pollIntervalRef = useRef<any>(null);
 
   const price = Number(application.customerPrice || 0);
@@ -156,8 +160,38 @@ export default function ApplicationCheckout({
       setPaymentCompleted(false);
       setShowTopUp(false);
       setTopUpError("");
+      setTopUpUtr("");
+      setTopUpUtrError("");
     }, 2500);
   };
+
+  async function handleVerifyTopUpUtr() {
+    if (!upiOrder) return;
+    const clean = topUpUtr.trim();
+    if (!clean || clean.length < 8) {
+      setTopUpUtrError("Please enter a valid 12-digit UPI UTR / Reference number.");
+      return;
+    }
+    setTopUpUtrError("");
+    setTopUpUtrLoading(true);
+    try {
+      const res = await api<any>(
+        `/wallet/check-status?orderId=${encodeURIComponent(upiOrder.orderId)}&utr=${encodeURIComponent(clean)}`
+      );
+      if (res.status === "paid") {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        handleUpiPaymentSuccess(res.wallet?.balance);
+      } else {
+        setTopUpUtrError(
+          "Payment status is still pending with the UPI gateway. Please check your UPI app to confirm debit and re-check the 12-digit UTR."
+        );
+      }
+    } catch (e: any) {
+      setTopUpUtrError(e.message || "UTR verification failed. Please check the number and try again.");
+    } finally {
+      setTopUpUtrLoading(false);
+    }
+  }
 
   async function uploadPendingDocuments() {
     for (const document of application.documents || []) {
@@ -219,6 +253,8 @@ export default function ApplicationCheckout({
           ? Math.max(60, Math.min(1800, Math.floor((order.expiresAt - Date.now()) / 1000)))
           : 300;
 
+        setTopUpUtr("");
+        setTopUpUtrError("");
         setUpiOrder({
           ...order,
           qrDataUrl,
@@ -570,7 +606,11 @@ export default function ApplicationCheckout({
                     </div>
                     <button
                       type="button"
-                      onClick={() => setUpiOrder(null)}
+                      onClick={() => {
+                        setUpiOrder(null);
+                        setTopUpUtr("");
+                        setTopUpUtrError("");
+                      }}
                       className="text-slate-400 hover:text-slate-600 text-xs font-medium"
                     >
                       ✕ Close QR
@@ -675,6 +715,58 @@ export default function ApplicationCheckout({
                           </div>
                         </div>
                       )}
+
+                      {/* 12-Digit UTR Manual Instant Verification Card */}
+                      <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-left space-y-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                            <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                            <span>Paid with UPI? Instant Credit with UTR</span>
+                          </div>
+                          <p className="text-[11px] text-amber-700 leading-tight mt-0.5">
+                            Enter the 12-digit UTR / Ref No. from PhonePe/GPay/Paytm if not credited automatically:
+                          </p>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            maxLength={22}
+                            value={topUpUtr}
+                            onChange={(e) => {
+                              setTopUpUtr(e.target.value.replace(/[^a-zA-Z0-9]/g, ""));
+                              setTopUpUtrError("");
+                            }}
+                            placeholder="12-digit UTR (e.g. 429812345678)"
+                            className="flex-1 px-3 py-1.5 text-xs font-mono tracking-wider rounded-xl border border-amber-300 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-600"
+                          />
+                          <button
+                            type="button"
+                            disabled={topUpUtrLoading || topUpUtr.trim().length < 8}
+                            onClick={handleVerifyTopUpUtr}
+                            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-xs shadow-sm transition active:scale-[0.98] shrink-0 flex items-center gap-1"
+                          >
+                            {topUpUtrLoading ? (
+                              <>
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                <span>Verifying...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Verify</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {topUpUtrError && (
+                          <p className="text-[11px] font-medium text-red-600 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span>{topUpUtrError}</span>
+                          </p>
+                        )}
+                      </div>
 
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex items-center justify-center gap-2">
                         <RefreshCw className="h-3.5 w-3.5 text-blue-600 animate-spin" />
