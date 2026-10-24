@@ -284,8 +284,19 @@ export async function handleWalletRoutes(context) {
   }
 
   if (pathName === "/api/wallet/check-status" && (req.method === "GET" || req.method === "POST")) {
-    const orderId = url.searchParams.get("orderId")
-    const utr = url.searchParams.get("utr") || url.searchParams.get("utrNumber")
+    let orderId = url.searchParams.get("orderId")
+    let utr = url.searchParams.get("utr") || url.searchParams.get("utrNumber")
+    if (req.method === "POST" && (!orderId || !utr)) {
+      try {
+        const body = await parseJson(req)
+        if (body) {
+          orderId = orderId || body.orderId || body.order_id
+          utr = utr || body.utr || body.utrNumber || body.utr_number
+        }
+      } catch {
+        // Fall back to query params
+      }
+    }
     if (!orderId) return respond(400, { error: "orderId is required" })
     const payment = db.payments.find(
       (p) => p.orderId === orderId && p.userId === auth.user.id,
@@ -300,6 +311,36 @@ export async function handleWalletRoutes(context) {
       if (duplicateUtr) {
         return respond(400, { error: "This UTR number has already been used for another transaction" })
       }
+    }
+
+    // In demo mode with UTR provided, simulate instant verification
+    if (payment.status !== "paid" && String(process.env.DEMO_MODE).toLowerCase() === "true" && cleanUtr) {
+      payment.status = "paid"
+      payment.gatewayPaymentId = cleanUtr
+      payment.utrNumber = cleanUtr
+      payment.paidAt = now()
+      const wallet = ensureWallet(auth.user.id)
+      wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2))
+      wallet.updatedAt = now()
+      db.walletLedger.unshift({
+        id: createId("WL"),
+        userId: auth.user.id,
+        type: "credit",
+        amount: Number(payment.amount),
+        reference: payment.paymentId,
+        description: `Dynamic UPI Payment Verified via UTR (${payment.orderId.slice(-6)})`,
+        status: "success",
+        createdAt: now(),
+        balanceAfter: wallet.balance,
+      })
+      audit(db, auth.user, "WALLET_TOPUP_UTR", "wallet", auth.user.id, {
+        amount: payment.amount,
+        paymentId: payment.paymentId,
+        orderId: payment.orderId,
+        utrNumber: payment.utrNumber,
+      })
+      await saveDb(db)
+      syncPayment(payment)
     }
 
     // Check AllAPI live gateway status first if configured and payment is not yet paid

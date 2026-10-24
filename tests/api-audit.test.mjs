@@ -288,6 +288,39 @@ test("dynamic UPI QR wallet top-up creates order, checks status, and verifies cr
   assert.ok(ledger.data.ledger.some(entry => entry.reference === created.data.paymentId && entry.amount === 500));
 });
 
+test("dynamic UPI QR wallet top-up verifies 12-digit UTR and blocks duplicate UTR reuse", async () => {
+  const created1 = await request("/wallet/create-order", {
+    token: "retailer",
+    body: { amount: 150, mode: "upi_qr" },
+  });
+  assert.equal(created1.status, 200);
+
+  const testUtr = `429810${Date.now().toString().slice(-6)}`;
+
+  // 1. Verify via check-status with UTR
+  const utrVerifyRes = await request(
+    `/wallet/check-status?orderId=${created1.data.orderId}&utr=${testUtr}`,
+    { token: "retailer" }
+  );
+  assert.equal(utrVerifyRes.status, 200);
+  assert.equal(utrVerifyRes.data.status, "paid");
+  assert.ok(utrVerifyRes.data.wallet.balance >= 150);
+
+  // 2. Create another order and try to reuse the same UTR
+  const created2 = await request("/wallet/create-order", {
+    token: "retailer",
+    body: { amount: 200, mode: "upi_qr" },
+  });
+  assert.equal(created2.status, 200);
+
+  const duplicateRes = await request(
+    `/wallet/check-status?orderId=${created2.data.orderId}&utr=${testUtr}`,
+    { token: "retailer" }
+  );
+  assert.equal(duplicateRes.status, 400);
+  assert.ok(duplicateRes.data.error.includes("already been used"));
+});
+
 test("paytm callback verifies order and credits user wallet", async () => {
   const created = await request("/wallet/create-order", {
     token: "retailer",
