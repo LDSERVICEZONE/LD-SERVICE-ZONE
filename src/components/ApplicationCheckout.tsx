@@ -1,7 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "@/shared/api/client";
 import { useAuth, useWallet } from "@/features/session/AppContext";
-import { Wallet, UploadCloud, CheckCircle2, AlertCircle, PlusCircle, ArrowRight } from "lucide-react";
+import {
+  Wallet,
+  UploadCloud,
+  CheckCircle2,
+  AlertCircle,
+  PlusCircle,
+  ArrowRight,
+  QrCode,
+  Smartphone,
+  ExternalLink,
+  RefreshCw,
+  Copy,
+  Check,
+  Clock,
+  ShieldCheck,
+  X,
+} from "lucide-react";
+import QRCode from "qrcode";
 
 declare global {
   interface Window {
@@ -18,6 +35,26 @@ function loadRazorpay() {
     s.onerror = () => resolve(false);
     document.body.appendChild(s);
   });
+}
+
+interface UpiOrderDetails {
+  orderId: string;
+  paymentId: string;
+  amountRupees: number;
+  upiString: string;
+  qrDataUrl?: string;
+  merchantVpa?: string;
+  merchantName?: string;
+  expiresAt?: number;
+  paymentUrl?: string;
+  upiIntent?: {
+    bhim?: string;
+    phonepe?: string;
+    paytm?: string;
+    gpay?: string;
+  };
+  provider?: string;
+  isTestMode?: boolean;
 }
 
 export default function ApplicationCheckout({
@@ -38,6 +75,15 @@ export default function ApplicationCheckout({
   const [topUpAmount, setTopUpAmount] = useState("");
   const [topUpBusy, setTopUpBusy] = useState(false);
   const [topUpError, setTopUpError] = useState("");
+  const [topUpSuccess, setTopUpSuccess] = useState("");
+  const [topUpMethod, setTopUpMethod] = useState<"upi_qr" | "gateway">("upi_qr");
+
+  // Dynamic UPI QR Modal state
+  const [upiOrder, setUpiOrder] = useState<UpiOrderDetails | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(300);
+  const [copiedVpa, setCopiedVpa] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const pollIntervalRef = useRef<any>(null);
 
   const price = Number(application.customerPrice || 0);
   const balance = Number(wallet?.balance || 0);
@@ -50,10 +96,68 @@ export default function ApplicationCheckout({
 
   useEffect(() => {
     if (!hasSufficientWallet && shortfall > 0) {
-      // Suggest at least the shortfall or minimum 100
-      setTopUpAmount(String(Math.max(100, Math.ceil(shortfall))));
+      setTopUpAmount(String(Math.max(10, Math.ceil(shortfall))));
     }
   }, [hasSufficientWallet, shortfall]);
+
+  // Handle countdown timer for UPI QR
+  useEffect(() => {
+    if (!upiOrder || paymentCompleted) return;
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [upiOrder, paymentCompleted]);
+
+  // Handle auto-polling for payment verification
+  useEffect(() => {
+    if (!upiOrder || paymentCompleted || timeLeft <= 0) {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      return;
+    }
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await api<any>(
+          `/wallet/check-status?orderId=${encodeURIComponent(upiOrder.orderId)}`
+        );
+        if (res.status === "paid") {
+          clearInterval(pollIntervalRef.current);
+          handleUpiPaymentSuccess(res.wallet?.balance);
+        }
+      } catch {
+        // Silent poll error
+      }
+    }, 2500);
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [upiOrder, paymentCompleted, timeLeft]);
+
+  const handleUpiPaymentSuccess = async (newBalance?: number) => {
+    setPaymentCompleted(true);
+    if (newBalance !== undefined) {
+      updateBalance(newBalance);
+    } else {
+      await refreshWallet();
+    }
+    setTopUpSuccess(
+      `₹${upiOrder?.amountRupees.toLocaleString("en-IN")} credited to your wallet successfully!`
+    );
+    setTimeout(() => {
+      setUpiOrder(null);
+      setPaymentCompleted(false);
+      setShowTopUp(false);
+      setTopUpError("");
+    }, 2500);
+  };
 
   async function uploadPendingDocuments() {
     for (const document of application.documents || []) {
@@ -90,9 +194,41 @@ export default function ApplicationCheckout({
       return;
     }
     setTopUpError("");
+    setTopUpSuccess("");
     setTopUpBusy(true);
 
     try {
+      // 1. Dynamic UPI QR Top-up (Default, 0% Fee, AllAPI / BHIM)
+      if (topUpMethod === "upi_qr") {
+        const order = await api<any>("/wallet/create-order", {
+          method: "POST",
+          body: JSON.stringify({ amount: amt, mode: "upi_qr" }),
+        });
+
+        let qrDataUrl = order.qrDataUrl;
+        if (!qrDataUrl && order.upiString) {
+          qrDataUrl = await QRCode.toDataURL(order.upiString, {
+            width: 320,
+            margin: 1,
+            color: { dark: "#0F172A", light: "#FFFFFF" },
+            errorCorrectionLevel: "H",
+          });
+        }
+
+        const remainingSeconds = order.expiresAt
+          ? Math.max(60, Math.min(1800, Math.floor((order.expiresAt - Date.now()) / 1000)))
+          : 300;
+
+        setUpiOrder({
+          ...order,
+          qrDataUrl,
+        });
+        setTimeLeft(remainingSeconds);
+        setTopUpBusy(false);
+        return;
+      }
+
+      // 2. Gateway Top-up (Razorpay Fallback)
       const order = await api<any>("/wallet/create-order", {
         method: "POST",
         body: JSON.stringify({ amount: amt }),
@@ -300,23 +436,74 @@ export default function ApplicationCheckout({
                 <div className="text-xs text-amber-900 leading-relaxed">
                   <p className="font-bold text-amber-950">Payment is made exclusively from your LD Wallet.</p>
                   <p className="mt-0.5">
-                    Please add funds to your wallet using Razorpay (UPI, QR, Cards, NetBanking). Once added, you can complete this application immediately.
+                    Your current balance is short by <b>₹{shortfall.toFixed(2)}</b>. Top up your wallet instantly using Dynamic UPI QR (0% Fee) to complete this application immediately.
                   </p>
                 </div>
               </div>
 
-              {!showTopUp ? (
+              {topUpSuccess && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-semibold">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" />
+                  <span>{topUpSuccess}</span>
+                </div>
+              )}
+
+              {!showTopUp && !upiOrder ? (
                 <button
                   type="button"
                   onClick={() => setShowTopUp(true)}
                   className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1D56D8] hover:bg-[#1849C0] py-2.5 text-xs font-semibold text-white transition-colors shadow-xs"
                 >
                   <PlusCircle className="h-4 w-4" />
-                  + Add Money to Wallet (₹{Math.max(100, Math.ceil(shortfall))})
+                  + Add Money to Wallet (Shortfall: ₹{Math.ceil(shortfall)})
                 </button>
-              ) : (
-                <div className="space-y-2 pt-1 border-t border-amber-200/60">
-                  <label className="text-xs font-semibold text-slate-700">Enter Amount to Add</label>
+              ) : showTopUp && !upiOrder ? (
+                <div className="space-y-3 pt-1 border-t border-amber-200/60">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700">Select Top-Up Amount</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowTopUp(false)}
+                      className="text-xs text-slate-400 hover:text-slate-600"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  {/* Payment Method Selector */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setTopUpMethod("upi_qr")}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition ${
+                        topUpMethod === "upi_qr"
+                          ? "border-blue-600 bg-blue-50/80 text-blue-900 font-bold"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <QrCode className="h-4 w-4 text-blue-600 shrink-0" />
+                      <div>
+                        <p className="leading-tight">Instant UPI QR</p>
+                        <p className="text-[10px] text-emerald-600 font-medium">0% Fee • Auto-Credit</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTopUpMethod("gateway")}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition ${
+                        topUpMethod === "gateway"
+                          ? "border-blue-600 bg-blue-50/80 text-blue-900 font-bold"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Smartphone className="h-4 w-4 text-indigo-600 shrink-0" />
+                      <div>
+                        <p className="leading-tight">Cards / NetBanking</p>
+                        <p className="text-[10px] text-slate-400 font-normal">Payment Gateway</p>
+                      </div>
+                    </button>
+                  </div>
+
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -330,27 +517,170 @@ export default function ApplicationCheckout({
                       type="button"
                       disabled={topUpBusy || !topUpAmount || Number(topUpAmount) < 1}
                       onClick={() => handleTopUp()}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white disabled:opacity-50 transition-colors shrink-0"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white disabled:opacity-50 transition-colors shrink-0 flex items-center gap-1.5"
                     >
-                      {topUpBusy ? "Processing..." : "Pay with Razorpay"}
+                      {topUpBusy ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          Generating...
+                        </>
+                      ) : topUpMethod === "upi_qr" ? (
+                        <>
+                          <QrCode className="h-3.5 w-3.5" />
+                          Generate UPI QR
+                        </>
+                      ) : (
+                        "Pay via Gateway"
+                      )}
                     </button>
                   </div>
+
                   <div className="flex gap-2">
-                    {[shortfall > 0 ? Math.ceil(shortfall) : 100, 500, 1000].map((quick) => (
+                    {[shortfall > 0 ? Math.ceil(shortfall) : 100, 200, 500, 1000].map((quick) => (
                       <button
                         key={quick}
                         type="button"
                         onClick={() => setTopUpAmount(String(quick))}
-                        className="flex-1 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-[11px] font-medium text-slate-600 transition-colors"
+                        className={`flex-1 py-1 rounded-lg border text-[11px] font-medium transition-colors ${
+                          Number(topUpAmount) === quick
+                            ? "bg-blue-50 border-blue-400 text-blue-700 font-bold"
+                            : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
+                        }`}
                       >
                         ₹{quick}
                       </button>
                     ))}
                   </div>
+
                   {topUpError && (
                     <p role="alert" className="text-xs text-red-600 font-medium">
                       {topUpError}
                     </p>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Dynamic UPI QR Display Modal / Card */}
+              {upiOrder && (
+                <div className="mt-3 p-4 rounded-2xl bg-white border border-blue-200 shadow-md space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-bold text-slate-800">Scan & Pay via any UPI App</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setUpiOrder(null)}
+                      className="text-slate-400 hover:text-slate-600 text-xs font-medium"
+                    >
+                      ✕ Close QR
+                    </button>
+                  </div>
+
+                  {paymentCompleted ? (
+                    <div className="py-6 text-center space-y-2">
+                      <CheckCircle2 className="h-12 w-12 text-emerald-600 mx-auto animate-bounce" />
+                      <p className="font-bold text-sm text-emerald-800">Payment Received!</p>
+                      <p className="text-xs text-slate-600">
+                        ₹{upiOrder.amountRupees} added to your wallet. You can submit now!
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-col sm:flex-row items-center gap-4 justify-center py-2">
+                        {upiOrder.qrDataUrl ? (
+                          <div className="p-2 bg-white rounded-2xl border-2 border-slate-900 shadow-sm shrink-0">
+                            <img
+                              src={upiOrder.qrDataUrl}
+                              alt="Dynamic UPI QR Code"
+                              className="w-44 h-44 object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-44 h-44 bg-slate-100 rounded-2xl flex items-center justify-center text-xs text-slate-400">
+                            Loading QR...
+                          </div>
+                        )}
+
+                        <div className="space-y-2 text-center sm:text-left text-xs">
+                          <div>
+                            <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Amount to Pay</span>
+                            <p className="font-mono text-2xl font-black text-slate-900">
+                              ₹{upiOrder.amountRupees.toLocaleString("en-IN")}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 text-[10px]">Order ID</span>
+                            <p className="font-mono text-slate-600 text-[11px] font-semibold">{upiOrder.orderId}</p>
+                          </div>
+                          {upiOrder.merchantVpa && (
+                            <div className="flex items-center justify-center sm:justify-start gap-1.5 pt-1">
+                              <span className="font-mono text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+                                {upiOrder.merchantVpa}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(upiOrder.merchantVpa || "");
+                                  setCopiedVpa(true);
+                                  setTimeout(() => setCopiedVpa(false), 2000);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 text-[10px] font-medium flex items-center gap-0.5"
+                              >
+                                {copiedVpa ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                                {copiedVpa ? "Copied" : "Copy"}
+                              </button>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-center sm:justify-start gap-1.5 text-[11px] text-amber-700 font-semibold pt-1">
+                            <Clock className="h-3.5 w-3.5 text-amber-600" />
+                            <span>
+                              Expires in {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, "0")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mobile Deep-Links */}
+                      {upiOrder.upiIntent && (
+                        <div className="pt-2 border-t border-slate-100">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center mb-2">
+                            Or Pay Directly on Mobile Apps
+                          </p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {upiOrder.upiIntent.phonepe && (
+                              <a
+                                href={upiOrder.upiIntent.phonepe}
+                                className="py-2 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold text-center transition"
+                              >
+                                PhonePe
+                              </a>
+                            )}
+                            {upiOrder.upiIntent.gpay && (
+                              <a
+                                href={upiOrder.upiIntent.gpay}
+                                className="py-2 px-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-bold text-center transition"
+                              >
+                                Google Pay
+                              </a>
+                            )}
+                            {upiOrder.upiIntent.paytm && (
+                              <a
+                                href={upiOrder.upiIntent.paytm}
+                                className="py-2 px-2 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 text-xs font-bold text-center transition"
+                              >
+                                Paytm
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex items-center justify-center gap-2">
+                        <RefreshCw className="h-3.5 w-3.5 text-blue-600 animate-spin" />
+                        <span>Auto-verifying payment... Wallet will credit automatically.</span>
+                      </div>
+                    </>
                   )}
                 </div>
               )}

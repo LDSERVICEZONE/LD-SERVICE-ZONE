@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import {
+  AlertCircle,
   BarChart3,
   Building2,
   CreditCard,
@@ -192,17 +193,30 @@ export default function AppShell({ onLogout }: Props) {
           </button>
 
           <div className="ml-auto shrink-0 flex items-center gap-2 sm:gap-3">
+            {/* Low Balance Warning Pill */}
+            {Number(wallet?.balance || 0) < 200 && (
+              <button
+                onClick={() => navigate("/dashboard/wallet")}
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 text-xs font-semibold transition-colors shadow-xs"
+                title="Wallet balance is low. Click to add funds via Dynamic UPI QR."
+              >
+                <AlertCircle size={13} className="text-amber-600 shrink-0" />
+                <span>Low Balance</span>
+              </button>
+            )}
+
             {/* Live Shared Reactive Wallet Balance */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-[#07111F] text-white text-sm">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-[#07111F] text-white text-sm shadow-xs">
               <span className="text-white/50 text-xs">Balance</span>
               <b className="font-mono">
                 ₹{Number(wallet?.balance || 0).toLocaleString("en-IN")}
               </b>
               <button
                 onClick={() => navigate("/dashboard/wallet")}
-                className="bg-[#1D56D8] hover:bg-[#1849C0] px-2 py-0.5 rounded text-xs transition-colors"
+                className="bg-[#1D56D8] hover:bg-[#1849C0] px-2 py-0.5 rounded text-xs font-medium transition-colors"
+                title="Add money to LD Wallet"
               >
-                Add
+                + Add
               </button>
             </div>
 
