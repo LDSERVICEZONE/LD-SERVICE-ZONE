@@ -417,7 +417,7 @@ export async function handleWalletRoutes(context) {
             const vpaMatch = String(results.upi_intent?.bhim || "").match(/[?&]pa=([^&]+)/i)
             const realMerchantVpa = vpaMatch
               ? decodeURIComponent(vpaMatch[1])
-              : (process.env.ALLAPI_MERCHANT_VPA || "ldservicezone@sbi")
+              : (process.env.ALLAPI_MERCHANT_VPA || "BHARATPE.8Q0A0L4F5K89444@fbpe")
 
             const upiString =
               results.upi_intent?.bhim ||
@@ -468,8 +468,12 @@ export async function handleWalletRoutes(context) {
         }
       }
 
-      // 2. Existing fallback logic (Paytm / Direct UPI QR / Demo)
-      const vpa = process.env.PAYTM_UPI_VPA || process.env.MERCHANT_UPI_VPA || "paytmqr2810050501011@paytm"
+      // 2. Existing fallback logic (Direct UPI QR / Demo)
+      const vpa =
+        process.env.ALLAPI_MERCHANT_VPA ||
+        process.env.PAYTM_UPI_VPA ||
+        process.env.MERCHANT_UPI_VPA ||
+        "BHARATPE.8Q0A0L4F5K89444@fbpe"
       const merchantName = "LD SERVICE ZONE"
       const note = `WALLET-${auth.user.username || auth.user.id}-${orderId.slice(-6)}`
       const upiString = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(merchantName)}&am=${amountRupees}&cu=INR&tn=${encodeURIComponent(note)}&tr=${orderId}`

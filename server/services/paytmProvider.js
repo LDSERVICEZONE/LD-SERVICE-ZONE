@@ -13,9 +13,10 @@ export function createPaytmClient(config = {}) {
     config.industryType || process.env.PAYTM_INDUSTRY_TYPE_ID || "Retail"
   const vpa =
     config.vpa ||
+    process.env.ALLAPI_MERCHANT_VPA ||
     process.env.PAYTM_UPI_VPA ||
     process.env.MERCHANT_UPI_VPA ||
-    "paytmqr2810050501011@paytm"
+    "BHARATPE.8Q0A0L4F5K89444@fbpe"
   const merchantName =
     config.merchantName ||
     process.env.PAYTM_MERCHANT_NAME ||
