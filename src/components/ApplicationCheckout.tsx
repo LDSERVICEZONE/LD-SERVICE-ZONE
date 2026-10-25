@@ -205,6 +205,12 @@ export default function ApplicationCheckout({
           body: JSON.stringify({ amount: amt, mode: "upi_qr" }),
         });
 
+        // Redirect directly to AllAPI hosted checkout page (Photo 2) which includes the live QR and 12-digit UTR input
+        if (order.paymentUrl) {
+          window.location.href = order.paymentUrl;
+          return;
+        }
+
         let qrDataUrl = order.qrDataUrl;
         if (!qrDataUrl && order.upiString) {
           qrDataUrl = await QRCode.toDataURL(order.upiString, {

@@ -89,6 +89,17 @@ export default function WalletPage() {
   useEffect(() => {
     refreshWallet();
     loadLedger();
+
+    const params = new URLSearchParams(window.location.search);
+    const topupStatus = params.get("topup");
+    const topupAmt = params.get("amount");
+    if (topupStatus === "success") {
+      setMessage(`Payment verified! ₹${topupAmt || ""} credited to your wallet successfully.`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (topupStatus === "pending") {
+      setError("Payment verification is processing with the bank. If money was debited, your balance will reflect shortly.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, [refreshWallet]);
 
   // Handle countdown timer for UPI QR
@@ -193,6 +204,12 @@ export default function WalletPage() {
           method: "POST",
           body: JSON.stringify({ amount: Number(amount), mode: "upi_qr" }),
         });
+
+        // Redirect directly to AllAPI hosted checkout page (Photo 2) which includes the live QR and 12-digit UTR input
+        if (order.paymentUrl) {
+          window.location.href = order.paymentUrl;
+          return;
+        }
 
         // Use high-resolution QR image from provider or generate locally from upiString
         let qrDataUrl = order.qrDataUrl;
@@ -783,18 +800,6 @@ export default function WalletPage() {
                     </div>
                   </div>
 
-                  {/* Direct Payment Link button if available */}
-                  {upiOrder.paymentUrl && (
-                    <a
-                      href={upiOrder.paymentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2.5 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-[0.99]"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Pay on Mobile / Open Checkout Page</span>
-                    </a>
-                  )}
 
                   {/* Countdown Timer with Pulsing Status */}
                   <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">

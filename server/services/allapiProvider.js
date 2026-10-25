@@ -38,7 +38,7 @@ export function createAllApiClient(config = {}) {
         redirect_url: String(
           redirectUrl ||
             process.env.ALLAPI_CALLBACK_URL ||
-            `${process.env.PUBLIC_APP_URL || "https://ldservicezone.in"}/dashboard/wallet`
+            `${process.env.PUBLIC_APP_URL || "https://ldservicezone.in"}/api/wallet/allapi-callback`
         ),
       }
 

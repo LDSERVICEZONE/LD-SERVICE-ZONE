@@ -161,6 +161,13 @@ export async function handleWalletRoutes(context) {
             // Ignore error on redirect check
           }
         }
+        const isPaid = payment && payment.status === "paid"
+        const targetUrl = isPaid
+          ? `/dashboard/wallet?topup=success&amount=${payment.amount}`
+          : `/dashboard/wallet?topup=pending&orderId=${orderId}`
+        res.writeHead(302, { Location: targetUrl })
+        res.end()
+        return true
       }
       res.writeHead(302, { Location: "/dashboard/wallet" })
       res.end()
