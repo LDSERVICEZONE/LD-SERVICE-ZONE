@@ -92,6 +92,13 @@ export default function ApplicationCheckout({
 
   useEffect(() => {
     refreshWallet();
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("topup") === "success") {
+      const topupAmt = params.get("amount");
+      setTopUpSuccess(`Payment verified! ₹${topupAmt || ""} credited to your wallet.`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, [refreshWallet]);
 
   useEffect(() => {
@@ -202,7 +209,11 @@ export default function ApplicationCheckout({
       if (topUpMethod === "upi_qr") {
         const order = await api<any>("/wallet/create-order", {
           method: "POST",
-          body: JSON.stringify({ amount: amt, mode: "upi_qr" }),
+          body: JSON.stringify({
+            amount: amt,
+            mode: "upi_qr",
+            returnUrl: window.location.pathname + window.location.search,
+          }),
         });
 
         // Redirect directly to AllAPI hosted checkout page (Photo 2) which includes the live QR and 12-digit UTR input

@@ -162,9 +162,11 @@ export async function handleWalletRoutes(context) {
           }
         }
         const isPaid = payment && payment.status === "paid"
+        const basePath = payment?.returnUrl || "/dashboard/wallet"
+        const separator = basePath.includes("?") ? "&" : "?"
         const targetUrl = isPaid
-          ? `/dashboard/wallet?topup=success&amount=${payment.amount}`
-          : `/dashboard/wallet?topup=pending&orderId=${orderId}`
+          ? `${basePath}${separator}topup=success&amount=${payment?.amount || ""}`
+          : `${basePath}${separator}topup=pending&orderId=${orderId}`
         res.writeHead(302, { Location: targetUrl })
         res.end()
         return true
@@ -440,6 +442,10 @@ export async function handleWalletRoutes(context) {
               provider: "allapi",
               status: "created",
               orderId,
+              returnUrl:
+                typeof input.returnUrl === "string" && input.returnUrl.startsWith("/")
+                  ? input.returnUrl
+                  : "/dashboard/wallet",
               allapiTxnId: results.txn_id,
               paymentUrl: results.payment_url,
               upiIntent: results.upi_intent,
