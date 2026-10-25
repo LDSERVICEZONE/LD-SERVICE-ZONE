@@ -78,9 +78,6 @@ export default function WalletPage() {
   const [copiedVpa, setCopiedVpa] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [utrNumber, setUtrNumber] = useState("");
-  const [utrLoading, setUtrLoading] = useState(false);
-  const [utrError, setUtrError] = useState("");
 
   const pollIntervalRef = useRef<any>(null);
 
@@ -148,38 +145,8 @@ export default function WalletPage() {
       setUpiOrder(null);
       setPaymentCompleted(false);
       setAmount("");
-      setUtrNumber("");
-      setUtrError("");
     }, 3000);
   };
-
-  async function handleVerifyUtr() {
-    if (!upiOrder) return;
-    const clean = utrNumber.trim();
-    if (!/^\d{12}$/.test(clean)) {
-      setUtrError("UTR must be exactly 12 numeric digits from your PhonePe/GPay receipt.");
-      return;
-    }
-    setUtrError("");
-    setUtrLoading(true);
-    try {
-      const res = await api<any>(
-        `/wallet/check-status?orderId=${encodeURIComponent(upiOrder.orderId)}&utr=${encodeURIComponent(clean)}`
-      );
-      if (res.status === "paid") {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        handlePaymentSuccess(res.wallet?.balance);
-      } else {
-        setUtrError(
-          "Payment status is still pending with the UPI gateway. Please check your UPI app to confirm debit and re-check the 12-digit UTR."
-        );
-      }
-    } catch (e: any) {
-      setUtrError(e.message || "UTR verification failed. Please check the number and try again.");
-    } finally {
-      setUtrLoading(false);
-    }
-  }
 
   const handleExportLedger = () => {
     if (!ledger.length) return;
@@ -245,8 +212,6 @@ export default function WalletPage() {
           ? Math.max(60, Math.min(1800, Math.floor((order.expiresAt - Date.now()) / 1000)))
           : 300;
 
-        setUtrNumber("");
-        setUtrError("");
         setUpiOrder({
           ...order,
           qrDataUrl,
@@ -750,80 +715,13 @@ export default function WalletPage() {
                     )}
                   </div>
 
-                  {/* DIRECT 12-Digit UTR Manual Instant Verification Card */}
-                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 shadow-sm text-left space-y-2.5">
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-950">
-                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>Step 2: Enter 12-Digit UTR / UPI Ref No.</span>
-                      </div>
-                      <p className="text-[11px] text-amber-800 leading-tight mt-1">
-                        Scan QR & pay with PhonePe, GPay, or Paytm, then enter the 12-digit UTR / Ref No. below for instant wallet credit:
-                      </p>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={12}
-                        value={utrNumber}
-                        onChange={(e) => {
-                          setUtrNumber(e.target.value.replace(/\D/g, "").slice(0, 12));
-                          setUtrError("");
-                        }}
-                        placeholder="12-digit UTR (e.g. 429812345678)"
-                        className="flex-1 px-3 py-2 text-xs font-mono font-bold tracking-wider rounded-xl border border-amber-400 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-600 shadow-inner"
-                      />
-                      <button
-                        type="button"
-                        disabled={utrLoading || utrNumber.trim().length !== 12}
-                        onClick={handleVerifyUtr}
-                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition active:scale-[0.98] shrink-0 flex items-center gap-1.5"
-                      >
-                        {utrLoading ? (
-                          <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            <span>Verifying...</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Submit UTR</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {utrError && (
-                      <p className="text-[11px] font-medium text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>{utrError}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Countdown Timer with Pulsing Status */}
-                  <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-                    </span>
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-slate-600 font-medium">Session valid for:</span>
-                    <span className={`font-mono font-bold ${timeLeft < 60 ? "text-red-600" : "text-slate-900"}`}>
-                      {formattedTime}
-                    </span>
-                    <span className="text-slate-400 text-[10px]">· Auto-sync active</span>
-                  </div>
-
-                  {/* Scan with Any App Header & App Icons */}
+                  {/* Scan with Any App Header */}
                   <div>
-                    <h4 className="font-bold text-[11px] uppercase tracking-wider text-slate-400 mb-1.5">
-                      Or Open Directly on Mobile App
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-slate-600">
+                      Scan with Any UPI App
                     </h4>
-                    <div className="flex items-center justify-center gap-3">
+                    {/* UPI App Icons Row (Interactive Deep Links) */}
+                    <div className="flex items-center justify-center gap-3 pt-2">
                       <a
                         href={upiOrder.upiIntent?.phonepe || upiOrder.paymentUrl || upiOrder.upiString}
                         target="_blank"
@@ -898,6 +796,19 @@ export default function WalletPage() {
                     </a>
                   )}
 
+                  {/* Countdown Timer with Pulsing Status */}
+                  <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                    </span>
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-slate-600 font-medium">Session valid for:</span>
+                    <span className={`font-mono font-bold ${timeLeft < 60 ? "text-red-600" : "text-slate-900"}`}>
+                      {formattedTime}
+                    </span>
+                  </div>
+
                   {/* VPA Display with Copy Button */}
                   <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/60 text-xs">
                     <div className="text-left truncate">
@@ -943,11 +854,7 @@ export default function WalletPage() {
 
                   {/* Cancel Button */}
                   <button
-                    onClick={() => {
-                      setUpiOrder(null);
-                      setUtrNumber("");
-                      setUtrError("");
-                    }}
+                    onClick={() => setUpiOrder(null)}
                     className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 transition"
                   >
                     Cancel Transaction

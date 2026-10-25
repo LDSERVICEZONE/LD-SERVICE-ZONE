@@ -283,91 +283,18 @@ export async function handleWalletRoutes(context) {
     })
   }
 
-  if (pathName === "/api/wallet/check-status" && (req.method === "GET" || req.method === "POST")) {
-    let orderId = url.searchParams.get("orderId")
-    let utr = url.searchParams.get("utr") || url.searchParams.get("utrNumber")
-    if (req.method === "POST" && (!orderId || !utr)) {
-      try {
-        const body = await parseJson(req)
-        if (body) {
-          orderId = orderId || body.orderId || body.order_id
-          utr = utr || body.utr || body.utrNumber || body.utr_number
-        }
-      } catch {
-        // Fall back to query params
-      }
-    }
+  if (pathName === "/api/wallet/check-status" && req.method === "GET") {
+    const orderId = url.searchParams.get("orderId")
     if (!orderId) return respond(400, { error: "orderId is required" })
     const payment = db.payments.find(
       (p) => p.orderId === orderId && p.userId === auth.user.id,
     )
     if (!payment) return respond(404, { error: "Payment order not found" })
 
-    const cleanUtr = utr ? String(utr).trim() : null
-    if (cleanUtr) {
-      if (!/^\d{12}$/.test(cleanUtr)) {
-        return respond(400, { error: "UPI UTR must be exactly 12 numeric digits (e.g. 429812345678)" })
-      }
-
-      // Anti-spam attempt limiter (max 5 tries per order before a 60-second cooldown)
-      payment.utrAttempts = payment.utrAttempts || 0
-      payment.lastUtrAttemptAt = payment.lastUtrAttemptAt || 0
-      const nowTs = Date.now()
-
-      if (payment.utrAttempts >= 5 && nowTs - payment.lastUtrAttemptAt < 60000) {
-        const waitSec = Math.ceil((60000 - (nowTs - payment.lastUtrAttemptAt)) / 1000)
-        return respond(429, {
-          error: `Too many incorrect UTR attempts. Please verify in your payment app and try again in ${waitSec}s.`,
-        })
-      }
-      if (nowTs - payment.lastUtrAttemptAt >= 60000) {
-        payment.utrAttempts = 0
-      }
-      payment.utrAttempts += 1
-      payment.lastUtrAttemptAt = nowTs
-
-      const duplicateUtr = db.payments.find(
-        (p) => p.utrNumber === cleanUtr && p.paymentId !== payment.paymentId && p.status === "paid"
-      )
-      if (duplicateUtr) {
-        return respond(400, { error: "This UTR number has already been used for another transaction" })
-      }
-    }
-
-    // In demo mode with UTR provided, simulate instant verification
-    if (payment.status !== "paid" && String(process.env.DEMO_MODE).toLowerCase() === "true" && cleanUtr) {
-      payment.status = "paid"
-      payment.gatewayPaymentId = cleanUtr
-      payment.utrNumber = cleanUtr
-      payment.paidAt = now()
-      const wallet = ensureWallet(auth.user.id)
-      wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2))
-      wallet.updatedAt = now()
-      db.walletLedger.unshift({
-        id: createId("WL"),
-        userId: auth.user.id,
-        type: "credit",
-        amount: Number(payment.amount),
-        reference: payment.paymentId,
-        description: `Dynamic UPI Payment Verified via UTR (${payment.orderId.slice(-6)})`,
-        status: "success",
-        createdAt: now(),
-        balanceAfter: wallet.balance,
-      })
-      audit(db, auth.user, "WALLET_TOPUP_UTR", "wallet", auth.user.id, {
-        amount: payment.amount,
-        paymentId: payment.paymentId,
-        orderId: payment.orderId,
-        utrNumber: payment.utrNumber,
-      })
-      await saveDb(db)
-      syncPayment(payment)
-    }
-
     // Check AllAPI live gateway status first if configured and payment is not yet paid
     if (payment.status !== "paid" && allapiClient.isConfigured) {
       try {
-        const txnStatus = await allapiClient.checkStatus(payment.orderId, cleanUtr)
+        const txnStatus = await allapiClient.checkStatus(payment.orderId)
         if (
           txnStatus?.status === true &&
           String(txnStatus.results?.status).toLowerCase() === "success"
@@ -376,9 +303,8 @@ export async function handleWalletRoutes(context) {
           payment.gatewayPaymentId =
             txnStatus.results.txn_id ||
             txnStatus.results.utr_number ||
-            cleanUtr ||
             `ALLAPI-${Date.now()}`
-          payment.utrNumber = txnStatus.results.utr_number || cleanUtr
+          payment.utrNumber = txnStatus.results.utr_number
           payment.paidAt = now()
           const wallet = ensureWallet(auth.user.id)
           wallet.balance = Number(
@@ -401,7 +327,7 @@ export async function handleWalletRoutes(context) {
             paymentId: payment.paymentId,
             orderId: payment.orderId,
             gatewayPaymentId: payment.gatewayPaymentId,
-            utrNumber: payment.utrNumber,
+            utrNumber: txnStatus.results.utr_number,
           })
           await saveDb(db)
           syncPayment(payment)
@@ -698,13 +624,13 @@ export async function handleWalletRoutes(context) {
       })
     }
 
-    // Handle Dynamic UPI QR verification (Test/Manual Confirmation, UTR verification, or Webhook)
+    // Handle Dynamic UPI QR verification (Test/Manual Confirmation or Webhook)
     if (
       input.mode === "upi_qr" ||
       (typeof input.orderId === "string" &&
-        (input.orderId.startsWith("ORD") || input.orderId.startsWith("LD-ORD-") || input.orderId.startsWith("LDORD"))) ||
+        (input.orderId.startsWith("ORD") || input.orderId.startsWith("LD-ORD-"))) ||
       (typeof input.razorpay_order_id === "string" &&
-        (input.razorpay_order_id.startsWith("ORD") || input.razorpay_order_id.startsWith("LD-ORD-") || input.razorpay_order_id.startsWith("LDORD")))
+        (input.razorpay_order_id.startsWith("ORD") || input.razorpay_order_id.startsWith("LD-ORD-")))
     ) {
       const targetOrderId = input.orderId || input.razorpay_order_id
       const payment = db.payments.find(
@@ -715,31 +641,16 @@ export async function handleWalletRoutes(context) {
       )
       if (!payment) return respond(404, { error: "UPI wallet payment not found" })
 
-      const cleanUtr = (input.utr || input.utrNumber) ? String(input.utr || input.utrNumber).trim() : null
-      if (cleanUtr && cleanUtr.length >= 8) {
-        const duplicateUtr = db.payments.find(
-          (p) => p.utrNumber === cleanUtr && p.paymentId !== payment.paymentId && p.status === "paid"
-        )
-        if (duplicateUtr) {
-          return respond(400, { error: "This UTR number has already been used for another transaction" })
-        }
-      }
-
       if (allapiClient.isConfigured && String(process.env.DEMO_MODE).toLowerCase() !== "true") {
         try {
-          const txnStatus = await allapiClient.checkStatus(payment.orderId, cleanUtr)
+          const txnStatus = await allapiClient.checkStatus(payment.orderId)
           if (
             txnStatus?.status !== true ||
             String(txnStatus.results?.status).toLowerCase() !== "success"
           ) {
             return respond(400, {
-              error: cleanUtr
-                ? "Invalid or unconfirmed UTR number for this order. Please verify your 12-digit UTR in your payment app and try again."
-                : "Payment has not been confirmed by the UPI gateway yet",
+              error: "Payment has not been confirmed by the UPI gateway yet",
             })
-          }
-          if (cleanUtr || txnStatus.results?.utr_number) {
-            payment.utrNumber = txnStatus.results?.utr_number || cleanUtr
           }
         } catch (err) {
           return respond(502, {
@@ -773,10 +684,7 @@ export async function handleWalletRoutes(context) {
 
       if (payment.status !== "paid") {
         payment.status = "paid"
-        payment.gatewayPaymentId = cleanUtr || input.transactionId || `UPI-TXN-${Date.now()}`
-        if (cleanUtr && !payment.utrNumber) {
-          payment.utrNumber = cleanUtr
-        }
+        payment.gatewayPaymentId = input.transactionId || `UPI-TXN-${Date.now()}`
         payment.paidAt = now()
         const wallet = ensureWallet(auth.user.id)
         wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2))
@@ -796,7 +704,6 @@ export async function handleWalletRoutes(context) {
           amount: payment.amount,
           paymentId: payment.paymentId,
           orderId: payment.orderId,
-          utrNumber: payment.utrNumber,
         })
         await saveDb(db)
         syncPayment(payment)

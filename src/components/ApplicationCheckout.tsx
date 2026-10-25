@@ -16,7 +16,6 @@ import {
   Check,
   Clock,
   ShieldCheck,
-  Sparkles,
   X,
 } from "lucide-react";
 import QRCode from "qrcode";
@@ -84,9 +83,6 @@ export default function ApplicationCheckout({
   const [timeLeft, setTimeLeft] = useState<number>(300);
   const [copiedVpa, setCopiedVpa] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
-  const [topUpUtr, setTopUpUtr] = useState("");
-  const [topUpUtrLoading, setTopUpUtrLoading] = useState(false);
-  const [topUpUtrError, setTopUpUtrError] = useState("");
   const pollIntervalRef = useRef<any>(null);
 
   const price = Number(application.customerPrice || 0);
@@ -160,38 +156,8 @@ export default function ApplicationCheckout({
       setPaymentCompleted(false);
       setShowTopUp(false);
       setTopUpError("");
-      setTopUpUtr("");
-      setTopUpUtrError("");
     }, 2500);
   };
-
-  async function handleVerifyTopUpUtr() {
-    if (!upiOrder) return;
-    const clean = topUpUtr.trim();
-    if (!/^\d{12}$/.test(clean)) {
-      setTopUpUtrError("UTR must be exactly 12 numeric digits from your PhonePe/GPay receipt.");
-      return;
-    }
-    setTopUpUtrError("");
-    setTopUpUtrLoading(true);
-    try {
-      const res = await api<any>(
-        `/wallet/check-status?orderId=${encodeURIComponent(upiOrder.orderId)}&utr=${encodeURIComponent(clean)}`
-      );
-      if (res.status === "paid") {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        handleUpiPaymentSuccess(res.wallet?.balance);
-      } else {
-        setTopUpUtrError(
-          "Payment status is still pending with the UPI gateway. Please check your UPI app to confirm debit and re-check the 12-digit UTR."
-        );
-      }
-    } catch (e: any) {
-      setTopUpUtrError(e.message || "UTR verification failed. Please check the number and try again.");
-    } finally {
-      setTopUpUtrLoading(false);
-    }
-  }
 
   async function uploadPendingDocuments() {
     for (const document of application.documents || []) {
@@ -253,8 +219,6 @@ export default function ApplicationCheckout({
           ? Math.max(60, Math.min(1800, Math.floor((order.expiresAt - Date.now()) / 1000)))
           : 300;
 
-        setTopUpUtr("");
-        setTopUpUtrError("");
         setUpiOrder({
           ...order,
           qrDataUrl,
@@ -606,11 +570,7 @@ export default function ApplicationCheckout({
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        setUpiOrder(null);
-                        setTopUpUtr("");
-                        setTopUpUtrError("");
-                      }}
+                      onClick={() => setUpiOrder(null)}
                       className="text-slate-400 hover:text-slate-600 text-xs font-medium"
                     >
                       ✕ Close QR
@@ -679,60 +639,6 @@ export default function ApplicationCheckout({
                             </span>
                           </div>
                         </div>
-                      </div>
-
-                      {/* DIRECT 12-Digit UTR Manual Instant Verification Card */}
-                      <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 text-left space-y-2 shadow-sm">
-                        <div>
-                          <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-950">
-                            <Sparkles className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                            <span>Step 2: Enter 12-Digit UTR / UPI Ref No.</span>
-                          </div>
-                          <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
-                            Scan QR & pay with PhonePe, GPay, or Paytm, then enter the 12-digit UTR below:
-                          </p>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            maxLength={12}
-                            value={topUpUtr}
-                            onChange={(e) => {
-                              setTopUpUtr(e.target.value.replace(/\D/g, "").slice(0, 12));
-                              setTopUpUtrError("");
-                            }}
-                            placeholder="12-digit UTR (e.g. 429812345678)"
-                            className="flex-1 px-3 py-1.5 text-xs font-mono font-bold tracking-wider rounded-xl border border-amber-400 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-600 shadow-inner"
-                          />
-                          <button
-                            type="button"
-                            disabled={topUpUtrLoading || topUpUtr.trim().length !== 12}
-                            onClick={handleVerifyTopUpUtr}
-                            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition active:scale-[0.98] shrink-0 flex items-center gap-1"
-                          >
-                            {topUpUtrLoading ? (
-                              <>
-                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                <span>Verifying...</span>
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                <span>Submit UTR</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-
-                        {topUpUtrError && (
-                          <p className="text-[11px] font-medium text-red-600 flex items-center gap-1">
-                            <AlertCircle className="h-3 w-3 shrink-0" />
-                            <span>{topUpUtrError}</span>
-                          </p>
-                        )}
                       </div>
 
                       {/* Mobile Deep-Links */}
