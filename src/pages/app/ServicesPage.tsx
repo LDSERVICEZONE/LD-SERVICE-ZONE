@@ -276,6 +276,18 @@ const PRINT_SERVICES = [
     color: "#4F46E5",
     description: "Verify GSTIN status, trade name, legal business name, constitution & address",
   },
+  {
+    id: "SVC-PASSPORT-VERIFY",
+    name: "Passport Details Verification",
+    category: "Citizen Documents",
+    badge: "PASSPORT VERIFY",
+    icon: "🛂",
+    processingTime: "Instant",
+    defaultPrice: 20,
+    documents: ["Passport File Number", "Date of Birth"],
+    color: "#0D9488",
+    description: "Verify passport holder name, number, DOB, and file application status",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -508,6 +520,14 @@ export default function ServicesPage() {
   const [gstLoading, setGstLoading] = useState(false);
   const [gstError, setGstError] = useState("");
   const [gstResult, setGstResult] = useState<any>(null);
+
+  // Passport Verification modal states
+  const [passportModalOpen, setPassportModalOpen] = useState(false);
+  const [passportFileNo, setPassportFileNo] = useState("");
+  const [passportDob, setPassportDob] = useState("");
+  const [passportLoading, setPassportLoading] = useState(false);
+  const [passportError, setPassportError] = useState("");
+  const [passportResult, setPassportResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1720,6 +1740,100 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handlePassportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanFileNo = passportFileNo.trim().toUpperCase();
+    const cleanDob = passportDob.trim();
+    if (!cleanFileNo) {
+      setPassportError("Please enter valid Passport File Number (e.g. CA1073849182390)");
+      return;
+    }
+    if (!cleanDob) {
+      setPassportError("Please enter Date of Birth (DD-MM-YYYY)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-PASSPORT-VERIFY", 20);
+    if (dynamic.status === "disabled") {
+      setPassportError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setPassportError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setPassportLoading(true);
+    setPassportError("");
+    try {
+      const res = await api<any>("/apinice/passport-verify", {
+        method: "POST",
+        body: JSON.stringify({ fileNo: cleanFileNo, dob: cleanDob }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.holderName || res.data) {
+        setPassportResult(res);
+      } else {
+        setPassportError("No passport record found for this file number and DOB.");
+      }
+    } catch (err: any) {
+      setPassportError(err.message || "Failed to verify passport details");
+    } finally {
+      setPassportLoading(false);
+    }
+  };
+
+  const printPassportSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Passport Verification Slip - ${res.fileNo || passportFileNo}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 600px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #0d9488; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #f0fdfa; width: 40%; color: #115e59; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#115e59;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#0d9488;">Passport Seva Kendra Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>File Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;">${res.fileNo || passportFileNo}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Passport Holder Name</td><td><strong style="font-size:14px;color:#0f172a;">${res.holderName || "N/A"}</strong></td></tr>
+            <tr><td class="label">Passport Number</td><td><span style="font-weight:bold;font-family:monospace;font-size:14px;color:#0d9488;">${res.passportNumber || "Dispatched / Active"}</span></td></tr>
+            <tr><td class="label">Date of Birth</td><td><strong>${res.dob || passportDob}</strong></td></tr>
+            <tr><td class="label">Application / File Date</td><td>${res.applicationDate || "Verified"}</td></tr>
+            <tr><td class="label">Verification Status</td><td><strong style="color:#0d9488;">OFFICIALLY VERIFIED</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official Passport Seva verification slip issued by LD Service Zone via Ministry of External Affairs records.<br/>
+            Valid for visa submissions, travel verification, and overseas employment KYC.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -2144,6 +2258,10 @@ export default function ServicesPage() {
                     setGstModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-PASSPORT-VERIFY") {
+                    setPassportModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -2205,6 +2323,8 @@ export default function ServicesPage() {
                       ? "bg-blue-50 text-blue-700 border border-blue-200"
                       : item.badge === "GST VERIFY"
                       ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      : item.badge === "PASSPORT VERIFY"
+                      ? "bg-teal-50 text-teal-700 border border-teal-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -5430,6 +5550,175 @@ export default function ServicesPage() {
                       <Search size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-GST-DETAILS", 10).price.toFixed(2)} & Verify GSTIN
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 18: Passport Verification */}
+      {passportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-teal-50 to-emerald-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-teal-500/20">
+                  🛂
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#0F172A] text-base">
+                    Passport Details Verification
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Ministry of External Affairs (Passport Seva)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setPassportModalOpen(false);
+                  setPassportError("");
+                  setPassportResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {passportError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{passportError}</span>
+              </div>
+            )}
+
+            {passportResult ? (
+              <div className="p-6 space-y-4">
+                <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-teal-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-teal-950 text-base">
+                    {passportResult.holderName || "Verified Passport Holder"}
+                  </h4>
+                  <p className="text-xs text-teal-700 mt-0.5 font-mono">
+                    Passport No: <strong>{passportResult.passportNumber || "Active"}</strong>
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Passport Holder Name:</span>
+                    <span className="font-bold text-slate-800">{passportResult.holderName}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Passport Number:</span>
+                    <span className="font-mono font-bold text-teal-700">{passportResult.passportNumber}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Passport File Number:</span>
+                    <span className="font-mono font-bold text-slate-800">{passportResult.fileNo || passportFileNo}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Date of Birth:</span>
+                    <span className="font-bold text-slate-800">{passportResult.dob || passportDob}</span>
+                  </div>
+                  {passportResult.applicationDate && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Application Date:</span>
+                      <span className="font-bold text-slate-800">{passportResult.applicationDate}</span>
+                    </div>
+                  )}
+                  {passportResult.balance !== undefined && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{Number(passportResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    onClick={() => printPassportSlip(passportResult)}
+                    className="w-full py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print Passport Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPassportResult(null);
+                      setPassportFileNo("");
+                      setPassportDob("");
+                      setPassportError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Check Another Passport
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handlePassportSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Passport File Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. CA1073849182390"
+                    value={passportFileNo}
+                    onChange={(e) => setPassportFileNo(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm uppercase tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-teal-100 focus:border-teal-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter official 15-character Passport Seva Kendra File Number.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Citizen Date of Birth (DD-MM-YYYY) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="DD-MM-YYYY (e.g. 15-08-1990)"
+                    value={passportDob}
+                    onChange={(e) => setPassportDob(e.target.value.trim())}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm focus:bg-white focus:outline-none focus:ring-4 focus:ring-teal-100 focus:border-teal-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={passportLoading || !passportFileNo || !passportDob}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-teal-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {passportLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Verifying Passport Record...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-PASSPORT-VERIFY", 20).price.toFixed(2)} & Verify Passport
                       </span>
                     </>
                   )}

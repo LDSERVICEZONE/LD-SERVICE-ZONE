@@ -731,6 +731,52 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async verifyPassport({ fileNo, dob }) {
+    const cleanFileNo = clean(fileNo).replace(/\s+/g, "").toUpperCase()
+    let cleanDob = clean(dob).trim()
+    if (cleanDob.includes("/")) {
+      cleanDob = cleanDob.replace(/\//g, "-")
+    }
+
+    if (!cleanFileNo) {
+      throw new Error("Valid Passport File Number is required (e.g. CA1073849182390)")
+    }
+    if (!cleanDob) {
+      throw new Error("Citizen Date of Birth (DD-MM-YYYY) is required")
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      apiKey: key,
+      file_no: cleanFileNo,
+      dob: cleanDob,
+    }
+
+    const response = await this.request("passport_verification", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (response.status === false || (!response.data && !response.holder_name)) {
+      throw new Error(response.message || "Passport record not found or details mismatched")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "PASSPORT_VERIFY",
+      fileNo: cleanFileNo,
+      holderName: data.holder_name || data.name || "",
+      dob: data.dob || cleanDob,
+      passportNumber: data.passport_number || data.passport_no || "",
+      applicationDate: data.application_date || "",
+      fileNumber: data.file_number || cleanFileNo,
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

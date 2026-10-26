@@ -190,6 +190,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#4F46E5",
     status: "active",
   },
+  {
+    id: "SVC-PASSPORT-VERIFY",
+    name: "Passport Details Verification",
+    category: "Citizen",
+    customerPrice: 20,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Passport File Number (15-char)", "Date of Birth"],
+    color: "#0D9488",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -1917,6 +1928,117 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "GSTIN registration details retrieved successfully",
+    })
+  }
+
+  // 19. POST /api/apinice/passport-verify
+  if (pathName === "/api/apinice/passport-verify" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-PASSPORT-VERIFY",
+      20,
+      "Passport Details Verification",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const fileNo = String(input.fileNo || input.file_no || input.fileNumber || "").trim().toUpperCase()
+    const dob = String(input.dob || input.dateOfBirth || "").trim()
+
+    if (!fileNo) {
+      return respond(400, { error: "Valid Passport File Number is required (e.g. CA1073849182390)." })
+    }
+    if (!dob) {
+      return respond(400, { error: "Citizen Date of Birth (DD-MM-YYYY) is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.verifyPassport({ fileNo, dob })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to verify passport details",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Passport Verification (${result.holderName ? result.holderName + ", " : ""}File: ${fileNo})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-PASSPORT-VERIFY",
+      referenceId: fileNo,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-PASSPORT-VERIFY",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: fileNo,
+      holderName: result.holderName,
+      passportNumber: result.passportNumber,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-PASSPORT-VERIFY",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      fileNo,
+      holderName: result.holderName,
+      passportNumber: result.passportNumber,
+      dob: result.dob,
+      applicationDate: result.applicationDate,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Passport details verified successfully",
     })
   }
 
