@@ -1,5 +1,6 @@
 import { parseJson } from "../lib/http.js"
 import { createId, now } from "../lib/ids.js"
+import { seedApiniceServices } from "./apinice.js"
 
 export async function handleCatalogRoutes(context) {
   const { req, res, pathName, db, send, saveDb, requireAuth, audit } = context
@@ -11,6 +12,7 @@ export async function handleCatalogRoutes(context) {
   }
 
   if (pathName === "/api/services" && req.method === "GET") {
+    seedApiniceServices(db)
     return respond(200, { services: db.services || [] })
   }
 
