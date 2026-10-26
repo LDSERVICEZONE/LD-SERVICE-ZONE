@@ -60,6 +60,7 @@ const CATEGORIES = [
   "PAN",
   "Vehicle",
   "Citizen",
+  "Voter",
   "Tax",
   "Certificate",
   "Recharge",

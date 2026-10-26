@@ -59,6 +59,7 @@ function openBase64Pdf(base64Data: string) {
 
 const BASE_CATEGORIES = [
   "All Services",
+  "Voter Services",
   "Vehicle Services",
   "Citizen Documents",
   "New PAN",
@@ -901,8 +902,9 @@ export default function ServicesPage() {
       if (!matchesSearch) return false;
 
       if (activeCategory === "All Services" || activeCategory === "All") return true;
+      if (activeCategory === "Voter Services") return s.category === "Voter Services";
       if (activeCategory === "Vehicle Services") return s.category === "Vehicle Services";
-      if (activeCategory === "Citizen Documents") return s.category === "Citizen Documents";
+      if (activeCategory === "Citizen Documents") return s.category === "Citizen Documents" || s.category === "Voter Services";
       if (activeCategory === "New PAN") return s.id === "PAN-NEW" || s.id === "PAN-NSDL" || s.id === "PAN-UTI";
       if (activeCategory === "Correction & Reprint") return s.id === "PAN-CORRECTION" || s.id === "PAN-REPRINT";
       if (activeCategory === "UTI PAN") return s.id.includes("UTI") && !s.id.includes("STATUS");
