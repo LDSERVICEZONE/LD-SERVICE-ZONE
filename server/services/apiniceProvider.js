@@ -868,6 +868,47 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async findPanByAadhaar({ aadhaarNo, provider = "zone" }) {
+    const cleanAadhaar = clean(aadhaarNo).replace(/\s+/g, "")
+
+    if (!cleanAadhaar || cleanAadhaar.length !== 12 || !/^\d{12}$/.test(cleanAadhaar)) {
+      throw new Error("Valid 12-digit Aadhaar number is required")
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      api_key: key,
+      aadhaar_no: cleanAadhaar,
+      provider: provider || "zone",
+    }
+
+    const response = await this.request("find_pan", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (
+      response.status === "error" ||
+      response.status === false ||
+      (!response.data && !response.pan_number)
+    ) {
+      throw new Error(response.message || "PAN record not found for this Aadhaar number")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "PAN_FIND",
+      panNumber: (data.pan_number || data.pan || "").toUpperCase(),
+      fullName: data.full_name || data.name || "",
+      aadhaar: cleanAadhaar,
+      applicationNo: data.application_no || "",
+      balanceRemaining: data.balance_remaining || response.balance,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

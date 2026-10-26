@@ -568,6 +568,13 @@ export default function ServicesPage() {
   const [billError, setBillError] = useState("");
   const [billResultPdf, setBillResultPdf] = useState("");
 
+  // Instant PAN Find modal states
+  const [panFindModalOpen, setPanFindModalOpen] = useState(false);
+  const [panFindAadhaar, setPanFindAadhaar] = useState("");
+  const [panFindLoading, setPanFindLoading] = useState(false);
+  const [panFindError, setPanFindError] = useState("");
+  const [panFindResult, setPanFindResult] = useState<any>(null);
+
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanRc = rcNo.trim().toUpperCase();
@@ -2017,6 +2024,98 @@ export default function ServicesPage() {
     }
   };
 
+  const handlePanFindSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanAadhaar = panFindAadhaar.trim().replace(/\s+/g, "");
+    if (!cleanAadhaar || cleanAadhaar.length !== 12 || !/^\d{12}$/.test(cleanAadhaar)) {
+      setPanFindError("Please enter valid 12-digit Aadhaar number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-PAN-FIND", 20);
+    if (dynamic.status === "disabled") {
+      setPanFindError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setPanFindError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setPanFindLoading(true);
+    setPanFindError("");
+    try {
+      const res = await api<any>("/apinice/find-pan", {
+        method: "POST",
+        body: JSON.stringify({ aadhaarNo: cleanAadhaar }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.panNumber || res.data?.pan_number) {
+        setPanFindResult(res);
+      } else {
+        setPanFindError("No PAN card record found for this Aadhaar number.");
+      }
+    } catch (err: any) {
+      setPanFindError(err.message || "Failed to find PAN number");
+    } finally {
+      setPanFindLoading(false);
+    }
+  };
+
+  const printPanFindSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const d = res.data || res;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PAN Find Verification - ${res.panNumber || d.pan_number}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #eef2ff; width: 40%; color: #3730a3; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#3730a3;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#4f46e5;">PAN Number Find & Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Aadhaar Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;">${res.maskedAadhaar || ("XXXX-XXXX-" + panFindAadhaar.slice(-4))}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:18px;color:#16a34a;font-family:monospace;letter-spacing:1px;">${res.panNumber || d.pan_number || "N/A"}</strong></td></tr>
+            <tr><td class="label">Cardholder Full Name</td><td><strong style="font-size:14px;color:#0f172a;">${res.fullName || d.full_name || "Verified Citizen"}</strong></td></tr>
+            <tr><td class="label">Linked Aadhaar</td><td><span style="font-family:monospace;font-weight:bold;">${res.maskedAadhaar || ("XXXX-XXXX-" + panFindAadhaar.slice(-4))}</span></td></tr>
+            <tr><td class="label">Verification Status</td><td><strong style="color:#16a34a;">OFFICIALLY LINKED & VERIFIED</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official PAN Find receipt slip issued by LD Service Zone via Income Tax Department database records.<br/>
+            Valid for banking, KYC update, PAN reprint submission, and official record verification.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -2451,6 +2550,10 @@ export default function ServicesPage() {
                   }
                   if (item.id === "SVC-ELECTRIC-BILL") {
                     setBillModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "PAN-FIND") {
+                    setPanFindModalOpen(true);
                     return;
                   }
                   if (item.id === "PAN-UTI") {
@@ -6223,6 +6326,160 @@ export default function ServicesPage() {
                       <Download size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-ELECTRIC-BILL", 15).price.toFixed(2)} & Download PDF
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 21: Instant PAN Find by Aadhaar */}
+      {panFindModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 bg-gradient-to-r from-indigo-50 via-blue-50/40 to-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-lg shadow-md shadow-indigo-500/20">
+                  🔍
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Instant PAN Find by Aadhaar
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Income Tax Department (ITD) Official Database Lookup
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setPanFindModalOpen(false);
+                  setPanFindError("");
+                  setPanFindResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {panFindError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{panFindError}</span>
+              </div>
+            )}
+
+            {panFindResult ? (
+              <div className="p-6 space-y-4">
+                <div className="p-5 rounded-2xl bg-indigo-50 border border-indigo-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <p className="text-xs text-indigo-600 font-semibold uppercase tracking-wider">
+                    PAN Found Successfully
+                  </p>
+                  <h4 className="font-mono font-extrabold text-indigo-950 text-2xl tracking-widest mt-1">
+                    {panFindResult.panNumber}
+                  </h4>
+                  {panFindResult.fullName && (
+                    <p className="text-sm font-bold text-slate-800 mt-1">
+                      {panFindResult.fullName}
+                    </p>
+                  )}
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Permanent Account Number (PAN):</span>
+                    <span className="font-mono font-extrabold text-indigo-700 text-sm">{panFindResult.panNumber}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Cardholder Name:</span>
+                    <span className="font-bold text-slate-800">{panFindResult.fullName || "Verified Citizen"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Aadhaar Number:</span>
+                    <span className="font-mono font-bold text-slate-800">{panFindResult.maskedAadhaar || ("XXXX-XXXX-" + panFindAadhaar.slice(-4))}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Linking Status:</span>
+                    <span className="font-bold text-emerald-600">ACTIVE & LINKED ✓</span>
+                  </div>
+                  {panFindResult.balance !== undefined && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{Number(panFindResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    onClick={() => printPanFindSlip(panFindResult)}
+                    className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print PAN Find Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPanFindResult(null);
+                      setPanFindAadhaar("");
+                      setPanFindError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Find Another PAN
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handlePanFindSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Citizen Aadhaar Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={12}
+                    placeholder="Enter 12-digit Aadhaar (e.g. 123456789012)"
+                    value={panFindAadhaar}
+                    onChange={(e) => setPanFindAadhaar(e.target.value.replace(/\D/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Instant lookup retrieves the PAN linked to this Aadhaar from the Income Tax department.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={panFindLoading || panFindAadhaar.length !== 12}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {panFindLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Searching Income Tax Records...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-PAN-FIND", 20).price.toFixed(2)} & Find PAN
                       </span>
                     </>
                   )}

@@ -223,6 +223,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#EAB308",
     status: "active",
   },
+  {
+    id: "SVC-PAN-FIND",
+    name: "PAN Find by Aadhaar",
+    category: "PAN",
+    customerPrice: 20,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["12-digit Aadhaar Number"],
+    color: "#4F46E5",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -2281,6 +2292,115 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "Electricity bill PDF downloaded successfully",
+    })
+  }
+
+  // 22. POST /api/apinice/find-pan
+  if (pathName === "/api/apinice/find-pan" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-PAN-FIND",
+      20,
+      "PAN Find by Aadhaar",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const aadhaarNo = String(
+      input.aadhaarNo || input.aadhaar_no || input.aadhaar || "",
+    ).replace(/\s+/g, "")
+
+    if (!aadhaarNo || aadhaarNo.length !== 12 || !/^\d{12}$/.test(aadhaarNo)) {
+      return respond(400, { error: "Valid 12-digit Aadhaar number is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.findPanByAadhaar({ aadhaarNo, provider: input.provider || "zone" })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to find PAN by Aadhaar",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const maskedAadhaar = `XXXX-XXXX-${aadhaarNo.slice(-4)}`
+    const description = `Instant PAN Find (${result.panNumber ? result.panNumber + " - " : ""}${maskedAadhaar})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-PAN-FIND",
+      referenceId: result.panNumber || aadhaarNo,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-PAN-FIND",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: maskedAadhaar,
+      panNumber: result.panNumber,
+      fullName: result.fullName,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-PAN-FIND",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      panNumber: result.panNumber,
+      fullName: result.fullName,
+      maskedAadhaar,
+      aadhaar: maskedAadhaar,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "PAN found successfully",
     })
   }
 
