@@ -55,6 +55,7 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("electric_bill_pdf")) return Response.json({ status: 100, message: "Bill PDF Generated", caNumber: "123456789", balance: 48.10, pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_electric_bill" });
     if (String(url).includes("find_pan")) return Response.json({ status: "success", data: { pan_number: "ABCDE1234F", full_name: "RAHUL KUMAR", aadhaar: "123456789012", application_no: "APP-PAN-99", balance_remaining: "48.10" }, message: "PAN found successfully" });
     if (String(url).includes("pan_details")) return Response.json({ status: "success", data: { pan_no: "ABCDE1234F", name: "JOHN DOE", father: "ROBERT DOE", dob: "1990-01-15", gender: "M", balance_remaining: "48.10" } });
+    if (String(url).includes("voter-manual-pdf")) return Response.json({ status: "success", message: "Voter PDF Manual submitted successfully", data: { epic_no: "ABC1234567", name: "RAHUL KUMAR", pdf_url: "https://apinice.in/sample_voter_card.pdf" }, balance_remaining: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -1200,6 +1201,39 @@ test("retailer can verify PAN card details", async () => {
   assert.equal(res.data.name, "JOHN DOE");
   assert.equal(res.data.fatherName, "ROBERT DOE");
   assert.equal(res.data.dob, "1990-01-15");
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can generate voter manual card PDF", async () => {
+  const invalidRes = await request("/apinice/voter-manual-pdf", {
+    token: retailerToken,
+    method: "POST",
+    body: { epic_no: "" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/voter-manual-pdf", {
+    token: retailerToken,
+    method: "POST",
+    body: {
+      epic_no: "ABC1234567",
+      name: "RAHUL KUMAR",
+      gender: "MALE",
+      father_name: "SURESH KUMAR",
+      tahshil: "Bhubaneswar",
+      address: "123 Main Street, Bhubaneswar, Odisha",
+      language: "HI",
+      photoBase64: "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-VOTER-MANUAL-PDF");
+  assert.equal(res.data.epicNo, "ABC1234567");
+  assert.equal(res.data.name, "RAHUL KUMAR");
+  assert.equal(res.data.debited, 25);
+  assert.ok(res.data.pdfUrl);
   assert.ok(res.data.ledgerId);
 });
 

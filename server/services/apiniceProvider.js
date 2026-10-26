@@ -20,7 +20,14 @@ export class ApiniceProvider {
 
   async request(endpoint, options = {}) {
     const key = this.getApiKey()
-    const url = `${this.baseUrl}/${endpoint.replace(/^\/+/, "")}`
+    let url
+    if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
+      url = endpoint
+    } else if (endpoint.startsWith("v2/") || endpoint.startsWith("/v2/")) {
+      url = `${this.baseUrl.replace(/\/api\/v1\/?$/, "")}/api/${endpoint.replace(/^\/+/, "")}`
+    } else {
+      url = `${this.baseUrl}/${endpoint.replace(/^\/+/, "")}`
+    }
     const method = options.method || "GET"
     const headers = {
       "X-API-Key": key,
@@ -947,6 +954,105 @@ export class ApiniceProvider {
       dob: data.dob || "",
       gender: data.gender || "",
       balanceRemaining: data.balance_remaining || response.balance,
+      raw: response,
+    }
+  }
+
+  async generateVoterManualPdf({
+    epic_no,
+    name,
+    gender,
+    father_name,
+    tahshil,
+    address,
+    language = "HI",
+    photoBase64,
+    // Optional
+    name_local,
+    age,
+    gender_local,
+    father_type,
+    father_name_local,
+    dob_local,
+    district,
+    assembly_no_name,
+    assembly_no_name_local,
+    part_no,
+    part_name,
+    part_name_local,
+    address_local,
+  }) {
+    const cleanEpic = clean(epic_no).replace(/\s+/g, "").toUpperCase()
+    const cleanName = clean(name).toUpperCase()
+    const cleanGender = clean(gender).toUpperCase()
+    const cleanFather = clean(father_name)
+    const cleanTahshil = clean(tahshil)
+    const cleanAddress = clean(address)
+    const cleanLang = clean(language || "HI").toUpperCase()
+
+    if (!cleanEpic) throw new Error("Voter EPIC / ID Number is required")
+    if (!cleanName) throw new Error("Voter full name in English is required")
+    if (!cleanGender) throw new Error("Gender is required (MALE, FEMALE, or OTHER)")
+    if (!cleanFather) throw new Error("Father or Husband name in English is required")
+    if (!cleanTahshil) throw new Error("Tahshil / Block name is required")
+    if (!cleanAddress) throw new Error("Full address in English is required")
+    if (!photoBase64) throw new Error("Applicant photo is required (JPEG/PNG, max 2MB)")
+
+    const key = this.getApiKey()
+    const cleanB64 = String(photoBase64).replace(/^data:image\/[a-zA-Z]+;base64,/, "").trim()
+    const buffer = Buffer.from(cleanB64, "base64")
+    const blob = new Blob([buffer], { type: "image/jpeg" })
+
+    const fd = new FormData()
+    fd.append("api_key", key)
+    fd.append("epic_no", cleanEpic)
+    fd.append("name", cleanName)
+    fd.append("gender", cleanGender)
+    fd.append("father_name", cleanFather)
+    fd.append("tahshil", cleanTahshil)
+    fd.append("address", cleanAddress)
+    fd.append("language", cleanLang)
+    fd.append("imagefile", blob, "photo.jpg")
+
+    if (name_local) fd.append("name_local", clean(name_local))
+    if (age) fd.append("age", clean(age))
+    if (gender_local) fd.append("gender_local", clean(gender_local))
+    if (father_type) fd.append("father_type", clean(father_type))
+    if (father_name_local) fd.append("father_name_local", clean(father_name_local))
+    if (dob_local) fd.append("dob_local", clean(dob_local))
+    if (district) fd.append("district", clean(district))
+    if (assembly_no_name) fd.append("assembly_no_name", clean(assembly_no_name))
+    if (assembly_no_name_local) fd.append("assembly_no_name_local", clean(assembly_no_name_local))
+    if (part_no) fd.append("part_no", clean(part_no))
+    if (part_name) fd.append("part_name", clean(part_name))
+    if (part_name_local) fd.append("part_name_local", clean(part_name_local))
+    if (address_local) fd.append("address_local", clean(address_local))
+
+    const response = await this.request("v2/voter-manual-pdf", {
+      method: "POST",
+      body: fd,
+      timeoutMs: 60000,
+    })
+
+    if (
+      response.status === "error" ||
+      response.status === false ||
+      response.status === "101" ||
+      (!response.data && !response.pdf_url)
+    ) {
+      throw new Error(response.message || "Failed to generate Voter ID manual card PDF")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "VOTER_MANUAL_PDF",
+      epicNo: cleanEpic,
+      name: cleanName,
+      pdfUrl: data.pdf_url || response.pdf_url || null,
+      pdfBase64: data.pdf_base64 || response.pdf_base64 || null,
+      balanceRemaining: response.balance_remaining || response.balance,
+      data,
       raw: response,
     }
   }

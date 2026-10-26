@@ -245,6 +245,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#6366F1",
     status: "active",
   },
+  {
+    id: "SVC-VOTER-MANUAL-PDF",
+    name: "Voter Manual PDF Instant (v2)",
+    category: "Voter",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["EPIC Number", "Full Name", "Father Name", "Tahshil", "Address", "Language", "Applicant Photo"],
+    color: "#7C3AED",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -2521,6 +2532,159 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "PAN details verified successfully",
+    })
+  }
+
+  // 23. POST /api/apinice/voter-manual-pdf
+  if (pathName === "/api/apinice/voter-manual-pdf" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-VOTER-MANUAL-PDF",
+      25,
+      "Voter Manual PDF Instant (v2)"
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const epicNo = String(input.epic_no || input.epic || "").trim().toUpperCase()
+    const name = String(input.name || "").trim().toUpperCase()
+    const gender = String(input.gender || "").trim().toUpperCase()
+    const fatherName = String(input.father_name || input.fatherName || "").trim()
+    const tahshil = String(input.tahshil || "").trim()
+    const address = String(input.address || "").trim()
+    const language = String(input.language || "HI").trim().toUpperCase()
+    const photoBase64 = String(input.photoBase64 || input.imageBase64 || input.photo || "").trim()
+
+    if (!epicNo) {
+      return respond(400, { error: "Voter EPIC / ID Number is required." })
+    }
+    if (!name) {
+      return respond(400, { error: "Voter full name in English is required." })
+    }
+    if (!gender) {
+      return respond(400, { error: "Gender is required (MALE, FEMALE, or OTHER)." })
+    }
+    if (!fatherName) {
+      return respond(400, { error: "Father or Husband name in English is required." })
+    }
+    if (!tahshil) {
+      return respond(400, { error: "Tahshil / Block name is required." })
+    }
+    if (!address) {
+      return respond(400, { error: "Full address in English is required." })
+    }
+    if (!photoBase64) {
+      return respond(400, { error: "Applicant photo is required (JPEG/PNG, max 2MB)." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.generateVoterManualPdf({
+        epic_no: epicNo,
+        name,
+        gender,
+        father_name: fatherName,
+        tahshil,
+        address,
+        language,
+        photoBase64,
+        name_local: input.name_local,
+        age: input.age,
+        gender_local: input.gender_local,
+        father_type: input.father_type,
+        father_name_local: input.father_name_local,
+        dob_local: input.dob_local,
+        district: input.district,
+        assembly_no_name: input.assembly_no_name,
+        assembly_no_name_local: input.assembly_no_name_local,
+        part_no: input.part_no,
+        part_name: input.part_name,
+        part_name_local: input.part_name_local,
+        address_local: input.address_local,
+      })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to generate Voter ID manual card PDF.",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Voter Manual PDF Instant (${epicNo})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-VOTER-MANUAL-PDF",
+      referenceId: epicNo,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-VOTER-MANUAL-PDF",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: epicNo,
+      name,
+      language,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-VOTER-MANUAL-PDF",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      epicNo,
+      name,
+      pdfUrl: result.pdfUrl,
+      pdfBase64: result.pdfBase64,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Voter card manual PDF generated successfully",
     })
   }
 

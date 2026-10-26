@@ -170,6 +170,18 @@ const PRINT_SERVICES = [
     description: "Direct instant mobile number linking with Voter ID without citizen OTP",
   },
   {
+    id: "SVC-VOTER-MANUAL-PDF",
+    name: "Voter Manual PDF Instant (v2)",
+    category: "Voter Services",
+    badge: "VOTER V2",
+    icon: "🪪",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["EPIC Number", "Full Name", "Father Name", "Tahshil", "Address", "Language", "Applicant Photo"],
+    color: "#7C3AED",
+    description: "Generate high-resolution Voter Card PDF with photo upload and regional language support",
+  },
+  {
     id: "SVC-LL-PDF",
     name: "Learning Licence (LL) PDF",
     category: "Vehicle Services",
@@ -593,6 +605,28 @@ export default function ServicesPage() {
   const [panDetailsLoading, setPanDetailsLoading] = useState(false);
   const [panDetailsError, setPanDetailsError] = useState("");
   const [panDetailsResult, setPanDetailsResult] = useState<any>(null);
+
+  // Voter Manual PDF Instant modal states
+  const [voterManualModalOpen, setVoterManualModalOpen] = useState(false);
+  const [voterManualEpic, setVoterManualEpic] = useState("");
+  const [voterManualName, setVoterManualName] = useState("");
+  const [voterManualGender, setVoterManualGender] = useState("MALE");
+  const [voterManualFatherName, setVoterManualFatherName] = useState("");
+  const [voterManualFatherType, setVoterManualFatherType] = useState("Father");
+  const [voterManualAge, setVoterManualAge] = useState("");
+  const [voterManualDistrict, setVoterManualDistrict] = useState("");
+  const [voterManualTahshil, setVoterManualTahshil] = useState("");
+  const [voterManualAssembly, setVoterManualAssembly] = useState("");
+  const [voterManualPartNo, setVoterManualPartNo] = useState("");
+  const [voterManualPartName, setVoterManualPartName] = useState("");
+  const [voterManualAddress, setVoterManualAddress] = useState("");
+  const [voterManualLanguage, setVoterManualLanguage] = useState("HI");
+  const [voterManualNameLocal, setVoterManualNameLocal] = useState("");
+  const [voterManualAddressLocal, setVoterManualAddressLocal] = useState("");
+  const [voterManualPhotoBase64, setVoterManualPhotoBase64] = useState("");
+  const [voterManualLoading, setVoterManualLoading] = useState(false);
+  const [voterManualError, setVoterManualError] = useState("");
+  const [voterManualResult, setVoterManualResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2229,6 +2263,153 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleVoterManualPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setVoterManualError("Photo size must be less than 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setVoterManualPhotoBase64(reader.result as string);
+      setVoterManualError("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleVoterManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEpic = voterManualEpic.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanEpic) {
+      setVoterManualError("Please enter valid Voter EPIC number (e.g. ABC1234567)");
+      return;
+    }
+    if (!voterManualName.trim()) {
+      setVoterManualError("Please enter full name in English");
+      return;
+    }
+    if (!voterManualFatherName.trim()) {
+      setVoterManualError("Please enter father/husband name in English");
+      return;
+    }
+    if (!voterManualTahshil.trim()) {
+      setVoterManualError("Please enter Tahshil / Block name");
+      return;
+    }
+    if (!voterManualAddress.trim()) {
+      setVoterManualError("Please enter full address in English");
+      return;
+    }
+    if (!voterManualPhotoBase64) {
+      setVoterManualError("Please upload applicant photo (JPEG/PNG)");
+      return;
+    }
+
+    const dynamic = getDynamicService("SVC-VOTER-MANUAL-PDF", 25);
+    if (dynamic.status === "disabled") {
+      setVoterManualError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setVoterManualError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setVoterManualLoading(true);
+    setVoterManualError("");
+    try {
+      const res = await api<any>("/apinice/voter-manual-pdf", {
+        method: "POST",
+        body: JSON.stringify({
+          epic_no: cleanEpic,
+          name: voterManualName.trim().toUpperCase(),
+          gender: voterManualGender,
+          father_name: voterManualFatherName.trim(),
+          father_type: voterManualFatherType,
+          age: voterManualAge.trim(),
+          district: voterManualDistrict.trim(),
+          tahshil: voterManualTahshil.trim(),
+          assembly_no_name: voterManualAssembly.trim(),
+          part_no: voterManualPartNo.trim(),
+          part_name: voterManualPartName.trim(),
+          address: voterManualAddress.trim(),
+          language: voterManualLanguage,
+          name_local: voterManualNameLocal.trim(),
+          address_local: voterManualAddressLocal.trim(),
+          photoBase64: voterManualPhotoBase64,
+        }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdfUrl || res.pdfBase64 || res.data) {
+        setVoterManualResult(res);
+      } else {
+        setVoterManualError("No PDF generated for this request. Please try again.");
+      }
+    } catch (err: any) {
+      setVoterManualError(err.message || "Failed to generate Voter ID manual card PDF");
+    } finally {
+      setVoterManualLoading(false);
+    }
+  };
+
+  const printVoterManualSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print receipt slip");
+      return;
+    }
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Voter Card Manual Print Receipt - ${res.epicNo || voterManualEpic}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #7c3aed; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #f5f3ff; width: 40%; color: #6d28d9; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#6d28d9;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#7c3aed;">Digital Voter ID Card Manual PDF Receipt</h3>
+          </div>
+          <div class="meta">
+            <div><strong>EPIC Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#7c3aed;">${res.epicNo || voterManualEpic}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">EPIC / Voter ID Number</td><td><strong style="font-size:15px;color:#7c3aed;font-family:monospace;">${res.epicNo || voterManualEpic}</strong></td></tr>
+            <tr><td class="label">Voter Full Name</td><td><strong style="font-size:14px;color:#0f172a;">${res.name || voterManualName}</strong></td></tr>
+            <tr><td class="label">Father / Husband Name</td><td><strong>${voterManualFatherName} (${voterManualFatherType})</strong></td></tr>
+            <tr><td class="label">Gender / Language</td><td>${voterManualGender} | ${voterManualLanguage}</td></tr>
+            <tr><td class="label">Tahshil / District</td><td>${voterManualTahshil}${voterManualDistrict ? ", " + voterManualDistrict : ""}</td></tr>
+            <tr><td class="label">Full Address</td><td>${voterManualAddress}</td></tr>
+            <tr><td class="label">Print Generation Status</td><td><strong style="color:#16a34a;">INSTANT PDF GENERATED ✓</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official Voter ID Card custom PDF generation receipt issued by LD Service Zone via Election Commission formatted templates.<br/>
+            Valid for citizen identity verification, address documentation, and proof of submission.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -2615,6 +2796,10 @@ export default function ServicesPage() {
                   }
                   if (item.id === "SVC-VOTER-MOBILE-LINK") {
                     setVoterLinkModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-VOTER-MANUAL-PDF") {
+                    setVoterManualModalOpen(true);
                     return;
                   }
                   if (item.id === "SVC-LL-PDF") {
@@ -6762,6 +6947,405 @@ export default function ServicesPage() {
                       <Search size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-PAN-DETAILS", 15).price.toFixed(2)} & Verify PAN
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 23: Voter Manual PDF Instant (v2) */}
+      {voterManualModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="px-6 py-5 bg-gradient-to-r from-purple-50 via-indigo-50/40 to-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center text-lg shadow-md shadow-purple-500/20">
+                  🪪
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Voter Manual PDF Instant (v2)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Custom Photo Upload & Multilingual Regional Card Generation
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setVoterManualModalOpen(false);
+                  setVoterManualError("");
+                  setVoterManualResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {voterManualError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{voterManualError}</span>
+              </div>
+            )}
+
+            {voterManualResult ? (
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-purple-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-purple-950 text-base">
+                    {voterManualResult.name || voterManualName}
+                  </h4>
+                  <p className="text-xs text-purple-700 font-mono mt-0.5 font-bold">
+                    EPIC: {voterManualResult.epicNo || voterManualEpic}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">EPIC Number:</span>
+                    <span className="font-mono font-extrabold text-purple-700">{voterManualResult.epicNo || voterManualEpic}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Voter Full Name:</span>
+                    <span className="font-bold text-slate-800">{voterManualResult.name || voterManualName}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Father / Husband Name:</span>
+                    <span className="font-bold text-slate-800">{voterManualFatherName} ({voterManualFatherType})</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Language:</span>
+                    <span className="font-bold text-slate-800">{voterManualLanguage}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Card Status:</span>
+                    <span className="font-bold text-emerald-600">PDF GENERATED & READY ✓</span>
+                  </div>
+                  {voterManualResult.balance !== undefined && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{Number(voterManualResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  {(voterManualResult.pdfUrl || voterManualResult.pdfBase64) && (
+                    <a
+                      href={voterManualResult.pdfUrl || voterManualResult.pdfBase64}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={`Voter_${voterManualResult.epicNo || voterManualEpic}.pdf`}
+                      className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                    >
+                      <Download size={14} /> Download Voter Card PDF
+                    </a>
+                  )}
+                  <button
+                    onClick={() => printVoterManualSlip(voterManualResult)}
+                    className="w-full py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print Receipt Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setVoterManualResult(null);
+                      setVoterManualEpic("");
+                      setVoterManualName("");
+                      setVoterManualFatherName("");
+                      setVoterManualPhotoBase64("");
+                      setVoterManualError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Generate Another Voter Card
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleVoterManualSubmit} className="p-6 space-y-4 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      EPIC / Voter ID Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. ABC1234567"
+                      value={voterManualEpic}
+                      onChange={(e) => setVoterManualEpic(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono text-xs uppercase focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Full Name (English) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. RAHUL KUMAR"
+                      value={voterManualName}
+                      onChange={(e) => setVoterManualName(e.target.value.toUpperCase())}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs uppercase focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Father / Husband Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. SURESH KUMAR"
+                      value={voterManualFatherName}
+                      onChange={(e) => setVoterManualFatherName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Relation Type
+                      </label>
+                      <select
+                        value={voterManualFatherType}
+                        onChange={(e) => setVoterManualFatherType(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                      >
+                        <option value="Father">Father</option>
+                        <option value="Husband">Husband</option>
+                        <option value="Mother">Mother</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Gender *
+                      </label>
+                      <select
+                        value={voterManualGender}
+                        onChange={(e) => setVoterManualGender(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                      >
+                        <option value="MALE">MALE</option>
+                        <option value="FEMALE">FEMALE</option>
+                        <option value="OTHER">OTHER</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Age or Date of Birth
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 32 or 15/08/1992"
+                      value={voterManualAge}
+                      onChange={(e) => setVoterManualAge(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Regional Language *
+                    </label>
+                    <select
+                      value={voterManualLanguage}
+                      onChange={(e) => setVoterManualLanguage(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-purple-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    >
+                      <option value="HI">HI — Hindi</option>
+                      <option value="OR">OR — Odia</option>
+                      <option value="BN">BN — Bengali</option>
+                      <option value="TE">TE — Telugu</option>
+                      <option value="TA">TA — Tamil</option>
+                      <option value="MR">MR — Marathi</option>
+                      <option value="GU">GU — Gujarati</option>
+                      <option value="PA">PA — Punjabi</option>
+                      <option value="KN">KN — Kannada</option>
+                      <option value="SD">SD — Sindhi</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tahshil / Block *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Bhubaneswar"
+                      value={voterManualTahshil}
+                      onChange={(e) => setVoterManualTahshil(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      District (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Khordha"
+                      value={voterManualDistrict}
+                      onChange={(e) => setVoterManualDistrict(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Assembly Constituency (No. & Name)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 112 - Bhubaneswar Central"
+                      value={voterManualAssembly}
+                      onChange={(e) => setVoterManualAssembly(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Part No.
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 45"
+                        value={voterManualPartNo}
+                        onChange={(e) => setVoterManualPartNo(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Part Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Govt High School"
+                        value={voterManualPartName}
+                        onChange={(e) => setVoterManualPartName(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Full Address (English) *
+                  </label>
+                  <textarea
+                    required
+                    rows={2}
+                    placeholder="Enter full residential address..."
+                    value={voterManualAddress}
+                    onChange={(e) => setVoterManualAddress(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Name in Local Language (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ରାହୁଲ କୁମାର / राहुल कुमार"
+                      value={voterManualNameLocal}
+                      onChange={(e) => setVoterManualNameLocal(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Address in Local Language (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ଘର ନଂ ୧୨, ଭୁବନେଶ୍ୱର"
+                      value={voterManualAddressLocal}
+                      onChange={(e) => setVoterManualAddressLocal(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Photo Upload */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Applicant Passport Photo * (JPEG/PNG, Max 2MB)
+                  </label>
+                  <div className="flex items-center gap-4 p-3.5 rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/50 hover:bg-purple-50 transition">
+                    {voterManualPhotoBase64 ? (
+                      <div className="relative">
+                        <img
+                          src={voterManualPhotoBase64}
+                          alt="Applicant Preview"
+                          className="w-16 h-20 object-cover rounded-xl border-2 border-purple-400 shadow-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setVoterManualPhotoBase64("")}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-bold"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-20 rounded-xl bg-purple-100 border border-purple-300 flex flex-col items-center justify-center text-purple-600 text-xs font-semibold">
+                        <span>📷</span>
+                        <span className="text-[10px] mt-1">Photo</span>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg"
+                        onChange={handleVoterManualPhotoUpload}
+                        className="text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Clear passport style photo against white or light background.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={voterManualLoading || !voterManualEpic || !voterManualName || !voterManualPhotoBase64}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {voterManualLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Generating High-Res Voter Card PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileCheck size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-VOTER-MANUAL-PDF", 25).price.toFixed(2)} & Generate Card
                       </span>
                     </>
                   )}
