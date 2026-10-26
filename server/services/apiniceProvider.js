@@ -777,6 +777,51 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async lookupIfscDetails({ ifsc }) {
+    const cleanIfsc = clean(ifsc).replace(/\s+/g, "").toUpperCase()
+
+    if (!cleanIfsc || cleanIfsc.length !== 11) {
+      throw new Error("Valid 11-character Bank IFSC Code is required (e.g. SBIN0001234)")
+    }
+
+    const key = this.getApiKey()
+    const endpoint = `ifsc_details?api_key=${encodeURIComponent(key)}&ifsc=${encodeURIComponent(cleanIfsc)}`
+
+    const response = await this.request(endpoint, {
+      method: "GET",
+      timeoutMs: 30000,
+    })
+
+    if (
+      response.status === false ||
+      response.status === "404" ||
+      (!response.data && !response.BANK && !response.bank)
+    ) {
+      throw new Error(response.message || "Invalid IFSC code or bank branch details not found")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "IFSC_DETAILS",
+      ifsc: cleanIfsc,
+      bank: data.BANK || data.bank || data.bank_name || "",
+      branch: data.BRANCH || data.branch || "",
+      city: data.CITY || data.city || "",
+      district: data.DISTRICT || data.district || "",
+      state: data.STATE || data.state || "",
+      address: data.ADDRESS || data.address || "",
+      contact: data.CONTACT || data.contact || "",
+      micr: data.MICR || data.micr || "",
+      imps: Boolean(data.IMPS ?? data.imps),
+      neft: Boolean(data.NEFT ?? data.neft),
+      rtgs: Boolean(data.RTGS ?? data.rtgs),
+      upi: Boolean(data.UPI ?? data.upi),
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

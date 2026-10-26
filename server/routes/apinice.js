@@ -201,6 +201,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#0D9488",
     status: "active",
   },
+  {
+    id: "SVC-IFSC-DETAILS",
+    name: "Bank IFSC Code Details",
+    category: "Financial",
+    customerPrice: 5,
+    commission: 1,
+    processingTime: "Instant",
+    documents: ["11-character Bank IFSC Code"],
+    color: "#2563EB",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -2039,6 +2050,122 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "Passport details verified successfully",
+    })
+  }
+
+  // 20. POST /api/apinice/ifsc-details
+  if (pathName === "/api/apinice/ifsc-details" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-IFSC-DETAILS",
+      5,
+      "Bank IFSC Code Details",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const ifsc = String(input.ifsc || input.ifscCode || input.ifsc_code || "").trim().toUpperCase()
+
+    if (!ifsc || ifsc.length !== 11) {
+      return respond(400, { error: "Valid 11-character Bank IFSC Code is required (e.g. SBIN0001234)." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.lookupIfscDetails({ ifsc })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to lookup bank IFSC details",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Bank IFSC Lookup (${result.bank || "Bank"}, ${result.branch || "Branch"} - IFSC: ${ifsc})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-IFSC-DETAILS",
+      referenceId: ifsc,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-IFSC-DETAILS",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: ifsc,
+      bank: result.bank,
+      branch: result.branch,
+      city: result.city,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-IFSC-DETAILS",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      ifsc,
+      bank: result.bank,
+      branch: result.branch,
+      city: result.city,
+      district: result.district,
+      state: result.state,
+      address: result.address,
+      contact: result.contact,
+      micr: result.micr,
+      imps: result.imps,
+      neft: result.neft,
+      rtgs: result.rtgs,
+      upi: result.upi,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Bank IFSC details fetched successfully",
     })
   }
 

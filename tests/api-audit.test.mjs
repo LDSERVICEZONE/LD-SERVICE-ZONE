@@ -51,6 +51,7 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("npci-aadhaar-link-status")) return Response.json({ status: true, StatusCode: 100, message: "NPCI Data fetched successfully", data: { aadhaar: "543210987654", bank: "STATE BANK OF INDIA", status: "ACTIVE", last_update: "2024-01-15" }, balance: "48.10" });
     if (String(url).includes("gst_details")) return Response.json({ status: "200", details: { gstin: "24AAACC1206D1ZM", legal_name: "ABC PRIVATE LIMITED", trade_name: "ABC TECH", status: "Active", constitution: "Private Limited Company", tax_payer_type: "Regular", registration_date: "01/07/2017", state_jurisdiction: "Ward 1, Range 2", principal_address: "123 Commercial Plaza, Ahmedabad, Gujarat, 380001" }, balance: "48.10" });
     if (String(url).includes("passport_verification")) return Response.json({ status: true, message: "Passport Data fetched successfully", data: { holder_name: "SURESH KUMAR PATEL", dob: "15-08-1988", passport_number: "M1234567", application_date: "10-02-2023", file_number: "CA1073849182390" }, balance: "48.10" });
+    if (String(url).includes("ifsc_details")) return Response.json({ status: "200", data: { BANK: "STATE BANK OF INDIA", BRANCH: "BHUBANESWAR MAIN", CITY: "BHUBANESWAR", DISTRICT: "KHORDHA", STATE: "ODISHA", ADDRESS: "MAIN BRANCH, UNIT 1", CONTACT: "0674-2500000", IFSC: "SBIN0001234", MICR: "751002002", IMPS: true, NEFT: true, RTGS: true, UPI: true }, balance: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -1105,6 +1106,32 @@ test("retailer can verify passport details", async () => {
   assert.equal(res.data.passportNumber, "M1234567");
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can lookup bank IFSC details", async () => {
+  const invalidRes = await request("/apinice/ifsc-details", {
+    token: retailerToken,
+    method: "POST",
+    body: { ifsc: "INVALID" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/ifsc-details", {
+    token: retailerToken,
+    method: "POST",
+    body: { ifsc: "SBIN0001234" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-IFSC-DETAILS");
+  assert.equal(res.data.bank, "STATE BANK OF INDIA");
+  assert.equal(res.data.branch, "BHUBANESWAR MAIN");
+  assert.equal(res.data.ifsc, "SBIN0001234");
+  assert.equal(res.data.micr, "751002002");
+  assert.equal(res.data.upi, true);
+  assert.ok(res.data.ledgerId);
+});
+
 
 
 

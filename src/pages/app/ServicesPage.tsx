@@ -288,6 +288,18 @@ const PRINT_SERVICES = [
     color: "#0D9488",
     description: "Verify passport holder name, number, DOB, and file application status",
   },
+  {
+    id: "SVC-IFSC-DETAILS",
+    name: "Bank IFSC Code Details",
+    category: "Financial Documents",
+    badge: "IFSC LOOKUP",
+    icon: "🏦",
+    processingTime: "Instant",
+    defaultPrice: 5,
+    documents: ["11-character Bank IFSC Code"],
+    color: "#2563EB",
+    description: "Instant lookup for Bank Name, Branch, MICR, Address, and NEFT/RTGS/IMPS/UPI support",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -528,6 +540,13 @@ export default function ServicesPage() {
   const [passportLoading, setPassportLoading] = useState(false);
   const [passportError, setPassportError] = useState("");
   const [passportResult, setPassportResult] = useState<any>(null);
+
+  // Bank IFSC Details modal states
+  const [ifscModalOpen, setIfscModalOpen] = useState(false);
+  const [ifscCode, setIfscCode] = useState("");
+  const [ifscLoading, setIfscLoading] = useState(false);
+  const [ifscError, setIfscError] = useState("");
+  const [ifscResult, setIfscResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1834,6 +1853,109 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleIfscSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanIfsc = ifscCode.trim().toUpperCase();
+    if (!cleanIfsc || cleanIfsc.length !== 11) {
+      setIfscError("Please enter valid 11-character Bank IFSC Code (e.g. SBIN0001234)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-IFSC-DETAILS", 5);
+    if (dynamic.status === "disabled") {
+      setIfscError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setIfscError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setIfscLoading(true);
+    setIfscError("");
+    try {
+      const res = await api<any>("/apinice/ifsc-details", {
+        method: "POST",
+        body: JSON.stringify({ ifsc: cleanIfsc }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.bank || res.data) {
+        setIfscResult(res);
+      } else {
+        setIfscError("No bank branch record found for this IFSC code.");
+      }
+    } catch (err: any) {
+      setIfscError(err.message || "Failed to lookup bank IFSC details");
+    } finally {
+      setIfscLoading(false);
+    }
+  };
+
+  const printIfscSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const d = res.data || res;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Bank IFSC Details - ${res.ifsc || ifscCode}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #eff6ff; width: 40%; color: #1e40af; }
+            .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: bold; background: #dbeafe; color: #1e40af; margin-right: 4px; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e40af;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Financial Services Center</p>
+            <h3 style="margin:8px 0 0;color:#2563eb;">Bank Branch & IFSC Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>IFSC Code:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#2563eb;">${res.ifsc || ifscCode}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Bank Name</td><td><strong style="font-size:14px;color:#0f172a;">${d.bank || res.bank || "N/A"}</strong></td></tr>
+            <tr><td class="label">Branch Name</td><td><strong>${d.branch || res.branch || "N/A"}</strong></td></tr>
+            <tr><td class="label">IFSC Code</td><td><span style="font-family:monospace;font-weight:bold;color:#2563eb;font-size:14px;">${res.ifsc || ifscCode}</span></td></tr>
+            <tr><td class="label">MICR Code</td><td><span style="font-family:monospace;font-weight:bold;">${d.micr || res.micr || "N/A"}</span></td></tr>
+            <tr><td class="label">Branch Address</td><td>${d.address || res.address || "N/A"}</td></tr>
+            <tr><td class="label">City / District</td><td>${d.city || res.city || ""}${d.district || res.district ? `, ${d.district || res.district}` : ""}</td></tr>
+            <tr><td class="label">State</td><td>${d.state || res.state || "N/A"}</td></tr>
+            <tr><td class="label">Branch Contact</td><td>${d.contact || res.contact || "N/A"}</td></tr>
+            <tr><td class="label">Supported Payment Modes</td><td>
+              ${(d.imps ?? res.imps) ? '<span class="badge">IMPS ✓</span>' : ''}
+              ${(d.neft ?? res.neft) ? '<span class="badge">NEFT ✓</span>' : ''}
+              ${(d.rtgs ?? res.rtgs) ? '<span class="badge">RTGS ✓</span>' : ''}
+              ${(d.upi ?? res.upi) ? '<span class="badge">UPI ✓</span>' : ''}
+            </td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official Reserve Bank of India (RBI) Bank Branch & IFSC lookup slip issued by LD Service Zone.<br/>
+            Valid for RTGS/NEFT transfers, bank account verification, customer cheque clearing, and DBT mandate setups.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -2262,6 +2384,10 @@ export default function ServicesPage() {
                     setPassportModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-IFSC-DETAILS") {
+                    setIfscModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -2325,6 +2451,8 @@ export default function ServicesPage() {
                       ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
                       : item.badge === "PASSPORT VERIFY"
                       ? "bg-teal-50 text-teal-700 border border-teal-200"
+                      : item.badge === "IFSC LOOKUP"
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -5719,6 +5847,185 @@ export default function ServicesPage() {
                       <Search size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-PASSPORT-VERIFY", 20).price.toFixed(2)} & Verify Passport
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 19: Bank IFSC Code Details */}
+      {ifscModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-50 via-indigo-50/40 to-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-lg shadow-md shadow-blue-500/20">
+                  🏦
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Bank IFSC Code Lookup
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Reserve Bank of India (RBI) Financial Directory
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIfscModalOpen(false);
+                  setIfscError("");
+                  setIfscResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {ifscError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{ifscError}</span>
+              </div>
+            )}
+
+            {ifscResult ? (
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-blue-950 text-base">
+                    {ifscResult.bank || "Verified Bank"}
+                  </h4>
+                  <p className="text-xs text-blue-700 mt-0.5 font-semibold">
+                    Branch: {ifscResult.branch || "Main"}
+                  </p>
+                  <p className="text-xs text-blue-600 font-mono mt-1 font-bold">
+                    IFSC: {ifscResult.ifsc || ifscCode}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Bank Name:</span>
+                    <span className="font-bold text-slate-800">{ifscResult.bank}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Branch Name:</span>
+                    <span className="font-bold text-slate-800">{ifscResult.branch}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">IFSC Code:</span>
+                    <span className="font-mono font-bold text-blue-700">{ifscResult.ifsc || ifscCode}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">MICR Code:</span>
+                    <span className="font-mono font-bold text-slate-800">{ifscResult.micr || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Branch Address:</span>
+                    <span className="font-medium text-slate-800 text-right max-w-[260px]">{ifscResult.address || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">City / District:</span>
+                    <span className="font-medium text-slate-800">{ifscResult.city || ""}{ifscResult.district ? `, ${ifscResult.district}` : ""}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">State:</span>
+                    <span className="font-medium text-slate-800">{ifscResult.state || "N/A"}</span>
+                  </div>
+                  {ifscResult.contact && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Branch Contact:</span>
+                      <span className="font-mono text-slate-800">{ifscResult.contact}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Payment Modes:</span>
+                    <div className="flex gap-1">
+                      {ifscResult.imps && <span className="px-1.5 py-0.5 text-[10px] bg-emerald-100 text-emerald-800 rounded font-bold">IMPS</span>}
+                      {ifscResult.neft && <span className="px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-800 rounded font-bold">NEFT</span>}
+                      {ifscResult.rtgs && <span className="px-1.5 py-0.5 text-[10px] bg-indigo-100 text-indigo-800 rounded font-bold">RTGS</span>}
+                      {ifscResult.upi && <span className="px-1.5 py-0.5 text-[10px] bg-teal-100 text-teal-800 rounded font-bold">UPI</span>}
+                    </div>
+                  </div>
+                  {ifscResult.balance !== undefined && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{Number(ifscResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    onClick={() => printIfscSlip(ifscResult)}
+                    className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print Bank Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIfscResult(null);
+                      setIfscCode("");
+                      setIfscError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Lookup Another IFSC
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleIfscSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    11-Character Bank IFSC Code *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={11}
+                    placeholder="e.g. SBIN0001234 or HDFC0000001"
+                    value={ifscCode}
+                    onChange={(e) => setIfscCode(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm uppercase tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter any Indian bank IFSC code (e.g. SBI, HDFC, ICICI, PNB, Canara).
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={ifscLoading || !ifscCode || ifscCode.length !== 11}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {ifscLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Fetching Bank Details...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-IFSC-DETAILS", 5).price.toFixed(2)} & Lookup IFSC
                       </span>
                     </>
                   )}
