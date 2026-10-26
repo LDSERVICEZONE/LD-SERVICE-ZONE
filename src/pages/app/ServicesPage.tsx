@@ -242,6 +242,18 @@ const PRINT_SERVICES = [
     description: "Convert password-protected e-Aadhaar PDF into thermal/PVC card printable layout",
   },
   {
+    id: "SVC-AADHAAR-MANUAL",
+    name: "Aadhaar Manual Print (v2)",
+    category: "Citizen Documents",
+    badge: "AADHAAR V2",
+    icon: "🪪",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["Aadhaar Number", "Full Name", "Father Name", "DOB", "Address", "Language", "Photo"],
+    color: "#059669",
+    description: "Custom Aadhaar card PDF generation with applicant photo upload and regional language support",
+  },
+  {
     id: "SVC-AGRISTACK-FARMER",
     name: "AgriStack Farmer PDF Check",
     category: "Citizen Documents",
@@ -336,6 +348,18 @@ const PRINT_SERVICES = [
     documents: ["10-character PAN Card Number"],
     color: "#6366F1",
     description: "Verify PAN cardholder full name, father's name, DOB, and active status instantly",
+  },
+  {
+    id: "SVC-PAN-PRINT-V2",
+    name: "PAN Card High-Res Print (v2)",
+    category: "Financial Documents",
+    badge: "PAN PRINT",
+    icon: "🪪",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["PAN Number", "Full Name", "Father Name", "DOB", "Card Type", "Photo", "Signature"],
+    color: "#4338CA",
+    description: "Generate high-resolution UTI / NSDL printable PAN card PDF with photo & signature",
   },
 ];
 
@@ -627,6 +651,41 @@ export default function ServicesPage() {
   const [voterManualLoading, setVoterManualLoading] = useState(false);
   const [voterManualError, setVoterManualError] = useState("");
   const [voterManualResult, setVoterManualResult] = useState<any>(null);
+
+  // Aadhaar Manual Print (v2) modal states
+  const [aadhaarManualModalOpen, setAadhaarManualModalOpen] = useState(false);
+  const [aadhaarManualNo, setAadhaarManualNo] = useState("");
+  const [aadhaarManualName, setAadhaarManualName] = useState("");
+  const [aadhaarManualFatherName, setAadhaarManualFatherName] = useState("");
+  const [aadhaarManualDob, setAadhaarManualDob] = useState("");
+  const [aadhaarManualGender, setAadhaarManualGender] = useState("Male");
+  const [aadhaarManualHouseno, setAadhaarManualHouseno] = useState("");
+  const [aadhaarManualStreet, setAadhaarManualStreet] = useState("");
+  const [aadhaarManualVtc, setAadhaarManualVtc] = useState("");
+  const [aadhaarManualCity, setAadhaarManualCity] = useState("");
+  const [aadhaarManualState, setAadhaarManualState] = useState("");
+  const [aadhaarManualPincode, setAadhaarManualPincode] = useState("");
+  const [aadhaarManualLanguage, setAadhaarManualLanguage] = useState("HI");
+  const [aadhaarManualNameLocal, setAadhaarManualNameLocal] = useState("");
+  const [aadhaarManualAddressLocal, setAadhaarManualAddressLocal] = useState("");
+  const [aadhaarManualPhotoBase64, setAadhaarManualPhotoBase64] = useState("");
+  const [aadhaarManualLoading, setAadhaarManualLoading] = useState(false);
+  const [aadhaarManualError, setAadhaarManualError] = useState("");
+  const [aadhaarManualResult, setAadhaarManualResult] = useState<any>(null);
+
+  // PAN Card Manual Print (v2) modal states
+  const [panPrintModalOpen, setPanPrintModalOpen] = useState(false);
+  const [panPrintPanNo, setPanPrintPanNo] = useState("");
+  const [panPrintName, setPanPrintName] = useState("");
+  const [panPrintFatherName, setPanPrintFatherName] = useState("");
+  const [panPrintDob, setPanPrintDob] = useState("");
+  const [panPrintGender, setPanPrintGender] = useState("Male");
+  const [panPrintType, setPanPrintType] = useState("UTI-NONMINOR");
+  const [panPrintPhotoBase64, setPanPrintPhotoBase64] = useState("");
+  const [panPrintSigBase64, setPanPrintSigBase64] = useState("");
+  const [panPrintLoading, setPanPrintLoading] = useState(false);
+  const [panPrintError, setPanPrintError] = useState("");
+  const [panPrintResult, setPanPrintResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2410,6 +2469,334 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleAadhaarManualPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setAadhaarManualError("Photo size must be less than 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAadhaarManualPhotoBase64(reader.result as string);
+      setAadhaarManualError("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAadhaarManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanAadhaar = aadhaarManualNo.trim().replace(/\D/g, "");
+    if (!cleanAadhaar || cleanAadhaar.length !== 12) {
+      setAadhaarManualError("Please enter valid 12-digit Aadhaar number");
+      return;
+    }
+    if (!aadhaarManualName.trim()) {
+      setAadhaarManualError("Please enter citizen full name in English");
+      return;
+    }
+    if (!aadhaarManualFatherName.trim()) {
+      setAadhaarManualError("Please enter father/guardian name in English");
+      return;
+    }
+    if (!aadhaarManualDob.trim()) {
+      setAadhaarManualError("Please select date of birth");
+      return;
+    }
+    if (!aadhaarManualHouseno.trim()) {
+      setAadhaarManualError("Please enter house/building number");
+      return;
+    }
+    if (!aadhaarManualStreet.trim()) {
+      setAadhaarManualError("Please enter street/locality");
+      return;
+    }
+    if (!aadhaarManualVtc.trim()) {
+      setAadhaarManualError("Please enter Village/Town & Post Office");
+      return;
+    }
+    if (!aadhaarManualCity.trim()) {
+      setAadhaarManualError("Please enter city/district");
+      return;
+    }
+    if (!aadhaarManualState.trim()) {
+      setAadhaarManualError("Please enter state name");
+      return;
+    }
+    if (!aadhaarManualPincode.trim() || aadhaarManualPincode.trim().length !== 6) {
+      setAadhaarManualError("Please enter valid 6-digit PIN code");
+      return;
+    }
+    if (!aadhaarManualNameLocal.trim()) {
+      setAadhaarManualError("Please enter name in local regional script");
+      return;
+    }
+    if (!aadhaarManualAddressLocal.trim()) {
+      setAadhaarManualError("Please enter full address in local regional script");
+      return;
+    }
+    if (!aadhaarManualPhotoBase64) {
+      setAadhaarManualError("Please upload applicant photo (JPEG/PNG)");
+      return;
+    }
+
+    const dynamic = getDynamicService("SVC-AADHAAR-MANUAL", 25);
+    if (dynamic.status === "disabled") {
+      setAadhaarManualError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setAadhaarManualError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setAadhaarManualLoading(true);
+    setAadhaarManualError("");
+    try {
+      const res = await api<any>("/apinice/aadhar-manual", {
+        method: "POST",
+        body: JSON.stringify({
+          aadharno: cleanAadhaar,
+          name: aadhaarManualName.trim(),
+          fathername: aadhaarManualFatherName.trim(),
+          dobadhar: aadhaarManualDob.trim(),
+          gender: aadhaarManualGender,
+          houseno: aadhaarManualHouseno.trim(),
+          streetlocality: aadhaarManualStreet.trim(),
+          vtcandpost: aadhaarManualVtc.trim(),
+          city: aadhaarManualCity.trim(),
+          state: aadhaarManualState.trim(),
+          pincode: aadhaarManualPincode.trim(),
+          language: aadhaarManualLanguage,
+          namelocal: aadhaarManualNameLocal.trim(),
+          addresslocal: aadhaarManualAddressLocal.trim(),
+          photoBase64: aadhaarManualPhotoBase64,
+        }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdfUrl || res.pdfBase64 || res.data) {
+        setAadhaarManualResult(res);
+      } else {
+        setAadhaarManualError("No PDF generated for this request. Please try again.");
+      }
+    } catch (err: any) {
+      setAadhaarManualError(err.message || "Failed to generate Aadhaar card manual print PDF");
+    } finally {
+      setAadhaarManualLoading(false);
+    }
+  };
+
+  const printAadhaarManualSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print receipt slip");
+      return;
+    }
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Aadhaar Manual Print Receipt - ${aadhaarManualNo}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #059669; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #ecfdf5; width: 40%; color: #065f46; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#065f46;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#059669;">Digital Aadhaar Card Manual Print PDF Receipt</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Aadhaar Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#059669;">XXXX-XXXX-${aadhaarManualNo.slice(-4)}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Aadhaar Card Number</td><td><strong style="font-size:15px;color:#059669;font-family:monospace;">XXXX-XXXX-${aadhaarManualNo.slice(-4)}</strong></td></tr>
+            <tr><td class="label">Resident Full Name</td><td><strong style="font-size:14px;color:#0f172a;">${aadhaarManualName} (${aadhaarManualNameLocal})</strong></td></tr>
+            <tr><td class="label">Father / Guardian Name</td><td><strong>${aadhaarManualFatherName}</strong></td></tr>
+            <tr><td class="label">DOB / Gender</td><td>${aadhaarManualDob} | ${aadhaarManualGender}</td></tr>
+            <tr><td class="label">Regional Script / Language</td><td>${aadhaarManualLanguage}</td></tr>
+            <tr><td class="label">Registered Address</td><td>${aadhaarManualHouseno}, ${aadhaarManualStreet}, ${aadhaarManualVtc}, ${aadhaarManualCity}, ${aadhaarManualState} - ${aadhaarManualPincode}</td></tr>
+            <tr><td class="label">Print Generation Status</td><td><strong style="color:#16a34a;">OFFICIAL PRINT PDF READY ✓</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official Aadhaar Card custom layout generation receipt issued by LD Service Zone.<br/>
+            Valid for citizen identity verification, address documentation, and proof of submission.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePanPrintPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setPanPrintError("Photo size must be less than 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPanPrintPhotoBase64(reader.result as string);
+      setPanPrintError("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePanPrintSigUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setPanPrintError("Signature size must be less than 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPanPrintSigBase64(reader.result as string);
+      setPanPrintError("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePanPrintSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPan = panPrintPanNo.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      setPanPrintError("Please enter valid 10-character PAN number (e.g. ABCDE1234F)");
+      return;
+    }
+    if (!panPrintName.trim()) {
+      setPanPrintError("Please enter full name as printed on PAN");
+      return;
+    }
+    if (!panPrintFatherName.trim()) {
+      setPanPrintError("Please enter father's name as printed on PAN");
+      return;
+    }
+    if (!panPrintDob.trim()) {
+      setPanPrintError("Please select date of birth");
+      return;
+    }
+    if (!panPrintPhotoBase64) {
+      setPanPrintError("Please upload applicant photo");
+      return;
+    }
+    const isMinor = panPrintType.includes("MINOR") && !panPrintType.includes("NONMINOR");
+    if (!isMinor && !panPrintSigBase64) {
+      setPanPrintError("Please upload applicant signature for adult / NONMINOR card");
+      return;
+    }
+
+    const dynamic = getDynamicService("SVC-PAN-PRINT-V2", 25);
+    if (dynamic.status === "disabled") {
+      setPanPrintError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setPanPrintError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setPanPrintLoading(true);
+    setPanPrintError("");
+    try {
+      const res = await api<any>("/apinice/pan-print-v2", {
+        method: "POST",
+        body: JSON.stringify({
+          pan: cleanPan,
+          name: panPrintName.trim().toUpperCase(),
+          father_name: panPrintFatherName.trim().toUpperCase(),
+          dob: panPrintDob.trim(),
+          gender: panPrintGender,
+          pan_type: panPrintType,
+          photoBase64: panPrintPhotoBase64,
+          signatureBase64: panPrintSigBase64,
+        }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdfUrl || res.pdfBase64 || res.data) {
+        setPanPrintResult(res);
+      } else {
+        setPanPrintError("No PDF generated for this request. Please try again.");
+      }
+    } catch (err: any) {
+      setPanPrintError(err.message || "Failed to generate PAN card high-res print");
+    } finally {
+      setPanPrintLoading(false);
+    }
+  };
+
+  const printPanPrintSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print receipt slip");
+      return;
+    }
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PAN Card Print Receipt - ${panPrintPanNo}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #4338ca; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #eef2ff; width: 40%; color: #3730a3; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#3730a3;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#4338ca;">High-Resolution PAN Card Manual Print Receipt</h3>
+          </div>
+          <div class="meta">
+            <div><strong>PAN Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#4338ca;">${res.panNumber || panPrintPanNo}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:15px;color:#4338ca;font-family:monospace;">${res.panNumber || panPrintPanNo}</strong></td></tr>
+            <tr><td class="label">Cardholder Full Name</td><td><strong style="font-size:14px;color:#0f172a;">${panPrintName}</strong></td></tr>
+            <tr><td class="label">Father's Name</td><td><strong>${panPrintFatherName}</strong></td></tr>
+            <tr><td class="label">DOB / Gender</td><td>${panPrintDob} | ${panPrintGender}</td></tr>
+            <tr><td class="label">Print Template / Type</td><td>${panPrintType}</td></tr>
+            <tr><td class="label">Print Status</td><td><strong style="color:#16a34a;">HIGH-RES PDF GENERATED ✓</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official UTI/NSDL formatted PAN card custom print receipt issued by LD Service Zone.<br/>
+            Valid for citizen identity verification, banking KYC, and physical card printing.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -2822,6 +3209,10 @@ export default function ServicesPage() {
                     setPvcModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-AADHAAR-MANUAL") {
+                    setAadhaarManualModalOpen(true);
+                    return;
+                  }
                   if (item.id === "SVC-AGRISTACK-FARMER") {
                     setFarmerModalOpen(true);
                     return;
@@ -2852,6 +3243,10 @@ export default function ServicesPage() {
                   }
                   if (item.id === "SVC-PAN-DETAILS") {
                     setPanDetailsModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-PAN-PRINT-V2") {
+                    setPanPrintModalOpen(true);
                     return;
                   }
                   if (item.id === "PAN-FIND") {
@@ -7348,10 +7743,696 @@ export default function ServicesPage() {
                         Pay ₹{getDynamicService("SVC-VOTER-MANUAL-PDF", 25).price.toFixed(2)} & Generate Card
                       </span>
                     </>
-                  )}
-                </button>
-              </form>
-            )}
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 24: AADHAAR MANUAL PRINT (V2)                           */}
+      {/* ------------------------------------------------------------- */}
+      {aadhaarManualModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl">
+                  🪪
+                </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-slate-900 text-lg">Aadhaar Card Manual Print (v2)</h3>
+                  <p className="text-xs text-slate-500">Custom High-Res Aadhaar PDF with Photo & Regional Script</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setAadhaarManualModalOpen(false);
+                  setAadhaarManualError("");
+                  setAadhaarManualResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 flex items-center justify-center border border-slate-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-xs">
+                <div className="flex items-center gap-2 text-emerald-900">
+                  <Clock size={16} className="text-emerald-600" />
+                  <span>Instant Multi-Language Aadhaar PDF Generation</span>
+                </div>
+                <span className="font-extrabold text-sm text-emerald-700">
+                  Fee: ₹{getDynamicService("SVC-AADHAAR-MANUAL", 25).price.toFixed(2)}
+                </span>
+              </div>
+
+              {aadhaarManualError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                  <span>{aadhaarManualError}</span>
+                </div>
+              )}
+
+              {aadhaarManualResult ? (
+                <div className="space-y-4 py-2">
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center space-y-2">
+                    <CheckCircle2 size={32} className="mx-auto text-emerald-600" />
+                    <h4 className="font-bold text-sm">Aadhaar Card Print PDF Generated Successfully!</h4>
+                    <p className="text-xs text-emerald-700">
+                      Card generated for <strong>{aadhaarManualResult.name || aadhaarManualName}</strong> (Aadhaar: <span className="font-mono">XXXX-XXXX-{aadhaarManualNo.slice(-4)}</span>).
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pdfTarget = aadhaarManualResult.pdfUrl || aadhaarManualResult.pdfBase64 || aadhaarManualResult.pdf || aadhaarManualResult.data?.pdf_url;
+                        if (pdfTarget) {
+                          if (pdfTarget.startsWith("http")) {
+                            window.open(pdfTarget, "_blank");
+                          } else {
+                            downloadBase64Pdf(pdfTarget, `Aadhaar_${aadhaarManualNo}.pdf`);
+                          }
+                        }
+                      }}
+                      className="py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition"
+                    >
+                      <Download size={16} />
+                      Download PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => printAadhaarManualSlip(aadhaarManualResult)}
+                      className="py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                    >
+                      <Printer size={16} />
+                      Print Slip
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAadhaarManualResult(null);
+                      setAadhaarManualNo("");
+                      setAadhaarManualName("");
+                      setAadhaarManualFatherName("");
+                      setAadhaarManualPhotoBase64("");
+                    }}
+                    className="w-full py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-xs transition"
+                  >
+                    Print Another Aadhaar Card
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleAadhaarManualSubmit} className="space-y-4">
+                  {/* Aadhaar Number */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      12-Digit Aadhaar Card Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={14}
+                      placeholder="e.g. 1234 5678 9012"
+                      value={aadhaarManualNo}
+                      onChange={(e) => setAadhaarManualNo(e.target.value.replace(/[^\d\s]/g, ""))}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono text-xs tracking-wider focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* English Names */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Resident Full Name (English) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Rahul Kumar Nayak"
+                        value={aadhaarManualName}
+                        onChange={(e) => setAadhaarManualName(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Father / Guardian Name (English) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Bijay Kumar Nayak"
+                        value={aadhaarManualFatherName}
+                        onChange={(e) => setAadhaarManualFatherName(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* DOB & Gender */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Date of Birth (DOB) *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={aadhaarManualDob}
+                        onChange={(e) => setAadhaarManualDob(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Gender *
+                      </label>
+                      <select
+                        value={aadhaarManualGender}
+                        onChange={(e) => setAadhaarManualGender(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Transgender">Transgender</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Address Fields */}
+                  <div className="space-y-3 pt-1 border-t border-slate-100">
+                    <p className="text-xs font-bold text-slate-800">Residential Address Details</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          House / Building No. *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Flat 104, Sai Residency"
+                          value={aadhaarManualHouseno}
+                          onChange={(e) => setAadhaarManualHouseno(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Street / Locality / Sector *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Master Canteen Road"
+                          value={aadhaarManualStreet}
+                          onChange={(e) => setAadhaarManualStreet(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Village / Town & Post Office (VTC) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Sahid Nagar SO"
+                          value={aadhaarManualVtc}
+                          onChange={(e) => setAadhaarManualVtc(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          City / District *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Khordha"
+                          value={aadhaarManualCity}
+                          onChange={(e) => setAadhaarManualCity(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          State *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Odisha"
+                          value={aadhaarManualState}
+                          onChange={(e) => setAadhaarManualState(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          6-Digit PIN Code *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          maxLength={6}
+                          placeholder="e.g. 751007"
+                          value={aadhaarManualPincode}
+                          onChange={(e) => setAadhaarManualPincode(e.target.value.replace(/\D/g, ""))}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono text-xs tracking-wider focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Regional Language Section */}
+                  <div className="space-y-3 pt-1 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-slate-800">Regional Language Script</p>
+                      <span className="text-[11px] text-slate-400">Required on Official Aadhaar Front</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Select Regional Language *
+                      </label>
+                      <select
+                        value={aadhaarManualLanguage}
+                        onChange={(e) => setAadhaarManualLanguage(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="HI">Hindi (हिंदी)</option>
+                        <option value="OR">Odia (ଓଡ଼ିଆ)</option>
+                        <option value="BN">Bengali (বাংলা)</option>
+                        <option value="TE">Telugu (తెలుగు)</option>
+                        <option value="TA">Tamil (தமிழ்)</option>
+                        <option value="MR">Marathi (मराठी)</option>
+                        <option value="GU">Gujarati (ગુજરાતી)</option>
+                        <option value="PA">Punjabi (ਪੰਜਾਬੀ)</option>
+                        <option value="KN">Kannada (ಕನ್ನಡ)</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Name in Local Script *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. ରାହୁଲ କୁମାର ନାୟକ / राहुल कुमार नायक"
+                          value={aadhaarManualNameLocal}
+                          onChange={(e) => setAadhaarManualNameLocal(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Address in Local Script *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. ଫ୍ଲାଟ ୧୦୪, ସାଇ ରେସିଡେନ୍ସି, ଭୁବନେଶ୍ୱର"
+                          value={aadhaarManualAddressLocal}
+                          onChange={(e) => setAadhaarManualAddressLocal(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Photo Upload */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Applicant Passport Photo * (JPEG/PNG, Max 2MB)
+                    </label>
+                    <div className="flex items-center gap-4 p-3.5 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 transition">
+                      {aadhaarManualPhotoBase64 ? (
+                        <div className="relative">
+                          <img
+                            src={aadhaarManualPhotoBase64}
+                            alt="Applicant Preview"
+                            className="w-16 h-20 object-cover rounded-xl border-2 border-emerald-400 shadow-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setAadhaarManualPhotoBase64("")}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-16 h-20 rounded-xl bg-emerald-100 border border-emerald-300 flex flex-col items-center justify-center text-emerald-600 text-xs font-semibold">
+                          <span>📷</span>
+                          <span className="text-[10px] mt-1">Photo</span>
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg"
+                          onChange={handleAadhaarManualPhotoUpload}
+                          className="text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+                        />
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Clear passport photo with light/white background for crisp Aadhaar printing.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                    <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      ₹{Number(wallet?.balance || 0).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={aadhaarManualLoading || !aadhaarManualNo || !aadhaarManualName || !aadhaarManualPhotoBase64}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2"
+                  >
+                    {aadhaarManualLoading ? (
+                      <>
+                        <RefreshCw size={16} className="animate-spin" />
+                        <span>Generating Custom Aadhaar PDF...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={16} />
+                        <span>
+                          Pay ₹{getDynamicService("SVC-AADHAAR-MANUAL", 25).price.toFixed(2)} & Generate Card
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 25: PAN CARD HIGH-RES MANUAL PRINT (V2)                 */}
+      {/* ------------------------------------------------------------- */}
+      {panPrintModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-blue-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xl">
+                  💳
+                </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-slate-900 text-lg">PAN Card High-Res Manual Print</h3>
+                  <p className="text-xs text-slate-500">UTI / NSDL High-Resolution Reprint Layout with Signature</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setPanPrintModalOpen(false);
+                  setPanPrintError("");
+                  setPanPrintResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 flex items-center justify-center border border-slate-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs">
+                <div className="flex items-center gap-2 text-indigo-900">
+                  <Clock size={16} className="text-indigo-600" />
+                  <span>Instant High-Resolution Print Ready PDF</span>
+                </div>
+                <span className="font-extrabold text-sm text-indigo-700">
+                  Fee: ₹{getDynamicService("SVC-PAN-PRINT-V2", 25).price.toFixed(2)}
+                </span>
+              </div>
+
+              {panPrintError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                  <span>{panPrintError}</span>
+                </div>
+              )}
+
+              {panPrintResult ? (
+                <div className="space-y-4 py-2">
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center space-y-2">
+                    <CheckCircle2 size={32} className="mx-auto text-emerald-600" />
+                    <h4 className="font-bold text-sm">PAN Card PDF Generated Successfully!</h4>
+                    <p className="text-xs text-emerald-700">
+                      High-resolution reprint layout for PAN <strong className="font-mono">{panPrintPanNo.toUpperCase()}</strong> is ready.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pdfTarget = panPrintResult.pdfUrl || panPrintResult.pdfBase64 || panPrintResult.pdf || panPrintResult.data?.pdf_url;
+                        if (pdfTarget) {
+                          if (pdfTarget.startsWith("http")) {
+                            window.open(pdfTarget, "_blank");
+                          } else {
+                            downloadBase64Pdf(pdfTarget, `PAN_${panPrintPanNo.toUpperCase()}.pdf`);
+                          }
+                        }
+                      }}
+                      className="py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition"
+                    >
+                      <Download size={16} />
+                      Download PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => printPanPrintSlip(panPrintResult)}
+                      className="py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                    >
+                      <Printer size={16} />
+                      Print Slip
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPanPrintResult(null);
+                      setPanPrintPanNo("");
+                      setPanPrintName("");
+                      setPanPrintFatherName("");
+                      setPanPrintPhotoBase64("");
+                      setPanPrintSigBase64("");
+                    }}
+                    className="w-full py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-xs transition"
+                  >
+                    Print Another PAN Card
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handlePanPrintSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Permanent Account Number (PAN) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={10}
+                      placeholder="e.g. ABCDE1234F"
+                      value={panPrintPanNo}
+                      onChange={(e) => setPanPrintPanNo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono text-xs tracking-wider uppercase focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Cardholder Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. RAHUL KUMAR NAYAK"
+                        value={panPrintName}
+                        onChange={(e) => setPanPrintName(e.target.value.toUpperCase())}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Father's Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. BIJAY KUMAR NAYAK"
+                        value={panPrintFatherName}
+                        onChange={(e) => setPanPrintFatherName(e.target.value.toUpperCase())}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Date of Birth (DOB) *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={panPrintDob}
+                        onChange={(e) => setPanPrintDob(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Gender *
+                      </label>
+                      <select
+                        value={panPrintGender}
+                        onChange={(e) => setPanPrintGender(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      PAN Card Layout Template *
+                    </label>
+                    <select
+                      value={panPrintType}
+                      onChange={(e) => setPanPrintType(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="UTI-NONMINOR">UTI Layout (Adult - Photo & Signature)</option>
+                      <option value="NSDL-NONMINOR">NSDL Layout (Adult - Photo & Signature)</option>
+                      <option value="UTI-MINOR">UTI Layout (Minor - Photo Only)</option>
+                      <option value="NSDL-MINOR">NSDL Layout (Minor - Photo Only)</option>
+                    </select>
+                  </div>
+
+                  {/* Photo & Signature Upload */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Applicant Photo * (Max 2MB)
+                      </label>
+                      <div className="flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/50">
+                        {panPrintPhotoBase64 ? (
+                          <div className="relative">
+                            <img
+                              src={panPrintPhotoBase64}
+                              alt="Photo"
+                              className="w-12 h-14 object-cover rounded-lg border border-indigo-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setPanPrintPhotoBase64("")}
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] flex items-center justify-center font-bold"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="w-12 h-14 rounded-lg bg-indigo-100 flex items-center justify-center text-xs">
+                            📷
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg"
+                          onChange={handlePanPrintPhotoUpload}
+                          className="text-[11px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:bg-indigo-600 file:text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Signature {panPrintType.includes("MINOR") && !panPrintType.includes("NONMINOR") ? "(Optional)" : "* (Adult)"}
+                      </label>
+                      <div className="flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/50">
+                        {panPrintSigBase64 ? (
+                          <div className="relative">
+                            <img
+                              src={panPrintSigBase64}
+                              alt="Signature"
+                              className="w-14 h-10 object-contain rounded-lg border border-indigo-400 bg-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setPanPrintSigBase64("")}
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] flex items-center justify-center font-bold"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="w-14 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-xs">
+                            ✍️
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg"
+                          onChange={handlePanPrintSigUpload}
+                          className="text-[11px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:bg-indigo-600 file:text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                    <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      ₹{Number(wallet?.balance || 0).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={panPrintLoading || !panPrintPanNo || !panPrintName || !panPrintPhotoBase64}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2"
+                  >
+                    {panPrintLoading ? (
+                      <>
+                        <RefreshCw size={16} className="animate-spin" />
+                        <span>Generating High-Resolution PAN PDF...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={16} />
+                        <span>
+                          Pay ₹{getDynamicService("SVC-PAN-PRINT-V2", 25).price.toFixed(2)} & Generate Print
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}

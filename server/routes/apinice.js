@@ -256,6 +256,28 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#7C3AED",
     status: "active",
   },
+  {
+    id: "SVC-AADHAAR-MANUAL",
+    name: "Aadhaar Manual Print (v2)",
+    category: "Citizen",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Aadhaar Number", "Full Name", "Father Name", "DOB", "Address", "Language", "Photo"],
+    color: "#059669",
+    status: "active",
+  },
+  {
+    id: "SVC-PAN-PRINT-V2",
+    name: "PAN Card High-Res Manual Print (v2)",
+    category: "PAN",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["PAN Number", "Full Name", "Father Name", "DOB", "Card Type", "Photo", "Signature"],
+    color: "#4338CA",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -2685,6 +2707,322 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "Voter card manual PDF generated successfully",
+    })
+  }
+
+  // 24. POST /api/apinice/aadhar-manual
+  if (pathName === "/api/apinice/aadhar-manual" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-AADHAAR-MANUAL",
+      25,
+      "Aadhaar Manual Print (v2)"
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const aadharno = String(input.aadharno || input.aadhaar || "").trim().replace(/\D/g, "")
+    const name = String(input.name || "").trim()
+    const fathername = String(input.fathername || input.father_name || "").trim()
+    const dobadhar = String(input.dobadhar || input.dob || "").trim()
+    const gender = String(input.gender || "Male").trim()
+    const houseno = String(input.houseno || "").trim()
+    const streetlocality = String(input.streetlocality || input.street || "").trim()
+    const vtcandpost = String(input.vtcandpost || input.vtc || "").trim()
+    const city = String(input.city || "").trim()
+    const state = String(input.state || "").trim()
+    const pincode = String(input.pincode || "").trim().replace(/\D/g, "")
+    const language = String(input.language || "HI").trim().toUpperCase()
+    const namelocal = String(input.namelocal || "").trim()
+    const addresslocal = String(input.addresslocal || "").trim()
+    const photoBase64 = String(input.photoBase64 || input.imageBase64 || input.photo || "").trim()
+
+    if (!aadharno || aadharno.length !== 12) {
+      return respond(400, { error: "Valid 12-digit Aadhaar number is required." })
+    }
+    if (!name) {
+      return respond(400, { error: "Full name in English is required." })
+    }
+    if (!fathername) {
+      return respond(400, { error: "Father/Guardian name in English is required." })
+    }
+    if (!dobadhar) {
+      return respond(400, { error: "Date of birth is required." })
+    }
+    if (!houseno) {
+      return respond(400, { error: "House/Building number is required." })
+    }
+    if (!streetlocality) {
+      return respond(400, { error: "Street/Locality name is required." })
+    }
+    if (!vtcandpost) {
+      return respond(400, { error: "Village/Town/Post Office is required." })
+    }
+    if (!city) {
+      return respond(400, { error: "City or District name is required." })
+    }
+    if (!state) {
+      return respond(400, { error: "State name is required." })
+    }
+    if (!pincode || pincode.length !== 6) {
+      return respond(400, { error: "Valid 6-digit PIN code is required." })
+    }
+    if (!namelocal) {
+      return respond(400, { error: "Name in local language script is required." })
+    }
+    if (!addresslocal) {
+      return respond(400, { error: "Full address in local language script is required." })
+    }
+    if (!photoBase64) {
+      return respond(400, { error: "Applicant photo is required (JPEG/PNG, max 2MB)." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.generateAadhaarManual({
+        aadharno,
+        name,
+        fathername,
+        dobadhar,
+        gender,
+        houseno,
+        streetlocality,
+        vtcandpost,
+        city,
+        state,
+        pincode,
+        address: input.address,
+        language,
+        namelocal,
+        birththithilocal: input.birththithilocal,
+        genderlocal: input.genderlocal,
+        addresslocal,
+        photoBase64,
+      })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to generate Aadhaar card manual print PDF.",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Aadhaar Manual Print (XXXX-XXXX-${aadharno.slice(-4)})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-AADHAAR-MANUAL",
+      referenceId: aadharno,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-AADHAAR-MANUAL",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: `XXXX-XXXX-${aadharno.slice(-4)}`,
+      name,
+      language,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-AADHAAR-MANUAL",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      aadhaarNo: aadharno,
+      name,
+      pdfUrl: result.pdfUrl,
+      pdfBase64: result.pdfBase64,
+      image: result.image,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Aadhaar card manual print PDF generated successfully",
+    })
+  }
+
+  // 25. POST /api/apinice/pan-print-v2
+  if (pathName === "/api/apinice/pan-print-v2" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-PAN-PRINT-V2",
+      25,
+      "PAN Card High-Res Manual Print (v2)"
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const pan = String(input.pan || input.panno || "").trim().toUpperCase().replace(/\s+/g, "")
+    const name = String(input.name || "").trim()
+    const father_name = String(input.father_name || input.fatherName || "").trim()
+    const dob = String(input.dob || "").trim()
+    const gender = String(input.gender || "Male").trim()
+    const pan_type = String(input.pan_type || "UTI-NONMINOR").trim().toUpperCase()
+    const photoBase64 = String(input.photoBase64 || input.photo || "").trim()
+    const signatureBase64 = String(input.signatureBase64 || input.signature || "").trim()
+
+    if (!pan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      return respond(400, { error: "Valid 10-character PAN number is required (e.g. ABCDE1234F)." })
+    }
+    if (!name) {
+      return respond(400, { error: "Full name on PAN Card is required." })
+    }
+    if (!father_name) {
+      return respond(400, { error: "Father's name on PAN Card is required." })
+    }
+    if (!dob) {
+      return respond(400, { error: "Date of birth is required." })
+    }
+    if (!photoBase64) {
+      return respond(400, { error: "Applicant photo is required." })
+    }
+
+    const isMinor = pan_type.includes("MINOR") && !pan_type.includes("NONMINOR")
+    if (!isMinor && !signatureBase64) {
+      return respond(400, { error: "Applicant signature is required for adult / NONMINOR cards." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.generatePanCardPrintV2({
+        pan,
+        name,
+        father_name,
+        dob,
+        gender,
+        pan_type,
+        photoBase64,
+        signatureBase64,
+      })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to generate PAN card manual print.",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `PAN Card Manual Print (${pan} - ${pan_type})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-PAN-PRINT-V2",
+      referenceId: pan,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-PAN-PRINT-V2",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: pan,
+      name,
+      pan_type,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-PAN-PRINT-V2",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      panNumber: pan,
+      name,
+      panType: pan_type,
+      pdfUrl: result.pdfUrl,
+      pdfBase64: result.pdfBase64,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "High-resolution PAN card print generated successfully",
     })
   }
 

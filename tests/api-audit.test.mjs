@@ -56,6 +56,8 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("find_pan")) return Response.json({ status: "success", data: { pan_number: "ABCDE1234F", full_name: "RAHUL KUMAR", aadhaar: "123456789012", application_no: "APP-PAN-99", balance_remaining: "48.10" }, message: "PAN found successfully" });
     if (String(url).includes("pan_details")) return Response.json({ status: "success", data: { pan_no: "ABCDE1234F", name: "JOHN DOE", father: "ROBERT DOE", dob: "1990-01-15", gender: "M", balance_remaining: "48.10" } });
     if (String(url).includes("voter-manual-pdf")) return Response.json({ status: "success", message: "Voter PDF Manual submitted successfully", data: { epic_no: "ABC1234567", name: "RAHUL KUMAR", pdf_url: "https://apinice.in/sample_voter_card.pdf" }, balance_remaining: "48.10" });
+    if (String(url).includes("aadhar-manual")) return Response.json({ status: "success", message: "Aadhaar Card Manual generated successfully", data: { aadharno: "123456789012", name: "Rahul Kumar", pdf_url: "https://apinice.in/sample_aadhaar.pdf" }, balance_remaining: "48.10" });
+    if (String(url).includes("pan_card_print")) return Response.json({ status: "success", message: "PAN Card High-Res generated successfully", data: { id: "PAN-9988", pan_number: "ABCDE1234F", name: "RAHUL KUMAR", pdf_url: "https://apinice.in/sample_pan.pdf", status: "completed" }, balance: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -1237,14 +1239,75 @@ test("retailer can generate voter manual card PDF", async () => {
   assert.ok(res.data.ledgerId);
 });
 
+test("retailer can generate Aadhaar manual print card PDF", async () => {
+  const invalidRes = await request("/apinice/aadhar-manual", {
+    token: retailerToken,
+    method: "POST",
+    body: { aadharno: "" },
+  });
+  assert.equal(invalidRes.status, 400);
 
+  const res = await request("/apinice/aadhar-manual", {
+    token: retailerToken,
+    method: "POST",
+    body: {
+      aadharno: "123456789012",
+      name: "RAHUL KUMAR",
+      fathername: "SURESH KUMAR",
+      dobadhar: "1995-05-10",
+      gender: "Male",
+      houseno: "104",
+      streetlocality: "Station Road",
+      vtcandpost: "Bhubaneswar",
+      city: "Khordha",
+      state: "Odisha",
+      pincode: "751001",
+      language: "HI",
+      namelocal: "राहुल कुमार",
+      addresslocal: "१०४ स्टेशन रोड भुवनेश्वर",
+      photoBase64: "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+    },
+  });
 
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-AADHAAR-MANUAL");
+  assert.equal(res.data.aadhaarNo, "123456789012");
+  assert.equal(res.data.name, "RAHUL KUMAR");
+  assert.equal(res.data.debited, 25);
+  assert.ok(res.data.pdfUrl);
+  assert.ok(res.data.ledgerId);
+});
 
+test("retailer can generate high-resolution PAN card print PDF", async () => {
+  const invalidRes = await request("/apinice/pan-print-v2", {
+    token: retailerToken,
+    method: "POST",
+    body: { pan: "INVALID" },
+  });
+  assert.equal(invalidRes.status, 400);
 
+  const res = await request("/apinice/pan-print-v2", {
+    token: retailerToken,
+    method: "POST",
+    body: {
+      pan: "ABCDE1234F",
+      name: "RAHUL KUMAR",
+      father_name: "SURESH KUMAR",
+      dob: "1995-05-10",
+      gender: "Male",
+      pan_type: "UTI-NONMINOR",
+      photoBase64: "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+      signatureBase64: "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+    },
+  });
 
-
-
-
-
-
-
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-PAN-PRINT-V2");
+  assert.equal(res.data.panNumber, "ABCDE1234F");
+  assert.equal(res.data.name, "RAHUL KUMAR");
+  assert.equal(res.data.debited, 25);
+  assert.ok(res.data.pdfUrl);
+  assert.ok(res.data.ledgerId);
+});

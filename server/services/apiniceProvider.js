@@ -1080,6 +1080,217 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async generateAadhaarManual({
+    aadharno,
+    name,
+    fathername,
+    dobadhar,
+    gender = "Male",
+    houseno,
+    streetlocality,
+    vtcandpost,
+    city,
+    state,
+    pincode,
+    address = "",
+    language = "HI",
+    namelocal,
+    birththithilocal = "",
+    genderlocal = "",
+    addresslocal,
+    photoBase64,
+  }) {
+    const cleanAadhaar = clean(aadharno).replace(/\D/g, "")
+    const cleanName = clean(name)
+    const cleanFather = clean(fathername)
+    const cleanDob = clean(dobadhar)
+    const cleanGender = clean(gender)
+    const cleanHouseno = clean(houseno)
+    const cleanStreet = clean(streetlocality)
+    const cleanVtc = clean(vtcandpost)
+    const cleanCity = clean(city)
+    const cleanState = clean(state)
+    const cleanPincode = clean(pincode).replace(/\D/g, "")
+    const cleanLang = clean(language || "HI").toUpperCase()
+    const cleanNameLocal = clean(namelocal)
+    const cleanAddressLocal = clean(addresslocal)
+
+    if (!cleanAadhaar || cleanAadhaar.length !== 12) {
+      throw new Error("Valid 12-digit Aadhaar number is required")
+    }
+    if (!cleanName) throw new Error("Full name in English is required")
+    if (!cleanFather) throw new Error("Father/Guardian name in English is required")
+    if (!cleanDob) throw new Error("Date of birth is required")
+    if (!cleanPincode || cleanPincode.length !== 6) {
+      throw new Error("Valid 6-digit PIN code is required")
+    }
+    if (!cleanHouseno) throw new Error("House/Building number is required")
+    if (!cleanStreet) throw new Error("Street/Locality name is required")
+    if (!cleanVtc) throw new Error("Village/Town/Post Office is required")
+    if (!cleanCity) throw new Error("City or District name is required")
+    if (!cleanState) throw new Error("State name is required")
+    if (!cleanNameLocal) throw new Error("Name in local language script is required")
+    if (!cleanAddressLocal) throw new Error("Full address in local language script is required")
+    if (!photoBase64) throw new Error("Applicant photo is required (JPEG/PNG, max 2MB)")
+
+    // Normalize DOB to DD-MM-YYYY
+    let formattedDob = cleanDob
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDob)) {
+      const [yyyy, mm, dd] = cleanDob.split("-")
+      formattedDob = `${dd}-${mm}-${yyyy}`
+    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(cleanDob)) {
+      formattedDob = cleanDob.replace(/\//g, "-")
+    }
+
+    const key = this.getApiKey()
+    const cleanB64 = String(photoBase64).replace(/^data:image\/[a-zA-Z]+;base64,/, "").trim()
+    const buffer = Buffer.from(cleanB64, "base64")
+    const blob = new Blob([buffer], { type: "image/jpeg" })
+
+    const fd = new FormData()
+    fd.append("api_key", key)
+    fd.append("aadharno", cleanAadhaar)
+    fd.append("name", cleanName)
+    fd.append("fathername", cleanFather)
+    fd.append("dobadhar", formattedDob)
+    fd.append("gender", cleanGender)
+    fd.append("imagefile", blob, "photo.jpg")
+    fd.append("houseno", cleanHouseno)
+    fd.append("streetlocality", cleanStreet)
+    fd.append("vtcandpost", cleanVtc)
+    fd.append("city", cleanCity)
+    fd.append("state", cleanState)
+    fd.append("pincode", cleanPincode)
+    if (address) fd.append("address", clean(address))
+    fd.append("language", cleanLang)
+    fd.append("namelocal", cleanNameLocal)
+    if (birththithilocal) fd.append("birththithilocal", clean(birththithilocal))
+    if (genderlocal) fd.append("genderlocal", clean(genderlocal))
+    fd.append("addresslocal", cleanAddressLocal)
+
+    const response = await this.request("v2/aadhar-manual", {
+      method: "POST",
+      body: fd,
+      timeoutMs: 60000,
+    })
+
+    if (
+      response.status === "error" ||
+      response.status === false ||
+      response.status === "101" ||
+      (!response.data && !response.pdf_url)
+    ) {
+      throw new Error(response.message || "Failed to generate Aadhaar card manual print PDF")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "AADHAAR_MANUAL",
+      aadhaarNo: cleanAadhaar,
+      name: cleanName,
+      pdfUrl: data.pdf_url || response.pdf_url || null,
+      pdfBase64: data.pdf_base64 || response.pdf_base64 || null,
+      image: data.image || null,
+      balanceRemaining: response.new_balance || response.balance_remaining || response.balance,
+      data,
+      raw: response,
+    }
+  }
+
+  async generatePanCardPrintV2({
+    pan,
+    name,
+    father_name,
+    dob,
+    gender = "Male",
+    pan_type = "UTI-NONMINOR",
+    photoBase64,
+    signatureBase64 = "",
+  }) {
+    const cleanPan = clean(pan).replace(/\s+/g, "").toUpperCase()
+    const cleanName = clean(name)
+    const cleanFather = clean(father_name)
+    const cleanDob = clean(dob)
+    const cleanGender = clean(gender)
+    const cleanPanType = clean(pan_type || "UTI-NONMINOR").toUpperCase()
+
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      throw new Error("Valid 10-character PAN number is required (e.g. ABCDE1234F)")
+    }
+    if (!cleanName) throw new Error("Full name on PAN Card is required")
+    if (!cleanFather) throw new Error("Father's name on PAN Card is required")
+    if (!cleanDob) throw new Error("Date of birth is required")
+    if (!photoBase64) throw new Error("Applicant photo is required (Base64 data URI)")
+
+    const isMinor = cleanPanType.includes("MINOR") && !cleanPanType.includes("NONMINOR")
+    if (!isMinor && !signatureBase64) {
+      throw new Error("Applicant signature is required for adult / NONMINOR PAN cards")
+    }
+
+    // Normalize DOB to DD/MM/YYYY
+    let formattedDob = cleanDob
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDob)) {
+      const [yyyy, mm, dd] = cleanDob.split("-")
+      formattedDob = `${dd}/${mm}/${yyyy}`
+    } else if (/^\d{2}-\d{2}-\d{4}$/.test(cleanDob)) {
+      formattedDob = cleanDob.replace(/-/g, "/")
+    }
+
+    // Ensure photo and signature have data URI prefix as required by API
+    let formattedPhoto = photoBase64.trim()
+    if (!formattedPhoto.startsWith("data:")) {
+      formattedPhoto = `data:image/jpeg;base64,${formattedPhoto}`
+    }
+
+    let formattedSig = signatureBase64.trim()
+    if (formattedSig && !formattedSig.startsWith("data:")) {
+      formattedSig = `data:image/png;base64,${formattedSig}`
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      api_key: key,
+      pan: cleanPan,
+      name: cleanName,
+      father_name: cleanFather,
+      dob: formattedDob,
+      gender: cleanGender,
+      pan_type: cleanPanType,
+      photo: formattedPhoto,
+      signature: formattedSig,
+    }
+
+    const response = await this.request("v2/pan_card_print", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    })
+
+    if (
+      response.status === "error" ||
+      response.status === false ||
+      response.error_code ||
+      (!response.data && !response.pdf_url)
+    ) {
+      throw new Error(response.message || "Failed to generate high-resolution PAN Card print")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "PAN_PRINT_V2",
+      panNumber: cleanPan,
+      name: cleanName,
+      panType: cleanPanType,
+      pdfUrl: data.pdf_url || response.pdf_url || null,
+      pdfBase64: data.pdf_base64 || response.pdf_base64 || null,
+      balanceRemaining: response.balance || response.balance_remaining,
+      data,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()
