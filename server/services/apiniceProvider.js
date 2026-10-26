@@ -587,8 +587,47 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async fetchAgristackFarmerPdf({ uidNumber, state }) {
+    const cleanUid = clean(uidNumber).replace(/[\s-]/g, "")
+    const cleanState = clean(state).toUpperCase()
+
+    if (!cleanUid || cleanUid.length !== 12) {
+      throw new Error("Valid 12-digit Aadhaar (UID) of the farmer is required")
+    }
+    if (!cleanState) {
+      throw new Error("State code (e.g. UP, BR, MH, OD, RJ) is required")
+    }
+
+    const key = this.getApiKey()
+    const endpoint = `agristack_approved_farmers_pdf?apiKey=${encodeURIComponent(key)}&uidNumber=${encodeURIComponent(cleanUid)}&state=${encodeURIComponent(cleanState)}`
+
+    const response = await this.request(endpoint, {
+      method: "GET",
+      timeoutMs: 45000,
+    })
+
+    if (response.status !== 100 && response.status !== "100" && response.statusMessage !== "success") {
+      throw new Error(response.message || "Farmer record not found or not approved in AgriStack registry")
+    }
+
+    const farmerData = response.data || {}
+    const pdf = farmerData.pdf || response.pdf || null
+
+    return {
+      success: true,
+      service: "AGRISTACK_FARMER",
+      uidNumber: cleanUid,
+      state: cleanState,
+      name: farmerData.name || "",
+      applicationNo: response.application_no || "",
+      pdfBase64: pdf,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()
+
 
 

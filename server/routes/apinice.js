@@ -146,6 +146,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#0284C7",
     status: "active",
   },
+  {
+    id: "SVC-AGRISTACK-FARMER",
+    name: "AgriStack Farmer PDF Check",
+    category: "Citizen",
+    customerPrice: 20,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Farmer Aadhaar Number", "State"],
+    color: "#16A34A",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -1444,6 +1455,115 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "Aadhaar PVC card format generated successfully",
+    })
+  }
+
+  // 15. POST /api/apinice/agristack-farmer
+  if (pathName === "/api/apinice/agristack-farmer" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-AGRISTACK-FARMER",
+      20,
+      "AgriStack Farmer PDF Check",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const uidNumber = String(input.uidNumber || input.aadhaar || input.aadhaarNo || input.uid || "").trim().replace(/[\s-]/g, "")
+    const state = String(input.state || input.stateCode || "OD").trim().toUpperCase()
+
+    if (!uidNumber || uidNumber.length !== 12) {
+      return respond(400, { error: "Valid 12-digit Farmer Aadhaar (UID) number is required." })
+    }
+    if (!state) {
+      return respond(400, { error: "Farmer State is required (e.g. UP, BR, MH, OD, RJ, MP)." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.fetchAgristackFarmerPdf({ uidNumber, state })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to find approved farmer record in AgriStack registry",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `AgriStack Farmer PDF (${result.name ? result.name + ", " : ""}UID: ${uidNumber.slice(0, 4)}XXXX${uidNumber.slice(8)})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-AGRISTACK-FARMER",
+      referenceId: uidNumber,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-AGRISTACK-FARMER",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: uidNumber,
+      state,
+      farmerName: result.name,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-AGRISTACK-FARMER",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      name: result.name,
+      pdfBase64: result.pdfBase64,
+      applicationNo: result.applicationNo,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "AgriStack farmer document generated successfully",
     })
   }
 

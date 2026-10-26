@@ -228,6 +228,18 @@ const PRINT_SERVICES = [
     color: "#0284C7",
     description: "Convert password-protected e-Aadhaar PDF into thermal/PVC card printable layout",
   },
+  {
+    id: "SVC-AGRISTACK-FARMER",
+    name: "AgriStack Farmer PDF Check",
+    category: "Citizen Documents",
+    badge: "FARMER PDF",
+    icon: "🌾",
+    processingTime: "Instant",
+    defaultPrice: 20,
+    documents: ["Farmer Aadhaar Number", "State"],
+    color: "#16A34A",
+    description: "PM-Kisan / AgriStack approved farmer beneficiary verification & official PDF download",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -431,6 +443,14 @@ export default function ServicesPage() {
   const [pvcLoading, setPvcLoading] = useState(false);
   const [pvcError, setPvcError] = useState("");
   const [pvcResultPdf, setPvcResultPdf] = useState<string | null>(null);
+
+  // AgriStack Farmer modal states
+  const [farmerModalOpen, setFarmerModalOpen] = useState(false);
+  const [farmerUid, setFarmerUid] = useState("");
+  const [farmerState, setFarmerState] = useState("OD");
+  const [farmerLoading, setFarmerLoading] = useState(false);
+  const [farmerError, setFarmerError] = useState("");
+  const [farmerResult, setFarmerResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1284,6 +1304,94 @@ export default function ServicesPage() {
     }
   };
 
+  const handleFarmerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUid = farmerUid.trim().replace(/[\s-]/g, "");
+    if (!cleanUid || cleanUid.length !== 12) {
+      setFarmerError("Please enter valid 12-digit Farmer Aadhaar (UID)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-AGRISTACK-FARMER", 20);
+    if (dynamic.status === "disabled") {
+      setFarmerError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setFarmerError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setFarmerLoading(true);
+    setFarmerError("");
+    try {
+      const res = await api<any>("/apinice/agristack-farmer", {
+        method: "POST",
+        body: JSON.stringify({ uidNumber: cleanUid, state: farmerState }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdfBase64 || res.name) {
+        setFarmerResult(res);
+      } else {
+        setFarmerError("No approved farmer record found in AgriStack registry.");
+      }
+    } catch (err: any) {
+      setFarmerError(err.message || "Failed to check farmer record from AgriStack");
+    } finally {
+      setFarmerLoading(false);
+    }
+  };
+
+  const printFarmerSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>AgriStack Farmer Verification Slip - ${farmerUid}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 600px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #16a34a; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #f0fdf4; width: 40%; color: #166534; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#166534;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#16a34a;">AgriStack Approved Farmer Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Farmer UID:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;">${farmerUid.slice(0, 4)}XXXX${farmerUid.slice(8)}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Farmer Name</td><td><strong style="font-size:14px;color:#0f172a;">${res.name || "Approved Beneficiary"}</strong></td></tr>
+            <tr><td class="label">AgriStack Status</td><td><strong style="color:#16a34a;">APPROVED BENEFICIARY</strong></td></tr>
+            <tr><td class="label">Registered State</td><td><strong>${farmerState}</strong></td></tr>
+            <tr><td class="label">Application Reference</td><td><span style="font-family:monospace;">${res.applicationNo || "N/A"}</span></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official beneficiary verification slip issued by LD Service Zone via National AgriStack Registry.<br/>
+            Eligible for PM-Kisan & state agricultural DBT subsidy schemes.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -1692,6 +1800,10 @@ export default function ServicesPage() {
                     setPvcModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-AGRISTACK-FARMER") {
+                    setFarmerModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -1745,6 +1857,8 @@ export default function ServicesPage() {
                       ? "bg-orange-50 text-orange-700 border border-orange-200"
                       : item.badge === "AADHAAR PVC"
                       ? "bg-sky-50 text-sky-700 border border-sky-200"
+                      : item.badge === "FARMER PDF"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -4258,6 +4372,205 @@ export default function ServicesPage() {
                       <Download size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-AADHAAR-PVC", 25).price.toFixed(2)} & Convert to PVC
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 14: AgriStack Farmer PDF Check */}
+      {farmerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-emerald-50 to-green-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-emerald-500/20">
+                  🌾
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#0F172A] text-base">
+                    AgriStack Approved Farmer Check
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    PM-Kisan & AgriStack Registry Official PDF
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setFarmerModalOpen(false);
+                  setFarmerError("");
+                  setFarmerResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {farmerError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{farmerError}</span>
+              </div>
+            )}
+
+            {farmerResult ? (
+              <div className="p-6 space-y-4">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-emerald-900 text-base">
+                    {farmerResult.name || "Approved Beneficiary Farmer"}
+                  </h4>
+                  <p className="text-xs text-emerald-700 mt-0.5">
+                    Verified AgriStack Farmer • State: {farmerState}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Farmer UID (Aadhaar):</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {farmerUid.slice(0, 4)}XXXX{farmerUid.slice(8)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Registry Status:</span>
+                    <span className="font-bold text-emerald-700">APPROVED</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">State Code:</span>
+                    <span className="font-bold text-slate-800">{farmerState}</span>
+                  </div>
+                  {farmerResult.applicationNo && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Application / Ref No:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        {farmerResult.applicationNo}
+                      </span>
+                    </div>
+                  )}
+                  {farmerResult.balance !== undefined && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{Number(farmerResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  {farmerResult.pdfBase64 && (
+                    <a
+                      href={
+                        farmerResult.pdfBase64.startsWith("data:")
+                          ? farmerResult.pdfBase64
+                          : `data:application/pdf;base64,${farmerResult.pdfBase64}`
+                      }
+                      download={`AgriStack_Farmer_${farmerUid}.pdf`}
+                      className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 text-center flex items-center justify-center gap-2"
+                    >
+                      <Download size={14} /> Download Farmer PDF
+                    </a>
+                  )}
+                  <button
+                    onClick={() => printFarmerSlip(farmerResult)}
+                    className="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-md flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print Beneficiary Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFarmerResult(null);
+                      setFarmerUid("");
+                      setFarmerError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Check Another Farmer
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleFarmerSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Farmer Aadhaar (UID Number) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={14}
+                    placeholder="e.g. 5432 1098 7654"
+                    value={farmerUid}
+                    onChange={(e) => setFarmerUid(e.target.value.replace(/[^0-9]/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter citizen's 12-digit Aadhaar number linked to PM-Kisan / AgriStack.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Farmer Registered State *
+                  </label>
+                  <select
+                    value={farmerState}
+                    onChange={(e) => setFarmerState(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500"
+                  >
+                    <option value="OD">Odisha (OD)</option>
+                    <option value="UP">Uttar Pradesh (UP)</option>
+                    <option value="BR">Bihar (BR)</option>
+                    <option value="MH">Maharashtra (MH)</option>
+                    <option value="MP">Madhya Pradesh (MP)</option>
+                    <option value="RJ">Rajasthan (RJ)</option>
+                    <option value="GJ">Gujarat (GJ)</option>
+                    <option value="WB">West Bengal (WB)</option>
+                    <option value="PB">Punjab (PB)</option>
+                    <option value="HR">Haryana (HR)</option>
+                    <option value="JH">Jharkhand (JH)</option>
+                    <option value="CT">Chhattisgarh (CT)</option>
+                    <option value="AP">Andhra Pradesh (AP)</option>
+                    <option value="TS">Telangana (TS)</option>
+                    <option value="KA">Karnataka (KA)</option>
+                    <option value="TN">Tamil Nadu (TN)</option>
+                    <option value="AS">Assam (AS)</option>
+                    <option value="UK">Uttarakhand (UK)</option>
+                    <option value="HP">Himachal Pradesh (HP)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={farmerLoading || !farmerUid || farmerUid.length !== 12}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {farmerLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Checking AgriStack Registry...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-AGRISTACK-FARMER", 20).price.toFixed(2)} & Check Farmer
                       </span>
                     </>
                   )}

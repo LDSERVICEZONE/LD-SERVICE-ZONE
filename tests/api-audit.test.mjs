@@ -46,6 +46,7 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("rc_to_mobile")) return Response.json({ StatusCode: 100, status: true, holder: { full_name: "Rahul Sharma", relation_name: "Rajesh Sharma", contact: "9876543210" } });
     if (String(url).includes("eshram")) return Response.json({ success: true, message: "e-Shram PDF fetched", data: { pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_eshram_pdf" }, balance_remaining: "48.10" });
     if (String(url).includes("aadhar_pvc_convert")) return Response.json({ success: true, message: "PVC PDF fetched", data: { pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_pvc_pdf" }, balance_remaining: "48.10" });
+    if (String(url).includes("agristack_approved_farmers_pdf")) return Response.json({ status: 100, statusMessage: "success", message: "Farmer PDF Generated Successfully", application_no: "AGRI-9988-77", data: { name: "Ramesh Pradhan", uidNumber: "543210987654", state: "OD", pdf: "data:application/pdf;base64,JVBERi0xLjQK...mock_farmer_pdf" }, balance: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -986,6 +987,28 @@ test("retailer can convert Aadhaar to PVC card format", async () => {
   assert.equal(res.status, 200);
   assert.equal(res.data.ok, true);
   assert.equal(res.data.service, "SVC-AADHAAR-PVC");
+  assert.ok(res.data.pdfBase64);
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can check AgriStack approved farmer and download PDF", async () => {
+  const invalidRes = await request("/apinice/agristack-farmer", {
+    token: retailerToken,
+    method: "POST",
+    body: { uidNumber: "123", state: "OD" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/agristack-farmer", {
+    token: retailerToken,
+    method: "POST",
+    body: { uidNumber: "543210987654", state: "OD" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-AGRISTACK-FARMER");
+  assert.equal(res.data.name, "Ramesh Pradhan");
   assert.ok(res.data.pdfBase64);
   assert.ok(res.data.ledgerId);
 });
