@@ -194,7 +194,7 @@ export default function WalletPage() {
   async function initiatePayment() {
     setError("");
     setMessage("");
-    if (total < 1) return setError("Enter an amount of at least ₹1");
+    if (total < 300) return setError("Minimum wallet deposit is ₹300");
     setBusy(true);
 
     try {
@@ -496,7 +496,7 @@ export default function WalletPage() {
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-lg text-slate-900">Add Wallet Balance</h3>
-                  <p className="text-xs text-slate-400">Instant funding for citizen & PAN services</p>
+                  <p className="text-xs text-slate-400">Instant funding with 0% fee (Min ₹300)</p>
                 </div>
               </div>
               <button
@@ -509,7 +509,7 @@ export default function WalletPage() {
             </div>
 
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Enter Amount (INR)
+              Enter Amount (Minimum ₹300)
             </label>
             <div className="relative mt-2 mb-3">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono text-xl font-bold text-slate-400">
@@ -518,17 +518,17 @@ export default function WalletPage() {
               <input
                 autoFocus
                 type="number"
-                min="1"
+                min="300"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="500"
+                placeholder="300"
                 className="w-full pl-10 pr-4 py-3.5 rounded-2xl border border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 text-xl font-bold text-slate-900 outline-none transition-all"
               />
             </div>
 
             {/* Quick preset chips */}
             <div className="grid grid-cols-4 gap-2 mb-5">
-              {[200, 500, 1000, 2000].map((x) => (
+              {[300, 500, 1000, 2000].map((x) => (
                 <button
                   key={x}
                   type="button"

@@ -324,11 +324,21 @@ export function createStateRepository(config) {
         }))
       }
       if (walletRows.length) {
-        state.wallets = Object.fromEntries(walletRows.map((wallet) => [wallet.userId, {
-          id: wallet.id, userId: wallet.userId, balance: Number(wallet.balance || 0),
-          creditLimit: Number(wallet.creditLimit || 0), pendingSettlement: Number(wallet.pendingSettlement || 0),
-          createdAt: wallet.createdAt, updatedAt: wallet.updatedAt,
-        }]))
+        if (!state.wallets || typeof state.wallets !== "object") state.wallets = {}
+        for (const wallet of walletRows) {
+          // If no wallet exists in state snapshot, populate from relational table
+          if (!state.wallets[wallet.userId]) {
+            state.wallets[wallet.userId] = {
+              id: wallet.id,
+              userId: wallet.userId,
+              balance: Number(wallet.balance || 0),
+              creditLimit: Number(wallet.creditLimit || 0),
+              pendingSettlement: Number(wallet.pendingSettlement || 0),
+              createdAt: wallet.createdAt,
+              updatedAt: wallet.updatedAt,
+            }
+          }
+        }
       }
       if (ledgerRows.length) {
         state.walletLedger = ledgerRows.map((entry) => ({
@@ -336,6 +346,22 @@ export function createStateRepository(config) {
           amount: Number(entry.amount || 0), reference: entry.reference, description: entry.description || "",
           status: entry.status || "success", balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt,
         }))
+      }
+      // Reconcile wallets with the immutable ledger source of truth
+      if (Array.isArray(state.walletLedger) && state.walletLedger.length > 0) {
+        for (const [userId, wallet] of Object.entries(state.wallets || {})) {
+          const latest = state.walletLedger.find(
+            (e) =>
+              e.userId === userId &&
+              (e.status === "success" || e.status === "paid") &&
+              typeof e.balanceAfter === "number" &&
+              !isNaN(e.balanceAfter),
+          )
+          if (latest) {
+            wallet.balance = Number(latest.balanceAfter.toFixed(2))
+            wallet.updatedAt = latest.createdAt || wallet.updatedAt
+          }
+        }
       }
       const relationalRecharges = await fetch(`${supabaseUrl}/rest/v1/RechargeTransaction?select=*`, {
         headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
@@ -658,14 +684,23 @@ export function createStateRepository(config) {
           }
 
           try {
-            const walletRows = Object.values(snapshot.wallets || {}).map((wallet) => ({
-              id: wallet.id || `wallet_${wallet.userId}`, userId: wallet.userId, balance: Number(wallet.balance || 0),
-              creditLimit: Number(wallet.creditLimit || 0), pendingSettlement: Number(wallet.pendingSettlement || 0),
-              createdAt: wallet.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
-            }))
+            const validUserIds = new Set((snapshot.users || []).map((u) => u.id))
+            const walletRows = Object.values(snapshot.wallets || {})
+              .filter((wallet) => validUserIds.has(wallet.userId))
+              .map((wallet) => ({
+                id: wallet.id || `wallet_${wallet.userId}`,
+                userId: wallet.userId,
+                balance: Number(wallet.balance || 0),
+                creditLimit: Number(wallet.creditLimit || 0),
+                pendingSettlement: Number(wallet.pendingSettlement || 0),
+                createdAt: wallet.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              }))
             if (walletRows.length) {
               await fetch(`${supabaseUrl}/rest/v1/Wallet?on_conflict=userId`, {
-                method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(walletRows),
+                method: "POST",
+                headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+                body: JSON.stringify(walletRows),
               })
             }
           } catch (wallErr) {
@@ -673,15 +708,26 @@ export function createStateRepository(config) {
           }
 
           try {
-            const ledgerRows = (snapshot.walletLedger || []).map((entry) => ({
-              id: entry.id, userId: entry.userId, walletId: snapshot.wallets?.[entry.userId]?.id || `wallet_${entry.userId}`,
-              type: String(entry.type || "adjustment").toUpperCase(), amount: Number(entry.amount || 0),
-              reference: entry.reference || entry.id, description: entry.description || null, status: entry.status || "success",
-              balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt || new Date().toISOString(),
-            }))
+            const validUserIds = new Set((snapshot.users || []).map((u) => u.id))
+            const ledgerRows = (snapshot.walletLedger || [])
+              .filter((entry) => validUserIds.has(entry.userId))
+              .map((entry) => ({
+                id: entry.id,
+                userId: entry.userId,
+                walletId: snapshot.wallets?.[entry.userId]?.id || `wallet_${entry.userId}`,
+                type: String(entry.type || "adjustment").toUpperCase(),
+                amount: Number(entry.amount || 0),
+                reference: entry.reference || entry.id,
+                description: entry.description || null,
+                status: entry.status || "success",
+                balanceAfter: Number(entry.balanceAfter || 0),
+                createdAt: entry.createdAt || new Date().toISOString(),
+              }))
             if (ledgerRows.length) {
               await fetch(`${supabaseUrl}/rest/v1/WalletLedger?on_conflict=id`, {
-                method: "POST", headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(ledgerRows),
+                method: "POST",
+                headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+                body: JSON.stringify(ledgerRows),
               })
             }
           } catch (ledgErr) {

@@ -489,7 +489,7 @@ function updateApplicationByAdmin(db, app, input, actor) {
 }
 let db = await loadDb()
 function ensureWallet(userId) {
-  if (!db.wallets[userId])
+  if (!db.wallets[userId]) {
     db.wallets[userId] = {
       userId,
       balance: 0,
@@ -498,6 +498,22 @@ function ensureWallet(userId) {
       createdAt: now(),
       updatedAt: now(),
     }
+  }
+  // Ledger Reconciliation: The ledger is the immutable source of truth.
+  // Reconcile balance with the most recent transaction to eliminate any cache/revert drift.
+  if (Array.isArray(db.walletLedger) && db.walletLedger.length > 0) {
+    const latestEntry = db.walletLedger.find(
+      (entry) =>
+        entry.userId === userId &&
+        (entry.status === "success" || entry.status === "paid") &&
+        typeof entry.balanceAfter === "number" &&
+        !isNaN(entry.balanceAfter),
+    )
+    if (latestEntry && db.wallets[userId].balance !== latestEntry.balanceAfter) {
+      db.wallets[userId].balance = Number(latestEntry.balanceAfter.toFixed(2))
+      db.wallets[userId].updatedAt = latestEntry.createdAt || now()
+    }
+  }
   return db.wallets[userId]
 }
 function normalizeDb(db) {

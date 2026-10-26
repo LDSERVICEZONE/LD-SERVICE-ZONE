@@ -396,8 +396,8 @@ export async function handleWalletRoutes(context) {
   if (pathName === "/api/wallet/create-order" && req.method === "POST") {
     const input = await parseJson(req)
     const amount = Math.round(Number(input.amount || 0) * 100)
-    if (!Number.isSafeInteger(amount) || amount < 100) {
-      return respond(400, { error: "Minimum wallet top-up is ₹1" })
+    if (!Number.isSafeInteger(amount) || amount < 30000) {
+      return respond(400, { error: "Minimum wallet deposit is ₹300" })
     }
 
     // Support Dynamic UPI QR mode

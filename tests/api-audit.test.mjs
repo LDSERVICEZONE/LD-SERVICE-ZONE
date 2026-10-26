@@ -225,10 +225,19 @@ test("retailer cannot pay for application with insufficient wallet balance", asy
   assert.match(paid.data.error, /Insufficient wallet balance/i);
 });
 
+test("wallet top-up rejects amount below ₹300", async () => {
+  const rejected = await request("/wallet/create-order", {
+    token: "other",
+    body: { amount: 200 },
+  });
+  assert.equal(rejected.status, 400);
+  assert.match(rejected.data.error, /Minimum wallet deposit is ₹300/i);
+});
+
 test("demo wallet top-up adds funds to wallet and ledger", async () => {
   const created = await request("/wallet/create-order", {
     token: "other",
-    body: { amount: 250 },
+    body: { amount: 300 },
   });
   assert.equal(created.status, 200);
   assert.equal(created.data.mode, "demo");
@@ -239,12 +248,12 @@ test("demo wallet top-up adds funds to wallet and ledger", async () => {
   });
   assert.equal(verified.status, 200);
   assert.equal(verified.data.ok, true);
-  assert.equal(verified.data.wallet.balance, 250);
+  assert.equal(verified.data.wallet.balance, 300);
 
   const ledger = await request("/wallet/ledger", { token: "other" });
   assert.equal(ledger.status, 200);
   assert.ok(ledger.data.ledger.length > 0);
-  assert.equal(ledger.data.ledger[0].amount, 250);
+  assert.equal(ledger.data.ledger[0].amount, 300);
 });
 
 test("dynamic UPI QR wallet top-up creates order, checks status, and verifies credit", async () => {
@@ -320,7 +329,7 @@ test("paytm callback verifies order and credits user wallet", async () => {
 test("allapi webhook callback verifies order and credits user wallet", async () => {
   const created = await request("/wallet/create-order", {
     token: "retailer",
-    body: { amount: 250, mode: "upi_qr" },
+    body: { amount: 300, mode: "upi_qr" },
   });
   assert.equal(created.status, 200);
 
@@ -332,7 +341,7 @@ test("allapi webhook callback verifies order and credits user wallet", async () 
       status: "success",
       txn_id: "ALLAPI-TXN-987654",
       utr_number: "UTR9876543210",
-      txn_amount: "250.00",
+      txn_amount: "300.00",
     },
   });
   assert.equal(callbackRes.status, 200);
