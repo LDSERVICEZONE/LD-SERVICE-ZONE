@@ -47,6 +47,7 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("eshram")) return Response.json({ success: true, message: "e-Shram PDF fetched", data: { pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_eshram_pdf" }, balance_remaining: "48.10" });
     if (String(url).includes("aadhar_pvc_convert")) return Response.json({ success: true, message: "PVC PDF fetched", data: { pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_pvc_pdf" }, balance_remaining: "48.10" });
     if (String(url).includes("agristack_approved_farmers_pdf")) return Response.json({ status: 100, statusMessage: "success", message: "Farmer PDF Generated Successfully", application_no: "AGRI-9988-77", data: { name: "Ramesh Pradhan", uidNumber: "543210987654", state: "OD", pdf: "data:application/pdf;base64,JVBERi0xLjQK...mock_farmer_pdf" }, balance: "48.10" });
+    if (String(url).includes("udyog_aadhaar")) return Response.json({ status: true, data: { uan: "UDYAM-GJ-25-0000000", name_of_enterprise: "ABC INDUSTRIES", certificate_url: "", main_details: { major_activity: "Manufacturing", organization_type: "Proprietary", social_category: "General", date_of_commencement: "2012-10-17", city: "VAPI", state: "GUJARAT", pin: "396195" }, plants: [{ unit_name: "UNIT 1", city: "VAPI", state: "GUJARAT", pin: "396195" }] }, balance: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -1010,6 +1011,29 @@ test("retailer can check AgriStack approved farmer and download PDF", async () =
   assert.equal(res.data.service, "SVC-AGRISTACK-FARMER");
   assert.equal(res.data.name, "Ramesh Pradhan");
   assert.ok(res.data.pdfBase64);
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can lookup Udyog Aadhaar enterprise details", async () => {
+  const invalidRes = await request("/apinice/udyog-aadhaar", {
+    token: retailerToken,
+    method: "POST",
+    body: { uan: "" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/udyog-aadhaar", {
+    token: retailerToken,
+    method: "POST",
+    body: { uan: "UDYAM-GJ-25-0000000" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-UDYOG-AADHAAR");
+  assert.equal(res.data.enterpriseName, "ABC INDUSTRIES");
+  assert.ok(res.data.mainDetails);
+  assert.equal(res.data.mainDetails.major_activity, "Manufacturing");
   assert.ok(res.data.ledgerId);
 });
 

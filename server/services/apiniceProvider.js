@@ -625,6 +625,43 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async fetchUdyogAadhaar({ uan }) {
+    const cleanUan = clean(uan).replace(/\s+/g, "").toUpperCase()
+    if (!cleanUan) {
+      throw new Error("Valid Udyam Registration Number (UAN) is required (e.g. UDYAM-XX-00-0000000)")
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      apiKey: key,
+      uan: cleanUan,
+    }
+
+    const response = await this.request("udyog_aadhaar", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (response.status === false || (response.data === undefined && !response.name_of_enterprise)) {
+      throw new Error(response.message || "Udyog Aadhaar / Udyam registration not found")
+    }
+
+    const details = response.data || response
+    return {
+      success: true,
+      service: "UDYOG_AADHAAR",
+      uan: cleanUan,
+      enterpriseName: details.name_of_enterprise || details.enterprise_name || "",
+      certificateUrl: details.certificate_url || null,
+      mainDetails: details.main_details || {},
+      plants: details.plants || [],
+      nicCode: details.nic_code || [],
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

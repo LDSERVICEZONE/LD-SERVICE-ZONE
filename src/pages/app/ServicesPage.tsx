@@ -240,6 +240,18 @@ const PRINT_SERVICES = [
     color: "#16A34A",
     description: "PM-Kisan / AgriStack approved farmer beneficiary verification & official PDF download",
   },
+  {
+    id: "SVC-UDYOG-AADHAAR",
+    name: "Udyog Aadhaar (MSME) Details",
+    category: "Citizen Documents",
+    badge: "MSME / UDYAM",
+    icon: "🏭",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["Udyam Registration Number (UAN)"],
+    color: "#D97706",
+    description: "Verify MSME / Udyam registration, enterprise name, activity, and unit plants",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -451,6 +463,13 @@ export default function ServicesPage() {
   const [farmerLoading, setFarmerLoading] = useState(false);
   const [farmerError, setFarmerError] = useState("");
   const [farmerResult, setFarmerResult] = useState<any>(null);
+
+  // Udyog Aadhaar modal states
+  const [udyamModalOpen, setUdyamModalOpen] = useState(false);
+  const [udyamUan, setUdyamUan] = useState("");
+  const [udyamLoading, setUdyamLoading] = useState(false);
+  const [udyamError, setUdyamError] = useState("");
+  const [udyamResult, setUdyamResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1392,6 +1411,97 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleUdyamSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUan = udyamUan.trim().toUpperCase();
+    if (!cleanUan) {
+      setUdyamError("Please enter valid Udyam Registration Number (UAN)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-UDYOG-AADHAAR", 15);
+    if (dynamic.status === "disabled") {
+      setUdyamError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setUdyamError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setUdyamLoading(true);
+    setUdyamError("");
+    try {
+      const res = await api<any>("/apinice/udyog-aadhaar", {
+        method: "POST",
+        body: JSON.stringify({ uan: cleanUan }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.enterpriseName || res.data) {
+        setUdyamResult(res);
+      } else {
+        setUdyamError("No enterprise record found for this UAN.");
+      }
+    } catch (err: any) {
+      setUdyamError(err.message || "Failed to fetch Udyog Aadhaar details");
+    } finally {
+      setUdyamLoading(false);
+    }
+  };
+
+  const printUdyamSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const main = res.mainDetails || {};
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Udyam Enterprise Verification Slip - ${res.uan || udyamUan}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 650px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #d97706; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #fffbeb; width: 38%; color: #92400e; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#92400e;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#d97706;">Ministry of MSME - Udyam Registration Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>UAN:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;">${res.uan || udyamUan}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Name of Enterprise</td><td><strong style="font-size:14px;color:#0f172a;">${res.enterpriseName || "N/A"}</strong></td></tr>
+            <tr><td class="label">Major Activity</td><td><strong>${main.major_activity || "N/A"}</strong></td></tr>
+            <tr><td class="label">Organization Type</td><td>${main.organization_type || "N/A"}</td></tr>
+            <tr><td class="label">Social Category</td><td>${main.social_category || "N/A"}</td></tr>
+            <tr><td class="label">Commencement Date</td><td>${main.date_of_commencement || "N/A"}</td></tr>
+            <tr><td class="label">Location / City</td><td>${[main.city, main.state, main.pin].filter(Boolean).join(", ") || "N/A"}</td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official enterprise verification slip issued by LD Service Zone via National MSME Udyam Registry.<br/>
+            Valid for banking, government tenders, and MSME subsidy eligibility checks.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -1804,6 +1914,10 @@ export default function ServicesPage() {
                     setFarmerModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-UDYOG-AADHAAR") {
+                    setUdyamModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -1859,6 +1973,8 @@ export default function ServicesPage() {
                       ? "bg-sky-50 text-sky-700 border border-sky-200"
                       : item.badge === "FARMER PDF"
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : item.badge === "MSME / UDYAM"
+                      ? "bg-amber-50 text-amber-700 border border-amber-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -4571,6 +4687,180 @@ export default function ServicesPage() {
                       <Search size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-AGRISTACK-FARMER", 20).price.toFixed(2)} & Check Farmer
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 15: Udyog Aadhaar (MSME) Details */}
+      {udyamModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-amber-50 to-orange-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-amber-500/20">
+                  🏭
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#0F172A] text-base">
+                    Udyog Aadhaar (MSME) Verification
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Ministry of MSME - Udyam Registration Lookup
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setUdyamModalOpen(false);
+                  setUdyamError("");
+                  setUdyamResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {udyamError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{udyamError}</span>
+              </div>
+            )}
+
+            {udyamResult ? (
+              <div className="p-6 space-y-4">
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-amber-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-amber-950 text-base">
+                    {udyamResult.enterpriseName || "Verified MSME Enterprise"}
+                  </h4>
+                  <p className="text-xs text-amber-700 mt-0.5 font-mono">
+                    UAN: {udyamResult.uan || udyamUan}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  {udyamResult.mainDetails?.major_activity && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Major Activity:</span>
+                      <span className="font-bold text-slate-800">{udyamResult.mainDetails.major_activity}</span>
+                    </div>
+                  )}
+                  {udyamResult.mainDetails?.organization_type && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Organization Type:</span>
+                      <span className="font-bold text-slate-800">{udyamResult.mainDetails.organization_type}</span>
+                    </div>
+                  )}
+                  {udyamResult.mainDetails?.social_category && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Social Category:</span>
+                      <span className="font-bold text-slate-800">{udyamResult.mainDetails.social_category}</span>
+                    </div>
+                  )}
+                  {udyamResult.mainDetails?.date_of_commencement && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Commencement Date:</span>
+                      <span className="font-bold text-slate-800">{udyamResult.mainDetails.date_of_commencement}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Location:</span>
+                    <span className="font-bold text-slate-800 text-right">
+                      {[udyamResult.mainDetails?.city, udyamResult.mainDetails?.state, udyamResult.mainDetails?.pin].filter(Boolean).join(", ") || "N/A"}
+                    </span>
+                  </div>
+                  {udyamResult.plants && udyamResult.plants.length > 0 && (
+                    <div className="py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 block mb-1">Operational Units ({udyamResult.plants.length}):</span>
+                      <div className="space-y-1">
+                        {udyamResult.plants.slice(0, 3).map((plant: any, idx: number) => (
+                          <div key={idx} className="bg-white p-1.5 rounded-lg border border-slate-200 text-[11px] text-slate-700">
+                            <strong>{plant.unit_name || `Unit ${idx + 1}`}:</strong> {[plant.city, plant.state, plant.pin].filter(Boolean).join(", ")}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {udyamResult.balance !== undefined && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{Number(udyamResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    onClick={() => printUdyamSlip(udyamResult)}
+                    className="w-full py-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-lg shadow-amber-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print Enterprise Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUdyamResult(null);
+                      setUdyamUan("");
+                      setUdyamError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Check Another Enterprise
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleUdyamSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Udyam Registration Number (UAN) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. UDYAM-GJ-25-0000000"
+                    value={udyamUan}
+                    onChange={(e) => setUdyamUan(e.target.value.toUpperCase())}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm uppercase tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-amber-100 focus:border-amber-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter full Udyam number in format UDYAM-XX-00-0000000 or legacy UAM.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={udyamLoading || !udyamUan.trim()}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {udyamLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Verifying MSME Registry...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-UDYOG-AADHAAR", 15).price.toFixed(2)} & Verify Udyam
                       </span>
                     </>
                   )}

@@ -157,6 +157,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#16A34A",
     status: "active",
   },
+  {
+    id: "SVC-UDYOG-AADHAAR",
+    name: "Udyog Aadhaar (MSME) Details",
+    category: "Citizen",
+    customerPrice: 15,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Udyam Registration Number (UAN)"],
+    color: "#D97706",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -1564,6 +1575,113 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "AgriStack farmer document generated successfully",
+    })
+  }
+
+  // 16. POST /api/apinice/udyog-aadhaar
+  if (pathName === "/api/apinice/udyog-aadhaar" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-UDYOG-AADHAAR",
+      15,
+      "Udyog Aadhaar (MSME) Details",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const uan = String(input.uan || input.uam || "").trim().toUpperCase()
+
+    if (!uan) {
+      return respond(400, { error: "Valid Udyam Registration Number (UAN) is required (e.g. UDYAM-XX-00-0000000)." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.fetchUdyogAadhaar({ uan })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to find Udyog Aadhaar registration record",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Udyog Aadhaar Verification (${result.enterpriseName ? result.enterpriseName + ", " : ""}UAN: ${uan})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-UDYOG-AADHAAR",
+      referenceId: uan,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-UDYOG-AADHAAR",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: uan,
+      enterpriseName: result.enterpriseName,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-UDYOG-AADHAAR",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      uan,
+      enterpriseName: result.enterpriseName,
+      certificateUrl: result.certificateUrl,
+      mainDetails: result.mainDetails,
+      plants: result.plants,
+      nicCode: result.nicCode,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Udyog Aadhaar enterprise details retrieved successfully",
     })
   }
 
