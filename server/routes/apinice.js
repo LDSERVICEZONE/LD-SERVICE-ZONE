@@ -135,6 +135,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#EA580C",
     status: "active",
   },
+  {
+    id: "SVC-AADHAAR-PVC",
+    name: "Aadhaar PVC Card Print",
+    category: "Citizen",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["e-Aadhaar PDF", "PDF Password"],
+    color: "#0284C7",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -1320,6 +1331,119 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "e-Shram card PDF downloaded successfully",
+    })
+  }
+
+  // 14. POST /api/apinice/aadhar-pvc
+  if (pathName === "/api/apinice/aadhar-pvc" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-AADHAAR-PVC",
+      25,
+      "Aadhaar PVC Card Print",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const pdfBase64 = String(input.pdfBase64 || input.file || input.pdf || "").trim()
+    const password = String(input.password || "").trim()
+    const mobilePrint = String(input.mobilePrint || "Yes").trim()
+    const cardColor = String(input.cardColor || "White").trim()
+
+    if (!pdfBase64) {
+      return respond(400, { error: "e-Aadhaar PDF file or base64 stream is required." })
+    }
+    if (!password) {
+      return respond(400, { error: "e-Aadhaar PDF password is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.convertAadhaarPvc({
+        pdfBase64,
+        password,
+        mobilePrint,
+        cardColor,
+      })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to convert Aadhaar to PVC card format",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Aadhaar PVC Card Print (${cardColor} Border)`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-AADHAAR-PVC",
+      referenceId: txId,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-AADHAAR-PVC",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      cardColor,
+      mobilePrint,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-AADHAAR-PVC",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      pdfBase64: result.pdfBase64,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Aadhaar PVC card format generated successfully",
     })
   }
 

@@ -45,6 +45,7 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("chassis_to_rc_p4p")) return Response.json({ StatusCode: 100, status: true, plate: "OD02AB1234", full_name: "Rahul Sharma", relation_name: "Rajesh Sharma", data: { query_result: { plate: "OD02AB1234", reg_date: "12-Apr-2023", expiry: "11-Apr-2038", rto_office: "Bhubaneswar", reg_status: "ACTIVE" } } });
     if (String(url).includes("rc_to_mobile")) return Response.json({ StatusCode: 100, status: true, holder: { full_name: "Rahul Sharma", relation_name: "Rajesh Sharma", contact: "9876543210" } });
     if (String(url).includes("eshram")) return Response.json({ success: true, message: "e-Shram PDF fetched", data: { pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_eshram_pdf" }, balance_remaining: "48.10" });
+    if (String(url).includes("aadhar_pvc_convert")) return Response.json({ success: true, message: "PVC PDF fetched", data: { pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_pvc_pdf" }, balance_remaining: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -960,6 +961,35 @@ test("retailer can download e-Shram card PDF", async () => {
   assert.ok(res.data.pdfBase64);
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can convert Aadhaar to PVC card format", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const emptyRes = await request("/apinice/aadhar-pvc", {
+    token: retailerToken,
+    method: "POST",
+    body: { pdfBase64: "", password: "" },
+  });
+  assert.equal(emptyRes.status, 400);
+
+  const res = await request("/apinice/aadhar-pvc", {
+    token: retailerToken,
+    method: "POST",
+    body: {
+      pdfBase64: "data:application/pdf;base64,JVBERi0xLjQK...",
+      password: "RAJU1990",
+      cardColor: "White",
+      mobilePrint: "Yes",
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-AADHAAR-PVC");
+  assert.ok(res.data.pdfBase64);
+  assert.ok(res.data.ledgerId);
+});
+
 
 
 

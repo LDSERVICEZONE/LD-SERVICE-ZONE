@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Search,
   Smartphone,
+  Upload,
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 import { useWallet } from "@/features/session/AppContext";
@@ -215,6 +216,18 @@ const PRINT_SERVICES = [
     color: "#EA580C",
     description: "Official Printable e-Shram Unorganised Worker Card PDF Instant Download",
   },
+  {
+    id: "SVC-AADHAAR-PVC",
+    name: "Aadhaar PVC Card Print",
+    category: "Citizen Documents",
+    badge: "AADHAAR PVC",
+    icon: "💳",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["e-Aadhaar PDF", "PDF Password"],
+    color: "#0284C7",
+    description: "Convert password-protected e-Aadhaar PDF into thermal/PVC card printable layout",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -407,6 +420,17 @@ export default function ServicesPage() {
   const [eshramLoading, setEshramLoading] = useState(false);
   const [eshramError, setEshramError] = useState("");
   const [eshramPdfBase64, setEshramPdfBase64] = useState<string | null>(null);
+
+  // Aadhaar PVC Convert modal states
+  const [pvcModalOpen, setPvcModalOpen] = useState(false);
+  const [pvcBase64, setPvcBase64] = useState<string | null>(null);
+  const [pvcFileName, setPvcFileName] = useState("");
+  const [pvcPassword, setPvcPassword] = useState("");
+  const [pvcCardColor, setPvcCardColor] = useState<"White" | "Yellow">("White");
+  const [pvcMobilePrint, setPvcMobilePrint] = useState<"Yes" | "No">("Yes");
+  const [pvcLoading, setPvcLoading] = useState(false);
+  const [pvcError, setPvcError] = useState("");
+  const [pvcResultPdf, setPvcResultPdf] = useState<string | null>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1210,6 +1234,56 @@ export default function ServicesPage() {
     }
   };
 
+  const handlePvcSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pvcBase64) {
+      setPvcError("Please upload password-protected e-Aadhaar PDF");
+      return;
+    }
+    const cleanPass = pvcPassword.trim().toUpperCase();
+    if (!cleanPass) {
+      setPvcError("Please enter e-Aadhaar PDF password (e.g. RAJU1990)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-AADHAAR-PVC", 25);
+    if (dynamic.status === "disabled") {
+      setPvcError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setPvcError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setPvcLoading(true);
+    setPvcError("");
+    try {
+      const res = await api<any>("/apinice/aadhar-pvc", {
+        method: "POST",
+        body: JSON.stringify({
+          pdfBase64: pvcBase64,
+          password: cleanPass,
+          cardColor: pvcCardColor,
+          mobilePrint: pvcMobilePrint,
+        }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdfBase64) {
+        setPvcResultPdf(res.pdfBase64);
+      } else {
+        setPvcError("PVC layout generated, but no download stream was returned.");
+      }
+    } catch (err: any) {
+      setPvcError(err.message || "Failed to convert Aadhaar to PVC card format");
+    } finally {
+      setPvcLoading(false);
+    }
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -1614,6 +1688,10 @@ export default function ServicesPage() {
                     setEshramModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-AADHAAR-PVC") {
+                    setPvcModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -1665,6 +1743,8 @@ export default function ServicesPage() {
                       ? "bg-blue-50 text-blue-700 border border-blue-200"
                       : item.badge === "ESHRAM CARD"
                       ? "bg-orange-50 text-orange-700 border border-orange-200"
+                      : item.badge === "AADHAAR PVC"
+                      ? "bg-sky-50 text-sky-700 border border-sky-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -3989,6 +4069,195 @@ export default function ServicesPage() {
                       <Download size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-ESHRAM-CARD", 25).price.toFixed(2)} & Download Card
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 13: AADHAAR PVC CARD CONVERT */}
+      {pvcModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setPvcModalOpen(false);
+                setPvcError("");
+                setPvcResultPdf(null);
+                setPvcBase64(null);
+                setPvcFileName("");
+                setPvcPassword("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-2xl shadow-inner">
+                💳
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900">Aadhaar PVC Card Print</h3>
+                <p className="text-xs text-slate-500">
+                  Fee: ₹{getDynamicService("SVC-AADHAAR-PVC", 25).price.toFixed(2)} · Official PVC / Thermal Card Layout
+                </p>
+              </div>
+            </div>
+
+            {pvcError && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{pvcError}</span>
+              </div>
+            )}
+
+            {pvcResultPdf ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 text-sky-900 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={20} className="text-sky-600" />
+                      <h4 className="font-bold text-sm">PVC Card Ready for Printing!</h4>
+                    </div>
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-sky-200 text-sky-900">
+                      {pvcCardColor} Border
+                    </span>
+                  </div>
+                  <p className="text-xs text-sky-700">
+                    High-resolution front & back PVC card layout generated. Perfect for thermal and PVC card printers.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => downloadBase64Pdf(pvcResultPdf, `Aadhaar-PVC-Card.pdf`)}
+                    className="col-span-2 py-3.5 px-4 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 transition"
+                  >
+                    <Download size={16} />
+                    Download Aadhaar PVC PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPvcResultPdf(null);
+                      setPvcBase64(null);
+                      setPvcFileName("");
+                      setPvcPassword("");
+                    }}
+                    className="col-span-2 py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                  >
+                    Convert Another Aadhaar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handlePvcSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Upload e-Aadhaar PDF File *
+                  </label>
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-sky-400 bg-slate-50 hover:bg-sky-50/30 rounded-2xl p-4 cursor-pointer transition">
+                    <Upload size={22} className="text-sky-600 mb-1" />
+                    <span className="text-xs font-semibold text-slate-700">
+                      {pvcFileName ? pvcFileName : "Click to select e-Aadhaar PDF"}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">
+                      Accepts official password-protected PDF from UIDAI portal (max 8MB)
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      required
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setPvcFileName(file.name);
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const result = reader.result as string;
+                          setPvcBase64(result);
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    e-Aadhaar PDF Password *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. RAJU1990"
+                    value={pvcPassword}
+                    onChange={(e) => setPvcPassword(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest uppercase focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    First 4 letters of citizen name in CAPITAL + 4-digit Year of Birth (e.g. SURE1985).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Card Border Color
+                    </label>
+                    <select
+                      value={pvcCardColor}
+                      onChange={(e) => setPvcCardColor(e.target.value as any)}
+                      className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-500"
+                    >
+                      <option value="White">White Border (Standard)</option>
+                      <option value="Yellow">Yellow Border</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Mobile Print Layout
+                    </label>
+                    <select
+                      value={pvcMobilePrint}
+                      onChange={(e) => setPvcMobilePrint(e.target.value as any)}
+                      className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-500"
+                    >
+                      <option value="Yes">Yes (Compact / Mobile)</option>
+                      <option value="No">No (Desktop / Full Sheet)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={pvcLoading || !pvcBase64 || !pvcPassword}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-sky-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {pvcLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Converting to PVC Card...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-AADHAAR-PVC", 25).price.toFixed(2)} & Convert to PVC
                       </span>
                     </>
                   )}

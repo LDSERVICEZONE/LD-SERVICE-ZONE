@@ -24,12 +24,14 @@ export class ApiniceProvider {
     const method = options.method || "GET"
     const headers = {
       "X-API-Key": key,
-      "Content-Type": "application/json",
       ...(options.headers || {}),
     }
 
     let body
-    if (options.body && typeof options.body === "object") {
+    if (typeof FormData !== "undefined" && options.body instanceof FormData) {
+      body = options.body
+    } else if (options.body && typeof options.body === "object") {
+      headers["Content-Type"] = "application/json"
       body = JSON.stringify({
         apiKey: key,
         ...options.body,
@@ -537,7 +539,56 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async convertAadhaarPvc({ pdfBase64, password, mobilePrint = "Yes", cardColor = "White" }) {
+    if (!pdfBase64) {
+      throw new Error("Aadhaar PDF file or base64 stream is required")
+    }
+    const cleanPassword = clean(password)
+    if (!cleanPassword) {
+      throw new Error("e-Aadhaar PDF password is required")
+    }
+
+    const key = this.getApiKey()
+    const cleanB64 = String(pdfBase64).replace(/^data:application\/pdf;base64,/, "").trim()
+    const buffer = Buffer.from(cleanB64, "base64")
+    const blob = new Blob([buffer], { type: "application/pdf" })
+
+    const fd = new FormData()
+    fd.append("apiKey", key)
+    fd.append("file", blob, "aadhaar.pdf")
+    fd.append("password", cleanPassword)
+    fd.append("mobilePrint", mobilePrint || "Yes")
+    fd.append("cardColor", cardColor || "White")
+
+    const response = await this.request("aadhar_pvc_convert", {
+      method: "POST",
+      body: fd,
+      timeoutMs: 60000,
+    })
+
+    if (
+      response.success === false ||
+      response.status === "101" ||
+      (!response.data && !response.pdf_base64 && !response.pdf)
+    ) {
+      throw new Error(response.message || "Failed to convert Aadhaar to PVC card. Please check PDF password.")
+    }
+
+    const resultPdf = response.data?.pdf_base64 || response.pdf_base64 || response.pdf || null
+
+    return {
+      success: true,
+      service: "AADHAAR_PVC_CONVERT",
+      pdfBase64: resultPdf,
+      cardColor: cardColor || "White",
+      mobilePrint: mobilePrint || "Yes",
+      balanceRemaining: response.balance_remaining || response.balance,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()
+
 
