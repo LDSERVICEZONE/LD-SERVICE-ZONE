@@ -14,6 +14,7 @@ import {
   Search,
   Smartphone,
   Upload,
+  ExternalLink,
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 import { useWallet } from "@/features/session/AppContext";
@@ -300,6 +301,18 @@ const PRINT_SERVICES = [
     color: "#2563EB",
     description: "Instant lookup for Bank Name, Branch, MICR, Address, and NEFT/RTGS/IMPS/UPI support",
   },
+  {
+    id: "SVC-ELECTRIC-BILL",
+    name: "Electricity Bill PDF Download",
+    category: "Utilities Documents",
+    badge: "ELECTRIC BILL",
+    icon: "💡",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["Consumer / CA Number"],
+    color: "#EAB308",
+    description: "Download original electricity utility bill PDF instantly by Consumer / CA number",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -547,6 +560,13 @@ export default function ServicesPage() {
   const [ifscLoading, setIfscLoading] = useState(false);
   const [ifscError, setIfscError] = useState("");
   const [ifscResult, setIfscResult] = useState<any>(null);
+
+  // Electricity Bill modal states
+  const [billModalOpen, setBillModalOpen] = useState(false);
+  const [billCaNumber, setBillCaNumber] = useState("");
+  const [billLoading, setBillLoading] = useState(false);
+  const [billError, setBillError] = useState("");
+  const [billResultPdf, setBillResultPdf] = useState("");
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1956,6 +1976,47 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleBillSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCa = billCaNumber.trim().toUpperCase();
+    if (!cleanCa) {
+      setBillError("Please enter valid Consumer / CA Number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-ELECTRIC-BILL", 15);
+    if (dynamic.status === "disabled") {
+      setBillError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setBillError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setBillLoading(true);
+    setBillError("");
+    try {
+      const res = await api<any>("/apinice/electric-bill-pdf", {
+        method: "POST",
+        body: JSON.stringify({ caNumber: cleanCa }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdf) {
+        setBillResultPdf(res.pdf);
+      } else {
+        setBillError("Bill generated, but no download stream was returned.");
+      }
+    } catch (err: any) {
+      setBillError(err.message || "Failed to download electricity bill PDF");
+    } finally {
+      setBillLoading(false);
+    }
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -2388,6 +2449,10 @@ export default function ServicesPage() {
                     setIfscModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-ELECTRIC-BILL") {
+                    setBillModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -2453,6 +2518,8 @@ export default function ServicesPage() {
                       ? "bg-teal-50 text-teal-700 border border-teal-200"
                       : item.badge === "IFSC LOOKUP"
                       ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : item.badge === "ELECTRIC BILL"
+                      ? "bg-amber-50 text-amber-700 border border-amber-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -6026,6 +6093,136 @@ export default function ServicesPage() {
                       <Search size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-IFSC-DETAILS", 5).price.toFixed(2)} & Lookup IFSC
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 20: Electricity Bill PDF Download */}
+      {billModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 bg-gradient-to-r from-amber-50 via-yellow-50/40 to-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-lg shadow-md shadow-amber-500/20">
+                  💡
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Electricity Bill PDF Download
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    State Electricity Distribution Utility Services
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setBillModalOpen(false);
+                  setBillError("");
+                  setBillResultPdf("");
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {billError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{billError}</span>
+              </div>
+            )}
+
+            {billResultPdf ? (
+              <div className="p-6 space-y-4">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-emerald-950 text-base">
+                    Bill PDF Generated Successfully
+                  </h4>
+                  <p className="text-xs text-emerald-700 mt-0.5 font-mono">
+                    Consumer / CA Number: <strong>{billCaNumber}</strong>
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <a
+                    href={billResultPdf}
+                    download={`Electricity_Bill_${billCaNumber}.pdf`}
+                    className="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                  >
+                    <Download size={14} /> Download Bill PDF
+                  </a>
+                  <a
+                    href={billResultPdf}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    <ExternalLink size={14} /> View in Browser
+                  </a>
+                  <button
+                    onClick={() => {
+                      setBillResultPdf("");
+                      setBillCaNumber("");
+                      setBillError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Download Another Bill
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleBillSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Consumer / CA Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 102938475 or 0123456789"
+                    value={billCaNumber}
+                    onChange={(e) => setBillCaNumber(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm uppercase tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-amber-100 focus:border-amber-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter the Consumer Number / CA Number printed on the customer electricity bill.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={billLoading || !billCaNumber}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {billLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Generating Electricity Bill PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-ELECTRIC-BILL", 15).price.toFixed(2)} & Download PDF
                       </span>
                     </>
                   )}

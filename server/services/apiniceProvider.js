@@ -822,6 +822,52 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async downloadElectricBillPdf({ caNumber }) {
+    const cleanCa = clean(caNumber).replace(/\s+/g, "").toUpperCase()
+
+    if (!cleanCa) {
+      throw new Error("Valid Consumer / CA Number is required (e.g. 102938475)")
+    }
+
+    const key = this.getApiKey()
+    const endpoint = `electric_bill_pdf?apiKey=${encodeURIComponent(key)}&caNumber=${encodeURIComponent(cleanCa)}`
+
+    const response = await this.request(endpoint, {
+      method: "GET",
+      timeoutMs: 45000,
+    })
+
+    if (
+      response.status === false ||
+      response.status === 0 ||
+      response.StatusCode === 0 ||
+      (!response.pdf_base64 && !response.pdf && !response.data?.pdf_base64 && !response.data?.pdf && !response.pdf_url)
+    ) {
+      throw new Error(response.message || "Failed to generate electricity bill PDF or CA number not found")
+    }
+
+    let pdfData =
+      response.pdf_base64 ||
+      response.pdf ||
+      response.data?.pdf_base64 ||
+      response.data?.pdf ||
+      response.pdf_url ||
+      ""
+
+    if (pdfData && !pdfData.startsWith("http") && !pdfData.startsWith("data:")) {
+      pdfData = `data:application/pdf;base64,${pdfData}`
+    }
+
+    return {
+      success: true,
+      service: "ELECTRIC_BILL_PDF",
+      caNumber: cleanCa,
+      pdf: pdfData,
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

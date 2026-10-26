@@ -52,6 +52,7 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("gst_details")) return Response.json({ status: "200", details: { gstin: "24AAACC1206D1ZM", legal_name: "ABC PRIVATE LIMITED", trade_name: "ABC TECH", status: "Active", constitution: "Private Limited Company", tax_payer_type: "Regular", registration_date: "01/07/2017", state_jurisdiction: "Ward 1, Range 2", principal_address: "123 Commercial Plaza, Ahmedabad, Gujarat, 380001" }, balance: "48.10" });
     if (String(url).includes("passport_verification")) return Response.json({ status: true, message: "Passport Data fetched successfully", data: { holder_name: "SURESH KUMAR PATEL", dob: "15-08-1988", passport_number: "M1234567", application_date: "10-02-2023", file_number: "CA1073849182390" }, balance: "48.10" });
     if (String(url).includes("ifsc_details")) return Response.json({ status: "200", data: { BANK: "STATE BANK OF INDIA", BRANCH: "BHUBANESWAR MAIN", CITY: "BHUBANESWAR", DISTRICT: "KHORDHA", STATE: "ODISHA", ADDRESS: "MAIN BRANCH, UNIT 1", CONTACT: "0674-2500000", IFSC: "SBIN0001234", MICR: "751002002", IMPS: true, NEFT: true, RTGS: true, UPI: true }, balance: "48.10" });
+    if (String(url).includes("electric_bill_pdf")) return Response.json({ status: 100, message: "Bill PDF Generated", caNumber: "123456789", balance: 48.10, pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_electric_bill" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -1131,6 +1132,29 @@ test("retailer can lookup bank IFSC details", async () => {
   assert.equal(res.data.upi, true);
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can download electricity bill PDF", async () => {
+  const invalidRes = await request("/apinice/electric-bill-pdf", {
+    token: retailerToken,
+    method: "POST",
+    body: { caNumber: "" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/electric-bill-pdf", {
+    token: retailerToken,
+    method: "POST",
+    body: { caNumber: "123456789" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-ELECTRIC-BILL");
+  assert.equal(res.data.caNumber, "123456789");
+  assert.ok(res.data.pdf);
+  assert.ok(res.data.ledgerId);
+});
+
 
 
 

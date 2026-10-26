@@ -212,6 +212,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#2563EB",
     status: "active",
   },
+  {
+    id: "SVC-ELECTRIC-BILL",
+    name: "Electricity Bill PDF Download",
+    category: "Utilities",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["Consumer / CA Number"],
+    color: "#EAB308",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -2166,6 +2177,110 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "Bank IFSC details fetched successfully",
+    })
+  }
+
+  // 21. POST /api/apinice/electric-bill-pdf
+  if (pathName === "/api/apinice/electric-bill-pdf" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-ELECTRIC-BILL",
+      15,
+      "Electricity Bill PDF Download",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const caNumber = String(
+      input.caNumber || input.ca_number || input.consumerNumber || input.consumer_no || "",
+    ).trim().toUpperCase()
+
+    if (!caNumber) {
+      return respond(400, { error: "Valid Consumer / CA Number is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.downloadElectricBillPdf({ caNumber })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to download electricity bill PDF",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Electricity Bill PDF Download (CA No: ${caNumber})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-ELECTRIC-BILL",
+      referenceId: caNumber,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-ELECTRIC-BILL",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: caNumber,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-ELECTRIC-BILL",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      caNumber,
+      pdf: result.pdf,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Electricity bill PDF downloaded successfully",
     })
   }
 
