@@ -58,6 +58,39 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#059669",
     status: "active",
   },
+  {
+    id: "SVC-VOTER-VERIFY",
+    name: "Voter ID Verification",
+    category: "Voter",
+    customerPrice: 10,
+    commission: 2,
+    processingTime: "Instant",
+    documents: ["EPIC / Voter ID Number"],
+    color: "#6366F1",
+    status: "active",
+  },
+  {
+    id: "SVC-VOTER-PDF",
+    name: "Voter Card PDF Download",
+    category: "Voter",
+    customerPrice: 55,
+    commission: 5,
+    processingTime: "Instant / 1-2 hrs",
+    documents: ["EPIC / Voter ID Number", "State"],
+    color: "#8B5CF6",
+    status: "active",
+  },
+  {
+    id: "SVC-VOTER-MOBILE-LINK",
+    name: "Voter Mobile Link Without OTP",
+    category: "Voter",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant (5 mins)",
+    documents: ["EPIC / Voter ID Number", "10-digit Mobile Number"],
+    color: "#EC4899",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -508,6 +541,324 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: `${svcConfig.name} generated successfully`,
+    })
+  }
+
+  // 7. POST /api/apinice/voter-verify
+  if (pathName === "/api/apinice/voter-verify" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-VOTER-VERIFY",
+      10,
+      "Voter ID Verification",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const epic = String(input.epic || input.epicNo || input.voterId || "").trim().toUpperCase().replace(/\s+/g, "")
+    const stateId = String(input.stateId || input.state || "").trim().toUpperCase()
+
+    if (!epic) {
+      return respond(400, { error: "Voter ID / EPIC number is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.verifyVoterId({ epic, stateId })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to verify Voter ID from provider",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Voter ID Verification (EPIC: ${epic})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-VOTER-VERIFY",
+      referenceId: epic,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-VOTER-VERIFY",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: epic,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-VOTER-VERIFY",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result.data,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Voter details verified successfully",
+    })
+  }
+
+  // 8. POST /api/apinice/voter-pdf
+  if (pathName === "/api/apinice/voter-pdf" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-VOTER-PDF",
+      55,
+      "Voter Card PDF Download",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const epicNumber = String(input.epicNumber || input.epic || input.epicNo || "").trim().toUpperCase().replace(/\s+/g, "")
+    const state = String(input.state || input.stateCode || "").trim().toUpperCase()
+    const name = String(input.name || "").trim()
+
+    if (!epicNumber) {
+      return respond(400, { error: "Voter ID / EPIC number is required." })
+    }
+    if (!state) {
+      return respond(400, { error: "State is required." })
+    }
+
+    const partnerRef = createId("VTR")
+
+    let result
+    try {
+      result = await apiniceProvider.downloadVoterPdf({ epicNumber, state, name, partnerRef })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to download Voter Card PDF from provider",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Voter Card PDF Download (EPIC: ${epicNumber}, State: ${state})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-VOTER-PDF",
+      referenceId: epicNumber,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-VOTER-PDF",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: epicNumber,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-VOTER-PDF",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      pdfUrl: result.pdfUrl,
+      orderId: result.orderId,
+      status: result.status,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Voter Card PDF request processed successfully",
+    })
+  }
+
+  // 9. POST /api/apinice/voter-mobile-link
+  if (pathName === "/api/apinice/voter-mobile-link" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-VOTER-MOBILE-LINK",
+      25,
+      "Voter Mobile Link Without OTP",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const epic = String(input.epic || input.epicNo || input.voterId || "").trim().toUpperCase().replace(/\s+/g, "")
+    const mobile = String(input.mobile || input.mobileNumber || "").trim().replace(/\D/g, "")
+
+    if (!epic) {
+      return respond(400, { error: "Voter ID / EPIC number is required." })
+    }
+    if (!mobile || mobile.length !== 10) {
+      return respond(400, { error: "Valid 10-digit mobile number is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.linkVoterMobile({ epic, mobile })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to initiate Voter mobile linking from provider",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Voter Mobile Link Without OTP (EPIC: ${epic}, Mob: ${mobile})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-VOTER-MOBILE-LINK",
+      referenceId: epic,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-VOTER-MOBILE-LINK",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: epic,
+      mobile,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-VOTER-MOBILE-LINK",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      refId: result.refId,
+      applicationNo: result.applicationNo,
+      ledgerId: txId,
+      transactionId: txId,
+      message: result.message || "Voter mobile link request submitted successfully",
     })
   }
 

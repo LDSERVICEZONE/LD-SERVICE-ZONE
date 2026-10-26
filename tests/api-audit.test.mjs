@@ -38,6 +38,9 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("balance")) return Response.json({ success: true, status: "success", balance: 48.10, currency: "INR" });
     if (String(url).includes("challan")) return Response.json({ status: true, data: { vehicle_number: "OD02AB1234", challan_count: 0, total_amount: 0, challans: [] }, message: "No challan records found", balance: "48.10" });
     if (String(url).includes("abha")) return Response.json({ success: true, message: "ABHA Card generated", data: { image_base64: "data:image/png;base64,mock_image", pdf: "mock_pdf", fields: { name: "Test Citizen" } }, balance_remaining: "48.10" });
+    if (String(url).includes("voter_id_verification")) return Response.json({ status: true, success: true, message: "done", data: { epic_number: "ABC1234567", full_name: "Rahul Sharma", relation_name: "Rajesh Sharma", relation_type: "Father", age: "32", gender: "Male", state: "Odisha", district: "Khordha", assembly: "Bhubaneswar", polling_station: "Govt High School" }, balance: "48.10" });
+    if (String(url).includes("voter_pdf_download")) return Response.json({ success: true, status: "SUCCESS", message: "PDF Generated", order_id: "ORD-VTR-123", pdf_url: "https://apinice.in/sample_voter.pdf", balance_remaining: "48.10" });
+    if (String(url).includes("voter_link_instant")) return Response.json({ status: "200", success: true, message: "Number linked pending Complete within 5 min", epic: "ABC1234567", mobile: "9876543210", ref_id: "REF-9988", application_no: "APP-5544", amount: "14.10", balance_left: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -791,6 +794,77 @@ test("retailer can download ABHA health card", async () => {
   assert.ok(res.data.imageBase64 || res.data.pdf);
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can verify voter ID details", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const emptyRes = await request("/apinice/voter-verify", {
+    token: retailerToken,
+    method: "POST",
+    body: { epic: "" },
+  });
+  assert.equal(emptyRes.status, 400);
+
+  const res = await request("/apinice/voter-verify", {
+    token: retailerToken,
+    method: "POST",
+    body: { epic: "ABC1234567" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-VOTER-VERIFY");
+  assert.ok(res.data.data);
+  assert.equal(res.data.data.epic_number, "ABC1234567");
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can download voter card PDF", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const emptyRes = await request("/apinice/voter-pdf", {
+    token: retailerToken,
+    method: "POST",
+    body: { epicNumber: "", state: "" },
+  });
+  assert.equal(emptyRes.status, 400);
+
+  const res = await request("/apinice/voter-pdf", {
+    token: retailerToken,
+    method: "POST",
+    body: { epicNumber: "ABC1234567", state: "OD", name: "Rahul Sharma" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-VOTER-PDF");
+  assert.ok(res.data.orderId || res.data.pdfUrl);
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can submit voter mobile link without OTP", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const emptyRes = await request("/apinice/voter-mobile-link", {
+    token: retailerToken,
+    method: "POST",
+    body: { epic: "", mobile: "123" },
+  });
+  assert.equal(emptyRes.status, 400);
+
+  const res = await request("/apinice/voter-mobile-link", {
+    token: retailerToken,
+    method: "POST",
+    body: { epic: "ABC1234567", mobile: "9876543210" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-VOTER-MOBILE-LINK");
+  assert.ok(res.data.refId || res.data.applicationNo);
+  assert.ok(res.data.ledgerId);
+});
+
 
 
 

@@ -11,6 +11,8 @@ import {
   Shield,
   Clock,
   RefreshCw,
+  Search,
+  Smartphone,
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 import { useWallet } from "@/features/session/AppContext";
@@ -127,6 +129,42 @@ const PRINT_SERVICES = [
     documents: ["Aadhaar Number", "Date of Birth"],
     color: "#059669",
     description: "Ayushman Bharat Digital Mission (ABDM) Health ID Card Instant Print",
+  },
+  {
+    id: "SVC-VOTER-VERIFY",
+    name: "Voter ID Verification",
+    category: "Voter Services",
+    badge: "VOTER VERIFY",
+    icon: "🗳️",
+    processingTime: "Instant",
+    defaultPrice: 10,
+    documents: ["EPIC / Voter ID Number"],
+    color: "#6366F1",
+    description: "Instant Voter Record & Polling Station verification with printable customer slip",
+  },
+  {
+    id: "SVC-VOTER-PDF",
+    name: "Voter Card PDF Download",
+    category: "Voter Services",
+    badge: "VOTER PDF",
+    icon: "🪪",
+    processingTime: "Instant / 1-2 hrs",
+    defaultPrice: 55,
+    documents: ["EPIC / Voter ID Number", "State"],
+    color: "#8B5CF6",
+    description: "Official Printable Digital Voter Card (e-EPIC) PDF Download",
+  },
+  {
+    id: "SVC-VOTER-MOBILE-LINK",
+    name: "Voter Mobile Link Without OTP",
+    category: "Voter Services",
+    badge: "VOTER LINK",
+    icon: "📲",
+    processingTime: "Instant (5 mins)",
+    defaultPrice: 25,
+    documents: ["EPIC / Voter ID Number", "10-digit Mobile Number"],
+    color: "#EC4899",
+    description: "Direct instant mobile number linking with Voter ID without citizen OTP",
   },
 ];
 
@@ -266,6 +304,31 @@ export default function ServicesPage() {
   const [abhaLoading, setAbhaLoading] = useState(false);
   const [abhaError, setAbhaError] = useState("");
   const [abhaResult, setAbhaResult] = useState<any>(null);
+
+  // Voter ID Verification modal states
+  const [voterVerifyModalOpen, setVoterVerifyModalOpen] = useState(false);
+  const [voterVerifyEpic, setVoterVerifyEpic] = useState("");
+  const [voterVerifyState, setVoterVerifyState] = useState("");
+  const [voterVerifyLoading, setVoterVerifyLoading] = useState(false);
+  const [voterVerifyError, setVoterVerifyError] = useState("");
+  const [voterVerifyResult, setVoterVerifyResult] = useState<any>(null);
+
+  // Voter Card PDF modal states
+  const [voterPdfModalOpen, setVoterPdfModalOpen] = useState(false);
+  const [voterPdfEpic, setVoterPdfEpic] = useState("");
+  const [voterPdfState, setVoterPdfState] = useState("OD");
+  const [voterPdfName, setVoterPdfName] = useState("");
+  const [voterPdfLoading, setVoterPdfLoading] = useState(false);
+  const [voterPdfError, setVoterPdfError] = useState("");
+  const [voterPdfResult, setVoterPdfResult] = useState<any>(null);
+
+  // Voter Mobile Link modal states
+  const [voterLinkModalOpen, setVoterLinkModalOpen] = useState(false);
+  const [voterLinkEpic, setVoterLinkEpic] = useState("");
+  const [voterLinkMobile, setVoterLinkMobile] = useState("");
+  const [voterLinkLoading, setVoterLinkLoading] = useState(false);
+  const [voterLinkError, setVoterLinkError] = useState("");
+  const [voterLinkResult, setVoterLinkResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,6 +634,227 @@ export default function ServicesPage() {
         </head>
         <body>
           <img src="${imageBase64}" onload="window.print();" />
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleVoterVerifySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEpic = voterVerifyEpic.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanEpic) {
+      setVoterVerifyError("Please enter Voter ID / EPIC number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-VOTER-VERIFY", 10);
+    if (dynamic.status === "disabled") {
+      setVoterVerifyError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setVoterVerifyError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setVoterVerifyLoading(true);
+    setVoterVerifyError("");
+    try {
+      const res = await api<any>("/apinice/voter-verify", {
+        method: "POST",
+        body: JSON.stringify({ epic: cleanEpic, stateId: voterVerifyState }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.data) {
+        setVoterVerifyResult(res.data);
+      } else {
+        setVoterVerifyError("No voter record returned for this EPIC number.");
+      }
+    } catch (err: any) {
+      setVoterVerifyError(err.message || "Failed to verify Voter ID");
+    } finally {
+      setVoterVerifyLoading(false);
+    }
+  };
+
+  const printVoterSlip = (voter: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Voter Verification Slip - ${voter.epic_number || "EPIC"}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 650px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #f8fafc; width: 38%; color: #475569; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e293b;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#4f46e5;">Voter Electoral Search & Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>EPIC No:</strong> ${voter.epic_number || "N/A"}</div>
+            <div><strong>Verified On:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Citizen Full Name</td><td><strong>${voter.full_name || "N/A"}</strong> ${voter.full_name_l1 ? "(" + voter.full_name_l1 + ")" : ""}</td></tr>
+            <tr><td class="label">Relative Name & Type</td><td>${voter.relation_name || "N/A"} (${voter.relation_type || "Father / Spouse"})</td></tr>
+            <tr><td class="label">Age & Gender</td><td>${voter.age || "N/A"} Years · ${voter.gender || "N/A"}</td></tr>
+            <tr><td class="label">Assembly Constituency</td><td>${voter.assembly || "N/A"}</td></tr>
+            <tr><td class="label">Parliamentary Constituency</td><td>${voter.parliament || "N/A"}</td></tr>
+            <tr><td class="label">District & State</td><td>${voter.district || "N/A"}, ${voter.state || "N/A"}</td></tr>
+            <tr><td class="label">Polling Station / Booth</td><td>${voter.polling_station || "N/A"}</td></tr>
+            <tr><td class="label">Part No & Serial No</td><td>Part ${voter.part_number || "N/A"} · Serial ${voter.serial_number || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            This is a computerized electronic voter verification enquiry receipt issued by LD Service Zone.<br/>
+            Data verified from National Election Commission electoral registry.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleVoterPdfSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEpic = voterPdfEpic.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanEpic) {
+      setVoterPdfError("Please enter Voter ID / EPIC number");
+      return;
+    }
+    if (!voterPdfState) {
+      setVoterPdfError("Please select state");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-VOTER-PDF", 55);
+    if (dynamic.status === "disabled") {
+      setVoterPdfError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setVoterPdfError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setVoterPdfLoading(true);
+    setVoterPdfError("");
+    try {
+      const res = await api<any>("/apinice/voter-pdf", {
+        method: "POST",
+        body: JSON.stringify({ epicNumber: cleanEpic, state: voterPdfState, name: voterPdfName }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      setVoterPdfResult(res);
+    } catch (err: any) {
+      setVoterPdfError(err.message || "Failed to download Voter Card PDF");
+    } finally {
+      setVoterPdfLoading(false);
+    }
+  };
+
+  const handleVoterLinkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEpic = voterLinkEpic.trim().toUpperCase().replace(/\s+/g, "");
+    const cleanMobile = voterLinkMobile.trim().replace(/\D/g, "");
+    if (!cleanEpic) {
+      setVoterLinkError("Please enter Voter ID / EPIC number");
+      return;
+    }
+    if (!cleanMobile || cleanMobile.length !== 10) {
+      setVoterLinkError("Please enter a valid 10-digit mobile number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-VOTER-MOBILE-LINK", 25);
+    if (dynamic.status === "disabled") {
+      setVoterLinkError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setVoterLinkError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setVoterLinkLoading(true);
+    setVoterLinkError("");
+    try {
+      const res = await api<any>("/apinice/voter-mobile-link", {
+        method: "POST",
+        body: JSON.stringify({ epic: cleanEpic, mobile: cleanMobile }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      setVoterLinkResult(res);
+    } catch (err: any) {
+      setVoterLinkError(err.message || "Failed to link Voter Mobile number");
+    } finally {
+      setVoterLinkLoading(false);
+    }
+  };
+
+  const printVoterLinkSlip = (result: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Voter Mobile Link Acknowledgment - ${result.refId || result.transactionId}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 600px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .box { background: #fdf2f8; border: 1px solid #fbcfe8; padding: 16px; border-radius: 8px; margin-bottom: 16px; color: #831843; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #f8fafc; width: 40%; color: #475569; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e293b;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#db2777;">Voter Mobile Link Submission Receipt</h3>
+          </div>
+          <div class="box">
+            <strong>Status: Processing / Successfully Submitted</strong><br/>
+            Your mobile number linking request is submitted and will reflect in electoral record within 5-15 minutes.
+          </div>
+          <table class="table">
+            <tr><td class="label">Reference ID</td><td><strong>${result.refId || result.transactionId || "N/A"}</strong></td></tr>
+            <tr><td class="label">Application / Order No</td><td>${result.applicationNo || "N/A"}</td></tr>
+            <tr><td class="label">EPIC / Voter ID Number</td><td><strong>${voterLinkEpic}</strong></td></tr>
+            <tr><td class="label">Linked Mobile Number</td><td>${voterLinkMobile}</td></tr>
+            <tr><td class="label">Date & Time</td><td>${new Date().toLocaleString("en-IN")}</td></tr>
+          </table>
+          <div class="footer">
+            Computerized acknowledgment issued by LD Service Zone. Please keep this receipt for future reference.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
         </body>
       </html>
     `);
@@ -952,6 +1236,18 @@ export default function ServicesPage() {
                     setAbhaModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-VOTER-VERIFY") {
+                    setVoterVerifyModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-VOTER-PDF") {
+                    setVoterPdfModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-VOTER-MOBILE-LINK") {
+                    setVoterLinkModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -989,6 +1285,12 @@ export default function ServicesPage() {
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                       : item.badge === "HEALTH CARD"
                       ? "bg-teal-50 text-teal-700 border border-teal-200"
+                      : item.badge === "VOTER VERIFY"
+                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      : item.badge === "VOTER PDF"
+                      ? "bg-purple-50 text-purple-700 border border-purple-200"
+                      : item.badge === "VOTER LINK"
+                      ? "bg-pink-50 text-pink-700 border border-pink-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -2242,6 +2544,507 @@ export default function ServicesPage() {
                       <Printer size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-ABHA-CARD", 35).price.toFixed(2)} & Download Card
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: VOTER ID VERIFICATION */}
+      {voterVerifyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setVoterVerifyModalOpen(false);
+                setVoterVerifyError("");
+                setVoterVerifyResult(null);
+                setVoterVerifyEpic("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-2xl shadow-inner">
+                🗳️
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900">Voter ID Verification</h3>
+                <p className="text-xs text-slate-500">
+                  Fee: ₹{getDynamicService("SVC-VOTER-VERIFY", 10).price.toFixed(2)} · Instant Electoral Roll Verification
+                </p>
+              </div>
+            </div>
+
+            {voterVerifyError && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{voterVerifyError}</span>
+              </div>
+            )}
+
+            {voterVerifyResult ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-900 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={20} className="text-indigo-600" />
+                      <h4 className="font-bold text-sm">Voter Record Verified!</h4>
+                    </div>
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-900">
+                      {voterVerifyResult.epic_number || voterVerifyEpic}
+                    </span>
+                  </div>
+                  <p className="text-xs text-indigo-700">
+                    Official electoral record matched in national voter database.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs space-y-2">
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Citizen Name:</span>
+                    <span className="font-bold text-slate-900">{voterVerifyResult.full_name || "N/A"} {voterVerifyResult.full_name_l1 ? `(${voterVerifyResult.full_name_l1})` : ""}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Relative Name:</span>
+                    <span className="font-semibold text-slate-800">{voterVerifyResult.relation_name || "N/A"} ({voterVerifyResult.relation_type || "Father/Spouse"})</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Age & Gender:</span>
+                    <span className="font-semibold text-slate-800">{voterVerifyResult.age || "N/A"} Years · {voterVerifyResult.gender || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Assembly:</span>
+                    <span className="font-semibold text-slate-800">{voterVerifyResult.assembly || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Parliament:</span>
+                    <span className="font-semibold text-slate-800">{voterVerifyResult.parliament || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">District & State:</span>
+                    <span className="font-semibold text-slate-800">{voterVerifyResult.district || "N/A"}, {voterVerifyResult.state || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Polling Booth:</span>
+                    <span className="font-semibold text-slate-800 text-right max-w-[60%]">{voterVerifyResult.polling_station || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-500">Part & Serial:</span>
+                    <span className="font-mono font-bold text-indigo-700">Part: {voterVerifyResult.part_number || "N/A"} · Serial: {voterVerifyResult.serial_number || "N/A"}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => printVoterSlip(voterVerifyResult)}
+                    className="py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition"
+                  >
+                    <Printer size={16} />
+                    Print Customer Slip
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoterVerifyResult(null);
+                      setVoterVerifyEpic("");
+                    }}
+                    className="py-3 px-4 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    Verify Another
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleVoterVerifySubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    EPIC / Voter ID Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. ABC1234567, OD02123456"
+                    value={voterVerifyEpic}
+                    onChange={(e) => setVoterVerifyEpic(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider uppercase focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter the citizen's 10-character Voter ID (EPIC) number.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={voterVerifyLoading || !voterVerifyEpic}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {voterVerifyLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Verifying Electoral Record...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-VOTER-VERIFY", 10).price.toFixed(2)} & Verify Voter ID
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: VOTER CARD PDF DOWNLOAD */}
+      {voterPdfModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setVoterPdfModalOpen(false);
+                setVoterPdfError("");
+                setVoterPdfResult(null);
+                setVoterPdfEpic("");
+                setVoterPdfName("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center text-2xl shadow-inner">
+                🪪
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900">Voter Card PDF Download</h3>
+                <p className="text-xs text-slate-500">
+                  Fee: ₹{getDynamicService("SVC-VOTER-PDF", 55).price.toFixed(2)} · Official e-EPIC PDF Card
+                </p>
+              </div>
+            </div>
+
+            {voterPdfError && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{voterPdfError}</span>
+              </div>
+            )}
+
+            {voterPdfResult ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={20} className="text-purple-600" />
+                      <h4 className="font-bold text-sm">Voter PDF Generated!</h4>
+                    </div>
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
+                      {voterPdfResult.orderId || voterPdfResult.transactionId}
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-700">
+                    EPIC: <strong className="font-mono">{voterPdfEpic}</strong> (State: {voterPdfState})
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  {voterPdfResult.pdfUrl ? (
+                    <a
+                      href={voterPdfResult.pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="col-span-2 py-3 px-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 transition"
+                    >
+                      <Download size={16} />
+                      Download Voter Card PDF
+                    </a>
+                  ) : (
+                    <div className="col-span-2 p-3 text-center text-xs text-slate-600 bg-slate-50 rounded-2xl border border-slate-200">
+                      Order ID <strong>{voterPdfResult.orderId}</strong> created. Card will be available for download shortly.
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoterPdfResult(null);
+                      setVoterPdfEpic("");
+                      setVoterPdfName("");
+                    }}
+                    className="col-span-2 py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                  >
+                    Download Another Card
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleVoterPdfSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Select State *
+                  </label>
+                  <select
+                    value={voterPdfState}
+                    onChange={(e) => setVoterPdfState(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:outline-none focus:ring-4 focus:ring-purple-100 focus:border-purple-500"
+                  >
+                    <option value="OD">Odisha (OD)</option>
+                    <option value="BR">Bihar (BR)</option>
+                    <option value="UP">Uttar Pradesh (UP)</option>
+                    <option value="WB">West Bengal (WB)</option>
+                    <option value="JH">Jharkhand (JH)</option>
+                    <option value="MP">Madhya Pradesh (MP)</option>
+                    <option value="MH">Maharashtra (MH)</option>
+                    <option value="RJ">Rajasthan (RJ)</option>
+                    <option value="DL">Delhi (DL)</option>
+                    <option value="GJ">Gujarat (GJ)</option>
+                    <option value="AP">Andhra Pradesh (AP)</option>
+                    <option value="TS">Telangana (TS)</option>
+                    <option value="TN">Tamil Nadu (TN)</option>
+                    <option value="KA">Karnataka (KA)</option>
+                    <option value="KL">Kerala (KL)</option>
+                    <option value="PB">Punjab (PB)</option>
+                    <option value="HR">Haryana (HR)</option>
+                    <option value="CT">Chhattisgarh (CT)</option>
+                    <option value="AS">Assam (AS)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    EPIC / Voter ID Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. ABC1234567, OD02123456"
+                    value={voterPdfEpic}
+                    onChange={(e) => setVoterPdfEpic(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider uppercase focus:bg-white focus:outline-none focus:ring-4 focus:ring-purple-100 focus:border-purple-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter the citizen's 10-character Voter ID (EPIC) number.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Citizen Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Full name as printed on Voter Card"
+                    value={voterPdfName}
+                    onChange={(e) => setVoterPdfName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:outline-none focus:ring-4 focus:ring-purple-100 focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={voterPdfLoading || !voterPdfEpic || !voterPdfState}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {voterPdfLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Generating Voter Card PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-VOTER-PDF", 55).price.toFixed(2)} & Download Voter PDF
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8: VOTER MOBILE LINK WITHOUT OTP */}
+      {voterLinkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setVoterLinkModalOpen(false);
+                setVoterLinkError("");
+                setVoterLinkResult(null);
+                setVoterLinkEpic("");
+                setVoterLinkMobile("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-pink-100 text-pink-700 flex items-center justify-center text-2xl shadow-inner">
+                📲
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900">Voter Mobile Link Without OTP</h3>
+                <p className="text-xs text-slate-500">
+                  Fee: ₹{getDynamicService("SVC-VOTER-MOBILE-LINK", 25).price.toFixed(2)} · Direct Instant Electoral Mobile Link
+                </p>
+              </div>
+            </div>
+
+            {voterLinkError && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{voterLinkError}</span>
+              </div>
+            )}
+
+            {voterLinkResult ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-pink-50 border border-pink-200 text-pink-900 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={20} className="text-pink-600" />
+                      <h4 className="font-bold text-sm">Request Submitted Successfully!</h4>
+                    </div>
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-pink-200 text-pink-900">
+                      Processing
+                    </span>
+                  </div>
+                  <p className="text-xs text-pink-700">
+                    {voterLinkResult.message || "Number linked pending. Complete within 5 minutes."}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs space-y-2">
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Reference ID:</span>
+                    <span className="font-mono font-bold text-slate-900">{voterLinkResult.refId || voterLinkResult.transactionId || "N/A"}</span>
+                  </div>
+                  {voterLinkResult.applicationNo && (
+                    <div className="flex justify-between py-1 border-b border-slate-200">
+                      <span className="text-slate-500">Application No:</span>
+                      <span className="font-mono font-semibold text-slate-800">{voterLinkResult.applicationNo}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">EPIC Number:</span>
+                    <span className="font-mono font-bold text-slate-800">{voterLinkEpic}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-500">Mobile Number:</span>
+                    <span className="font-mono font-bold text-pink-700">{voterLinkMobile}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => printVoterLinkSlip(voterLinkResult)}
+                    className="py-3 px-4 rounded-2xl bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-pink-600/20 transition"
+                  >
+                    <Printer size={16} />
+                    Print Receipt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoterLinkResult(null);
+                      setVoterLinkEpic("");
+                      setVoterLinkMobile("");
+                    }}
+                    className="py-3 px-4 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    Link Another
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleVoterLinkSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    EPIC / Voter ID Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. ABC1234567, OD02123456"
+                    value={voterLinkEpic}
+                    onChange={(e) => setVoterLinkEpic(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider uppercase focus:bg-white focus:outline-none focus:ring-4 focus:ring-pink-100 focus:border-pink-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter the citizen's 10-character Voter ID (EPIC) number.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    New 10-Digit Mobile Number to Link *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={10}
+                    placeholder="e.g. 9876543210"
+                    value={voterLinkMobile}
+                    onChange={(e) => setVoterLinkMobile(e.target.value.replace(/\D/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-pink-100 focus:border-pink-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    ⚡ No citizen OTP required. Linking is processed automatically.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={voterLinkLoading || !voterLinkEpic || voterLinkMobile.length !== 10}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-pink-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {voterLinkLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Submitting Mobile Link Request...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-VOTER-MOBILE-LINK", 25).price.toFixed(2)} & Link Mobile
                       </span>
                     </>
                   )}

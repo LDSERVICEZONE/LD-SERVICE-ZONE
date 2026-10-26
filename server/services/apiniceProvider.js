@@ -266,6 +266,120 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async verifyVoterId({ epic, stateId = "" }) {
+    const cleanEpic = clean(epic).replace(/\s+/g, "").toUpperCase()
+    if (!cleanEpic) {
+      throw new Error("Valid Voter ID / EPIC number is required")
+    }
+
+    const body = {
+      epic: cleanEpic,
+    }
+    if (stateId) body.state_id = clean(stateId).toUpperCase()
+
+    const response = await this.request("voter_id_verification", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (response.status === false || response.success === false || !response.data) {
+      throw new Error(response.message || "No voter record found for this EPIC number.")
+    }
+
+    return {
+      success: true,
+      service: "VOTER_VERIFICATION",
+      epic: cleanEpic,
+      data: response.data,
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
+
+  async downloadVoterPdf({ epicNumber, state, name = "", partnerRef = "" }) {
+    const cleanEpic = clean(epicNumber).replace(/\s+/g, "").toUpperCase()
+    const cleanState = clean(state).toUpperCase()
+
+    if (!cleanEpic) {
+      throw new Error("Valid Voter ID / EPIC number is required")
+    }
+    if (!cleanState) {
+      throw new Error("State code (e.g. BR, UP, OD, MH) is required")
+    }
+
+    const body = {
+      epic_number: cleanEpic,
+      state: cleanState,
+    }
+    if (name) body.name = clean(name)
+    if (partnerRef) body.partner_ref = clean(partnerRef)
+
+    const response = await this.request("voter_pdf_download", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    })
+
+    if (response.status === false || response.success === false) {
+      throw new Error(response.message || "Failed to initiate Voter Card PDF download")
+    }
+
+    return {
+      success: true,
+      service: "VOTER_PDF",
+      epic: cleanEpic,
+      state: cleanState,
+      orderId: response.order_id || response.ref_id || response.id,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf || null,
+      status: response.status || "PENDING",
+      balanceRemaining: response.balance_remaining || response.balance,
+      raw: response,
+    }
+  }
+
+  async linkVoterMobile({ epic, mobile }) {
+    const cleanEpic = clean(epic).replace(/\s+/g, "").toUpperCase()
+    const cleanMobile = clean(mobile).replace(/\D/g, "")
+
+    if (!cleanEpic) {
+      throw new Error("Valid Voter ID / EPIC number is required")
+    }
+    if (!cleanMobile || cleanMobile.length !== 10) {
+      throw new Error("Valid 10-digit mobile number is required")
+    }
+
+    const response = await this.request("voter_link_instant", {
+      method: "POST",
+      body: {
+        epic: cleanEpic,
+        mobile: cleanMobile,
+      },
+      timeoutMs: 45000,
+    })
+
+    if (
+      response.status === false ||
+      response.status === 400 ||
+      (response.status !== "200" && response.status !== 200 && response.success !== true)
+    ) {
+      throw new Error(response.message || "Failed to initiate Voter Mobile linking")
+    }
+
+    return {
+      success: true,
+      service: "VOTER_MOBILE_LINK",
+      epic: cleanEpic,
+      mobile: cleanMobile,
+      refId: response.ref_id || response.reference_id,
+      applicationNo: response.application_no || response.order_id,
+      amount: response.amount,
+      message: response.message || "Number linked pending. Complete within 5 minutes.",
+      balanceRemaining: response.balance_left || response.balance,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()
