@@ -234,6 +234,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#4F46E5",
     status: "active",
   },
+  {
+    id: "SVC-PAN-DETAILS",
+    name: "PAN Details Verification",
+    category: "PAN",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["10-character PAN Number"],
+    color: "#6366F1",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -2401,6 +2412,115 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "PAN found successfully",
+    })
+  }
+
+  // 23. POST /api/apinice/pan-details
+  if (pathName === "/api/apinice/pan-details" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-PAN-DETAILS",
+      15,
+      "PAN Details Verification",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const panNo = String(
+      input.panNo || input.pan_no || input.pan || input.panno || "",
+    ).trim().toUpperCase()
+
+    if (!panNo || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNo)) {
+      return respond(400, { error: "Valid 10-character PAN number is required (e.g. ABCDE1234F)." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.verifyPanDetails({ panNo })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to verify PAN details",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `PAN Details Verification (${result.name ? result.name + ", " : ""}${panNo})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-PAN-DETAILS",
+      referenceId: panNo,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-PAN-DETAILS",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: panNo,
+      name: result.name,
+      fatherName: result.fatherName,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-PAN-DETAILS",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      panNumber: result.panNumber,
+      name: result.name,
+      fatherName: result.fatherName,
+      dob: result.dob,
+      gender: result.gender,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "PAN details verified successfully",
     })
   }
 

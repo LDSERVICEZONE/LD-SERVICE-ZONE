@@ -54,6 +54,7 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("ifsc_details")) return Response.json({ status: "200", data: { BANK: "STATE BANK OF INDIA", BRANCH: "BHUBANESWAR MAIN", CITY: "BHUBANESWAR", DISTRICT: "KHORDHA", STATE: "ODISHA", ADDRESS: "MAIN BRANCH, UNIT 1", CONTACT: "0674-2500000", IFSC: "SBIN0001234", MICR: "751002002", IMPS: true, NEFT: true, RTGS: true, UPI: true }, balance: "48.10" });
     if (String(url).includes("electric_bill_pdf")) return Response.json({ status: 100, message: "Bill PDF Generated", caNumber: "123456789", balance: 48.10, pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_electric_bill" });
     if (String(url).includes("find_pan")) return Response.json({ status: "success", data: { pan_number: "ABCDE1234F", full_name: "RAHUL KUMAR", aadhaar: "123456789012", application_no: "APP-PAN-99", balance_remaining: "48.10" }, message: "PAN found successfully" });
+    if (String(url).includes("pan_details")) return Response.json({ status: "success", data: { pan_no: "ABCDE1234F", name: "JOHN DOE", father: "ROBERT DOE", dob: "1990-01-15", gender: "M", balance_remaining: "48.10" } });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -1177,6 +1178,31 @@ test("retailer can find PAN number by Aadhaar", async () => {
   assert.equal(res.data.fullName, "RAHUL KUMAR");
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can verify PAN card details", async () => {
+  const invalidRes = await request("/apinice/pan-details", {
+    token: retailerToken,
+    method: "POST",
+    body: { panNo: "INVALID" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/pan-details", {
+    token: retailerToken,
+    method: "POST",
+    body: { panNo: "ABCDE1234F" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-PAN-DETAILS");
+  assert.equal(res.data.panNumber, "ABCDE1234F");
+  assert.equal(res.data.name, "JOHN DOE");
+  assert.equal(res.data.fatherName, "ROBERT DOE");
+  assert.equal(res.data.dob, "1990-01-15");
+  assert.ok(res.data.ledgerId);
+});
+
 
 
 

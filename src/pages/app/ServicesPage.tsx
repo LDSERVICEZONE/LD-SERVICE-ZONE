@@ -313,6 +313,18 @@ const PRINT_SERVICES = [
     color: "#EAB308",
     description: "Download original electricity utility bill PDF instantly by Consumer / CA number",
   },
+  {
+    id: "SVC-PAN-DETAILS",
+    name: "PAN Details Verification",
+    category: "Financial Documents",
+    badge: "PAN VERIFY",
+    icon: "🪪",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["10-character PAN Card Number"],
+    color: "#6366F1",
+    description: "Verify PAN cardholder full name, father's name, DOB, and active status instantly",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -574,6 +586,13 @@ export default function ServicesPage() {
   const [panFindLoading, setPanFindLoading] = useState(false);
   const [panFindError, setPanFindError] = useState("");
   const [panFindResult, setPanFindResult] = useState<any>(null);
+
+  // PAN Details Verification modal states
+  const [panDetailsModalOpen, setPanDetailsModalOpen] = useState(false);
+  const [panDetailsNo, setPanDetailsNo] = useState("");
+  const [panDetailsLoading, setPanDetailsLoading] = useState(false);
+  const [panDetailsError, setPanDetailsError] = useState("");
+  const [panDetailsResult, setPanDetailsResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2116,6 +2135,100 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handlePanDetailsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPan = panDetailsNo.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      setPanDetailsError("Please enter valid 10-character PAN number (e.g. ABCDE1234F)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-PAN-DETAILS", 15);
+    if (dynamic.status === "disabled") {
+      setPanDetailsError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setPanDetailsError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setPanDetailsLoading(true);
+    setPanDetailsError("");
+    try {
+      const res = await api<any>("/apinice/pan-details", {
+        method: "POST",
+        body: JSON.stringify({ panNo: cleanPan }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.name || res.data?.name) {
+        setPanDetailsResult(res);
+      } else {
+        setPanDetailsError("No PAN card record found for this PAN number.");
+      }
+    } catch (err: any) {
+      setPanDetailsError(err.message || "Failed to verify PAN details");
+    } finally {
+      setPanDetailsLoading(false);
+    }
+  };
+
+  const printPanDetailsSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const d = res.data || res;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PAN Details Verification - ${res.panNumber || panDetailsNo}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #eef2ff; width: 40%; color: #3730a3; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#3730a3;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#6366f1;">Income Tax PAN Details Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>PAN Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#6366f1;">${res.panNumber || panDetailsNo}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:16px;color:#6366f1;font-family:monospace;letter-spacing:1px;">${res.panNumber || panDetailsNo}</strong></td></tr>
+            <tr><td class="label">Cardholder Full Name</td><td><strong style="font-size:14px;color:#0f172a;">${d.name || res.name || "N/A"}</strong></td></tr>
+            <tr><td class="label">Father's Name</td><td><strong>${d.fatherName || d.father || res.fatherName || "N/A"}</strong></td></tr>
+            <tr><td class="label">Date of Birth</td><td>${d.dob || res.dob || "N/A"}</td></tr>
+            <tr><td class="label">Gender</td><td>${d.gender || res.gender || "N/A"}</td></tr>
+            <tr><td class="label">PAN Status</td><td><strong style="color:#16a34a;">OFFICIALLY VERIFIED & ACTIVE ✓</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official PAN Card verification slip issued by LD Service Zone via Income Tax Department records.<br/>
+            Valid for banking KYC, vendor onboarding, high-value transactions, and identity authentication.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -2552,6 +2665,10 @@ export default function ServicesPage() {
                     setBillModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-PAN-DETAILS") {
+                    setPanDetailsModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-FIND") {
                     setPanFindModalOpen(true);
                     return;
@@ -2623,6 +2740,8 @@ export default function ServicesPage() {
                       ? "bg-blue-50 text-blue-700 border border-blue-200"
                       : item.badge === "ELECTRIC BILL"
                       ? "bg-amber-50 text-amber-700 border border-amber-200"
+                      : item.badge === "PAN VERIFY"
+                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -6480,6 +6599,169 @@ export default function ServicesPage() {
                       <Search size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-PAN-FIND", 20).price.toFixed(2)} & Find PAN
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 22: PAN Details Verification */}
+      {panDetailsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 bg-gradient-to-r from-indigo-50 via-purple-50/40 to-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-lg shadow-md shadow-indigo-500/20">
+                  🪪
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    PAN Details Verification
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Income Tax Department Direct Record Verification
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setPanDetailsModalOpen(false);
+                  setPanDetailsError("");
+                  setPanDetailsResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {panDetailsError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{panDetailsError}</span>
+              </div>
+            )}
+
+            {panDetailsResult ? (
+              <div className="p-6 space-y-4">
+                <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-indigo-950 text-base">
+                    {panDetailsResult.name || "Verified PAN Cardholder"}
+                  </h4>
+                  <p className="text-xs text-indigo-700 font-mono mt-0.5 font-bold">
+                    PAN: {panDetailsResult.panNumber || panDetailsNo}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">PAN Number:</span>
+                    <span className="font-mono font-extrabold text-indigo-700">{panDetailsResult.panNumber || panDetailsNo}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Full Name:</span>
+                    <span className="font-bold text-slate-800">{panDetailsResult.name}</span>
+                  </div>
+                  {panDetailsResult.fatherName && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Father's Name:</span>
+                      <span className="font-bold text-slate-800">{panDetailsResult.fatherName}</span>
+                    </div>
+                  )}
+                  {panDetailsResult.dob && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Date of Birth:</span>
+                      <span className="font-bold text-slate-800">{panDetailsResult.dob}</span>
+                    </div>
+                  )}
+                  {panDetailsResult.gender && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Gender:</span>
+                      <span className="font-bold text-slate-800">{panDetailsResult.gender}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Status:</span>
+                    <span className="font-bold text-emerald-600">OFFICIALLY ACTIVE ✓</span>
+                  </div>
+                  {panDetailsResult.balance !== undefined && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{Number(panDetailsResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    onClick={() => printPanDetailsSlip(panDetailsResult)}
+                    className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print Verification Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPanDetailsResult(null);
+                      setPanDetailsNo("");
+                      setPanDetailsError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Verify Another PAN
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handlePanDetailsSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    10-Character PAN Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={10}
+                    placeholder="e.g. ABCDE1234F"
+                    value={panDetailsNo}
+                    onChange={(e) => setPanDetailsNo(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm uppercase tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter valid 10-character PAN number to verify identity, father name & DOB.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={panDetailsLoading || panDetailsNo.length !== 10}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {panDetailsLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Verifying PAN Record...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-PAN-DETAILS", 15).price.toFixed(2)} & Verify PAN
                       </span>
                     </>
                   )}

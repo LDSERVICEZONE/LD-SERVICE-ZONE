@@ -909,6 +909,47 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async verifyPanDetails({ panNo }) {
+    const cleanPan = clean(panNo).replace(/\s+/g, "").toUpperCase()
+
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      throw new Error("Valid 10-character PAN number is required (e.g. ABCDE1234F)")
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      api_key: key,
+      panno: cleanPan,
+    }
+
+    const response = await this.request("pan_details", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (
+      response.status === "error" ||
+      response.status === false ||
+      (!response.data && !response.name && !response.pan_no)
+    ) {
+      throw new Error(response.message || "PAN details not found or invalid PAN number")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "PAN_DETAILS",
+      panNumber: (data.pan_no || data.pan || cleanPan).toUpperCase(),
+      name: data.name || data.full_name || "",
+      fatherName: data.father || data.father_name || "",
+      dob: data.dob || "",
+      gender: data.gender || "",
+      balanceRemaining: data.balance_remaining || response.balance,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()
