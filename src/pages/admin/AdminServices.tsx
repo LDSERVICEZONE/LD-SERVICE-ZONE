@@ -58,6 +58,8 @@ const EMPTY_SERVICE = {
 const CATEGORIES = [
   "Government",
   "PAN",
+  "Vehicle",
+  "Citizen",
   "Tax",
   "Certificate",
   "Recharge",
@@ -115,10 +117,27 @@ export default function AdminServices() {
     vlePan: "",
   });
 
+  const [apiniceBalance, setApiniceBalance] = useState<number | null>(null);
+  const [apiniceLoading, setApiniceLoading] = useState(false);
+
   const loadCatalog = () =>
     api<any>("/services")
       .then((d) => setServices(d.services || []))
       .catch((e) => setError(e.message));
+
+  const loadApiniceBalance = async () => {
+    setApiniceLoading(true);
+    try {
+      const res = await api<any>("/apinice/balance");
+      if (res && res.balance !== undefined) {
+        setApiniceBalance(Number(res.balance));
+      }
+    } catch {
+      // ignore
+    } finally {
+      setApiniceLoading(false);
+    }
+  };
 
   const loadPanMitra = async () => {
     setPanLoading(true);
@@ -143,6 +162,7 @@ export default function AdminServices() {
   useEffect(() => {
     loadCatalog();
     loadPanMitra();
+    loadApiniceBalance();
   }, []);
 
   // Catalog functions
@@ -346,29 +366,43 @@ export default function AdminServices() {
           </p>
         </div>
 
-        {/* Tab switcher */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
-          <button
-            onClick={() => setActiveTab("catalog")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
-              activeTab === "catalog"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            Service Catalogue ({services.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("panmitra")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition ${
-              activeTab === "panmitra"
-                ? "bg-white text-violet-700 shadow-sm"
-                : "text-slate-500 hover:text-violet-600"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            PAN Mitra Gateway (Live API)
-          </button>
+        {/* Balance Badges & Tab switcher */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-cyan-50 border border-cyan-200 text-cyan-950 text-xs font-bold shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+            <span>APINICE: <strong className="text-cyan-800 font-mono text-sm">{apiniceBalance !== null ? `₹${apiniceBalance.toFixed(2)}` : "Checking..."}</strong></span>
+            <button
+              onClick={loadApiniceBalance}
+              className="p-1 text-cyan-600 hover:text-cyan-900 rounded-lg hover:bg-cyan-100 transition"
+              title="Refresh APINICE master wallet balance"
+            >
+              <RefreshCw size={12} className={apiniceLoading ? "animate-spin" : ""} />
+            </button>
+          </div>
+
+          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
+            <button
+              onClick={() => setActiveTab("catalog")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                activeTab === "catalog"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              Service Catalogue ({services.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("panmitra")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                activeTab === "panmitra"
+                  ? "bg-white text-violet-700 shadow-sm"
+                  : "text-slate-500 hover:text-violet-600"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              PAN Mitra Gateway (Live API)
+            </button>
+          </div>
         </div>
       </div>
 

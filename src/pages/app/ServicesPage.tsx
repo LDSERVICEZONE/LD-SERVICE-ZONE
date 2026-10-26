@@ -1,8 +1,110 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Download,
+  Printer,
+  AlertCircle,
+  CheckCircle2,
+  X,
+  FileText,
+  Car,
+  FileCheck,
+  Shield,
+  Clock,
+  RefreshCw,
+} from "lucide-react";
 import { api } from "@/shared/api/client";
 import { useWallet } from "@/features/session/AppContext";
 
-const BASE_CATEGORIES = ["All Services", "New PAN", "Correction & Reprint", "UTI PAN", "NSDL PAN", "Coupons & VLE", "Status Tracking"];
+function downloadBase64Pdf(base64Data: string, filename: string) {
+  try {
+    const cleanBase64 = base64Data.replace(/^data:application\/pdf;base64,/, "").trim();
+    const byteCharacters = atob(cleanBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e: any) {
+    alert("Could not download PDF: " + (e.message || "Unknown error"));
+  }
+}
+
+function openBase64Pdf(base64Data: string) {
+  try {
+    const cleanBase64 = base64Data.replace(/^data:application\/pdf;base64,/, "").trim();
+    const byteCharacters = atob(cleanBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  } catch (e: any) {
+    alert("Could not open PDF: " + (e.message || "Unknown error"));
+  }
+}
+
+const BASE_CATEGORIES = [
+  "All Services",
+  "Vehicle Services",
+  "Citizen Documents",
+  "New PAN",
+  "Correction & Reprint",
+  "UTI PAN",
+  "NSDL PAN",
+  "Coupons & VLE",
+  "Status Tracking",
+];
+
+const PRINT_SERVICES = [
+  {
+    id: "SVC-RC-PRINT",
+    name: "RC Smart Card Print",
+    category: "Vehicle Services",
+    badge: "VEHICLE PRINT",
+    icon: "🚗",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["Vehicle Registration Number"],
+    color: "#06B6D4",
+    description: "Official Printable Vehicle RC Smart Card PDF (Parivahan Digital Format)",
+  },
+  {
+    id: "SVC-DL-PRINT",
+    name: "Driving Licence Print",
+    category: "Vehicle Services",
+    badge: "DL PRINT",
+    icon: "🛵",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["DL Number", "Date of Birth"],
+    color: "#1D56D8",
+    description: "Official Printable Driving Licence Smart Card PDF (Sarathi Digital Format)",
+  },
+  {
+    id: "SVC-RATION-PRINT",
+    name: "Ration Card Print",
+    category: "Citizen Documents",
+    badge: "CITIZEN PRINT",
+    icon: "🍚",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["Ration Card Number"],
+    color: "#10B981",
+    description: "Official Printable Citizen Ration Card Document PDF (NFSA Format)",
+  },
+];
 
 const PAN_SERVICES = [
   { id: "PAN-NEW", name: "New PAN Card", icon: "🆕", processingTime: "7-15 days", customerPrice: 107, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171", description: "Direct citizen Form 49A application with physical PAN card dispatch" },
@@ -91,6 +193,169 @@ export default function ServicesPage() {
   const [nsdlAckNo, setNsdlAckNo] = useState("");
   const [nsdlModalOpen, setNsdlModalOpen] = useState(false);
 
+  // Dynamic service price & status helper
+  const getDynamicService = (serviceId: string, defaultPrice: number) => {
+    const match = services.find((s) => s.id === serviceId);
+    const price = match && Number.isFinite(Number(match.customerPrice)) ? Number(match.customerPrice) : defaultPrice;
+    const status = match?.status || "active";
+    const name = match?.name;
+    return { price, status, name };
+  };
+
+  // RC Print modal states
+  const [rcModalOpen, setRcModalOpen] = useState(false);
+  const [rcNo, setRcNo] = useState("");
+  const [rcCardType, setRcCardType] = useState("2"); // 1=Old, 2=New
+  const [rcChipType, setRcChipType] = useState("1"); // 1=Chip, 2=Non-chip
+  const [rcLoading, setRcLoading] = useState(false);
+  const [rcError, setRcError] = useState("");
+  const [rcResultPdf, setRcResultPdf] = useState<string | null>(null);
+
+  // DL Print modal states
+  const [dlModalOpen, setDlModalOpen] = useState(false);
+  const [dlNo, setDlNo] = useState("");
+  const [dlDob, setDlDob] = useState("");
+  const [dlCardType, setDlCardType] = useState("1"); // 1=White, 2=Light Blue
+  const [dlLoading, setDlLoading] = useState(false);
+  const [dlError, setDlError] = useState("");
+  const [dlResultPdf, setDlResultPdf] = useState<string | null>(null);
+
+  // Ration Print modal states
+  const [rationModalOpen, setRationModalOpen] = useState(false);
+  const [rationNo, setRationNo] = useState("");
+  const [rationCardType, setRationCardType] = useState("1"); // 1=Photo, 2=Simple
+  const [rationLoading, setRationLoading] = useState(false);
+  const [rationError, setRationError] = useState("");
+  const [rationResultPdf, setRationResultPdf] = useState<string | null>(null);
+
+  const handleRcSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanRc = rcNo.trim().toUpperCase();
+    if (!cleanRc) {
+      setRcError("Please enter vehicle registration number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-RC-PRINT", 30);
+    if (dynamic.status === "disabled") {
+      setRcError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setRcError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setRcLoading(true);
+    setRcError("");
+    try {
+      const res = await api<any>("/apinice/rc-print", {
+        method: "POST",
+        body: JSON.stringify({ rcno: cleanRc, cardtype: rcCardType, chiptype: rcChipType }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdf) {
+        setRcResultPdf(res.pdf);
+      } else {
+        setRcError("Document generated, but no download stream was returned.");
+      }
+    } catch (err: any) {
+      setRcError(err.message || "Failed to generate RC print");
+    } finally {
+      setRcLoading(false);
+    }
+  };
+
+  const handleDlSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanDl = dlNo.trim().toUpperCase();
+    const cleanDob = dlDob.trim();
+    if (!cleanDl) {
+      setDlError("Please enter driving licence number");
+      return;
+    }
+    if (!cleanDob) {
+      setDlError("Please select date of birth");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-DL-PRINT", 25);
+    if (dynamic.status === "disabled") {
+      setDlError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setDlError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setDlLoading(true);
+    setDlError("");
+    try {
+      const res = await api<any>("/apinice/dl-print", {
+        method: "POST",
+        body: JSON.stringify({ dlno: cleanDl, dob: cleanDob, cardtype: dlCardType }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdf) {
+        setDlResultPdf(res.pdf);
+      } else {
+        setDlError("Document generated, but no download stream was returned.");
+      }
+    } catch (err: any) {
+      setDlError(err.message || "Failed to generate Driving Licence print");
+    } finally {
+      setDlLoading(false);
+    }
+  };
+
+  const handleRationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanRation = rationNo.trim();
+    if (!cleanRation) {
+      setRationError("Please enter ration card number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-RATION-PRINT", 25);
+    if (dynamic.status === "disabled") {
+      setRationError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setRationError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setRationLoading(true);
+    setRationError("");
+    try {
+      const res = await api<any>("/apinice/ration-print", {
+        method: "POST",
+        body: JSON.stringify({ rationno: cleanRation, card_type: rationCardType }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdf) {
+        setRationResultPdf(res.pdf);
+      } else {
+        setRationError("Document generated, but no download stream was returned.");
+      }
+    } catch (err: any) {
+      setRationError(err.message || "Failed to generate Ration Card print");
+    } finally {
+      setRationLoading(false);
+    }
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -98,22 +363,50 @@ export default function ServicesPage() {
 
   const categories = BASE_CATEGORIES;
 
-  const filteredPanServices = useMemo(() => {
-    return PAN_SERVICES.filter((p) => {
+  const filteredServices = useMemo(() => {
+    const all = [
+      ...PRINT_SERVICES.map((s) => {
+        const dyn = getDynamicService(s.id, s.defaultPrice);
+        return {
+          ...s,
+          customerPrice: dyn.price,
+          status: dyn.status,
+          name: dyn.name || s.name,
+          isPrintService: true,
+        };
+      }),
+      ...PAN_SERVICES.map((p) => {
+        const matched = services.find((s) => s.id === p.id);
+        return {
+          ...p,
+          category: "PAN",
+          customerPrice: matched && Number.isFinite(matched.customerPrice) ? matched.customerPrice : p.customerPrice,
+          badge: "PAN SERVICE",
+          isPrintService: false,
+        };
+      }),
+    ];
+
+    return all.filter((s) => {
+      if ((s as any).status === "disabled") return false;
+
       const matchesSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.description.toLowerCase().includes(search.toLowerCase());
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.description.toLowerCase().includes(search.toLowerCase());
       if (!matchesSearch) return false;
+
       if (activeCategory === "All Services" || activeCategory === "All") return true;
-      if (activeCategory === "New PAN") return p.id === "PAN-NEW" || p.id === "PAN-NSDL" || p.id === "PAN-UTI";
-      if (activeCategory === "Correction & Reprint") return p.id === "PAN-CORRECTION" || p.id === "PAN-REPRINT";
-      if (activeCategory === "UTI PAN") return p.id.includes("UTI") && !p.id.includes("STATUS");
-      if (activeCategory === "NSDL PAN") return p.id.includes("NSDL") && !p.id.includes("STATUS");
-      if (activeCategory === "Coupons & VLE") return p.id.includes("COUPON") || p.id === "PAN-UTI";
-      if (activeCategory === "Status Tracking") return p.id.includes("STATUS");
+      if (activeCategory === "Vehicle Services") return s.category === "Vehicle Services";
+      if (activeCategory === "Citizen Documents") return s.category === "Citizen Documents";
+      if (activeCategory === "New PAN") return s.id === "PAN-NEW" || s.id === "PAN-NSDL" || s.id === "PAN-UTI";
+      if (activeCategory === "Correction & Reprint") return s.id === "PAN-CORRECTION" || s.id === "PAN-REPRINT";
+      if (activeCategory === "UTI PAN") return s.id.includes("UTI") && !s.id.includes("STATUS");
+      if (activeCategory === "NSDL PAN") return s.id.includes("NSDL") && !s.id.includes("STATUS");
+      if (activeCategory === "Coupons & VLE") return s.id.includes("COUPON") || s.id === "PAN-UTI";
+      if (activeCategory === "Status Tracking") return s.id.includes("STATUS");
       return true;
     });
-  }, [search, activeCategory]);
+  }, [search, activeCategory, services]);
 
   const openApplication = (service: any) => {
     setForm({});
@@ -407,19 +700,29 @@ export default function ServicesPage() {
             <p className="text-xs text-[#94A3B8]">Select an option to apply, buy coupons, or track status.</p>
           </div>
           <span className="text-xs font-semibold text-[#64748B] bg-[#F8FAFC] px-3 py-1.5 rounded-full border border-[#E2E8F0]">
-            {filteredPanServices.length} PAN Services Active
+            {filteredServices.length} Services Available
           </span>
         </div>
 
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredPanServices.map(p => {
-            const matched = services.find(s => s.id === p.id);
-            const item = matched ? { ...p, ...matched } : p;
+          {filteredServices.map((item: any) => {
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => {
+                  if (item.id === "SVC-RC-PRINT") {
+                    setRcModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-DL-PRINT") {
+                    setDlModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-RATION-PRINT") {
+                    setRationModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -440,23 +743,31 @@ export default function ServicesPage() {
                     setNsdlModalOpen(true);
                     return;
                   }
-                  openApplication({ ...item, category: "PAN" });
+                  openApplication({ ...item, category: item.category || "PAN" });
                 }}
                 className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 text-left hover:border-violet-300 hover:shadow-xl hover:-translate-y-1 transition-all"
               >
                 <div className="flex items-start justify-between">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner" style={{ backgroundColor: item.color + "20" }}>
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner" style={{ backgroundColor: (item.color || "#4F46E5") + "20" }}>
                     {item.icon}
                   </div>
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700">PAN SERVICE</span>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                    item.badge === "VEHICLE PRINT"
+                      ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                      : item.badge === "CITIZEN PRINT"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-violet-50 text-violet-700"
+                  }`}>
+                    {item.badge || "PAN SERVICE"}
+                  </span>
                 </div>
                 <h4 className="font-bold text-[#0F172A] mt-4">{item.name}</h4>
                 <p className="text-xs text-[#64748B] mt-1">⏱ {item.processingTime}</p>
                 <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">{item.description}</p>
                 <div className="mt-4 rounded-xl bg-[#F8FAFC] border border-[#EEF2F7] p-3 flex justify-between items-center">
-                  <span className="text-[11px] text-[#64748B]">Official Fee</span>
+                  <span className="text-[11px] text-[#64748B]">Service Fee</span>
                   <span className="font-bold text-sm text-[#0F172A]">
-                    {item.customerPrice === 0 ? "Free" : `₹${item.customerPrice}`}
+                    {item.customerPrice === 0 ? "Free" : `₹${Number(item.customerPrice).toFixed(2)}`}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-4">
@@ -878,6 +1189,479 @@ export default function ServicesPage() {
                 {submitting ? "Processing…" : selectedService.customerPrice > 0 ? `Pay ₹${selectedService.customerPrice} from Wallet & Submit →` : "Submit Application →"}
               </button>
               <p className="text-center text-[10px] text-[#94A3B8]">🔒 Form data is sent to your local /api/applications backend.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 1: RC SMART CARD PRINT                                  */}
+      {/* ------------------------------------------------------------- */}
+      {rcModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-cyan-50 to-blue-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-100 text-cyan-700 flex items-center justify-center text-xl">
+                  🚗
+                </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-slate-900 text-lg">RC Smart Card Print</h3>
+                  <p className="text-xs text-slate-500">Official Printable RC PDF via Parivahan API</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setRcModalOpen(false);
+                  setRcError("");
+                  setRcResultPdf(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 flex items-center justify-center border border-slate-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-cyan-50/60 border border-cyan-100 text-xs">
+                <div className="flex items-center gap-2 text-cyan-900">
+                  <Clock size={16} className="text-cyan-600" />
+                  <span>Instant Verification & PDF Generation</span>
+                </div>
+                <span className="font-extrabold text-sm text-cyan-700">
+                  Fee: ₹{getDynamicService("SVC-RC-PRINT", 30).price.toFixed(2)}
+                </span>
+              </div>
+
+              {rcError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                  <span>{rcError}</span>
+                </div>
+              )}
+
+              {rcResultPdf ? (
+                <div className="space-y-4 py-2">
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center space-y-2">
+                    <CheckCircle2 size={32} className="mx-auto text-emerald-600" />
+                    <h4 className="font-bold text-sm">Vehicle RC PDF Generated Successfully!</h4>
+                    <p className="text-xs text-emerald-700">
+                      RC Smart Card for <strong className="font-mono">{rcNo.toUpperCase()}</strong> is ready to print.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => downloadBase64Pdf(rcResultPdf, `RC_${rcNo.toUpperCase()}.pdf`)}
+                      className="py-3 px-4 rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-600/20 transition"
+                    >
+                      <Download size={16} />
+                      Download PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openBase64Pdf(rcResultPdf)}
+                      className="py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                    >
+                      <Printer size={16} />
+                      Open & Print
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRcResultPdf(null);
+                      setRcNo("");
+                    }}
+                    className="w-full py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-xs transition"
+                  >
+                    Print Another Vehicle RC
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleRcSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Vehicle Registration Number (RC No) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. OD02AB1234 or DL01AB1234"
+                      value={rcNo}
+                      onChange={(e) => setRcNo(e.target.value.toUpperCase().replace(/[\s-]/g, ""))}
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm uppercase tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-100 focus:border-cyan-500"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">Enter complete vehicle registration number without spaces</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Card Design Format
+                      </label>
+                      <select
+                        value={rcCardType}
+                        onChange={(e) => setRcCardType(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      >
+                        <option value="2">New Smart Card Format</option>
+                        <option value="1">Classical Format</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Smart Chip Style
+                      </label>
+                      <select
+                        value={rcChipType}
+                        onChange={(e) => setRcChipType(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      >
+                        <option value="1">With Smart Chip</option>
+                        <option value="2">Without Chip</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                    <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      ₹{Number(wallet?.balance || 0).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={rcLoading || !rcNo}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-cyan-600/20 transition flex items-center justify-center gap-2"
+                  >
+                    {rcLoading ? (
+                      <>
+                        <RefreshCw size={16} className="animate-spin" />
+                        <span>Verifying & Generating RC PDF...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={16} />
+                        <span>Pay ₹{getDynamicService("SVC-RC-PRINT", 30).price.toFixed(2)} & Generate RC PDF</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 2: DRIVING LICENCE PRINT                                */}
+      {/* ------------------------------------------------------------- */}
+      {dlModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl">
+                  🛵
+                </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-slate-900 text-lg">Driving Licence Print</h3>
+                  <p className="text-xs text-slate-500">Official Printable DL PDF via Sarathi API</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setDlModalOpen(false);
+                  setDlError("");
+                  setDlResultPdf(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 flex items-center justify-center border border-slate-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100 text-xs">
+                <div className="flex items-center gap-2 text-blue-900">
+                  <Clock size={16} className="text-blue-600" />
+                  <span>Instant Verification & PDF Generation</span>
+                </div>
+                <span className="font-extrabold text-sm text-blue-700">
+                  Fee: ₹{getDynamicService("SVC-DL-PRINT", 25).price.toFixed(2)}
+                </span>
+              </div>
+
+              {dlError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                  <span>{dlError}</span>
+                </div>
+              )}
+
+              {dlResultPdf ? (
+                <div className="space-y-4 py-2">
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center space-y-2">
+                    <CheckCircle2 size={32} className="mx-auto text-emerald-600" />
+                    <h4 className="font-bold text-sm">Driving Licence PDF Generated Successfully!</h4>
+                    <p className="text-xs text-emerald-700">
+                      Smart Card for DL <strong className="font-mono">{dlNo.toUpperCase()}</strong> is ready to print.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => downloadBase64Pdf(dlResultPdf, `DL_${dlNo.toUpperCase()}.pdf`)}
+                      className="py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition"
+                    >
+                      <Download size={16} />
+                      Download PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openBase64Pdf(dlResultPdf)}
+                      className="py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                    >
+                      <Printer size={16} />
+                      Open & Print
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDlResultPdf(null);
+                      setDlNo("");
+                    }}
+                    className="w-full py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-xs transition"
+                  >
+                    Print Another Driving Licence
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleDlSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Driving Licence Number (DL No) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. OD0220190012345 or DL-0420110012345"
+                      value={dlNo}
+                      onChange={(e) => setDlNo(e.target.value.toUpperCase())}
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm uppercase tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Date of Birth (DOB) *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={dlDob}
+                        onChange={(e) => setDlDob(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Card Color Style
+                      </label>
+                      <select
+                        value={dlCardType}
+                        onChange={(e) => setDlCardType(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="1">White Background Style</option>
+                        <option value="2">Light Blue Background Style</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                    <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      ₹{Number(wallet?.balance || 0).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={dlLoading || !dlNo || !dlDob}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-blue-600/20 transition flex items-center justify-center gap-2"
+                  >
+                    {dlLoading ? (
+                      <>
+                        <RefreshCw size={16} className="animate-spin" />
+                        <span>Verifying & Generating DL PDF...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={16} />
+                        <span>Pay ₹{getDynamicService("SVC-DL-PRINT", 25).price.toFixed(2)} & Generate DL PDF</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 3: RATION CARD PRINT                                    */}
+      {/* ------------------------------------------------------------- */}
+      {rationModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl">
+                  🍚
+                </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-slate-900 text-lg">Ration Card Print</h3>
+                  <p className="text-xs text-slate-500">Official Citizen Ration Card Document PDF</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setRationModalOpen(false);
+                  setRationError("");
+                  setRationResultPdf(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 flex items-center justify-center border border-slate-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-xs">
+                <div className="flex items-center gap-2 text-emerald-900">
+                  <Clock size={16} className="text-emerald-600" />
+                  <span>Instant Verification & PDF Generation</span>
+                </div>
+                <span className="font-extrabold text-sm text-emerald-700">
+                  Fee: ₹{getDynamicService("SVC-RATION-PRINT", 25).price.toFixed(2)}
+                </span>
+              </div>
+
+              {rationError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                  <span>{rationError}</span>
+                </div>
+              )}
+
+              {rationResultPdf ? (
+                <div className="space-y-4 py-2">
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center space-y-2">
+                    <CheckCircle2 size={32} className="mx-auto text-emerald-600" />
+                    <h4 className="font-bold text-sm">Ration Card PDF Generated Successfully!</h4>
+                    <p className="text-xs text-emerald-700">
+                      Ration Document for <strong className="font-mono">{rationNo}</strong> is ready to print.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => downloadBase64Pdf(rationResultPdf, `Ration_${rationNo}.pdf`)}
+                      className="py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition"
+                    >
+                      <Download size={16} />
+                      Download PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openBase64Pdf(rationResultPdf)}
+                      className="py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                    >
+                      <Printer size={16} />
+                      Open & Print
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRationResultPdf(null);
+                      setRationNo("");
+                    }}
+                    className="w-full py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-xs transition"
+                  >
+                    Print Another Ration Card
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleRationSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Ration Card Number (RC/NFSA No) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 101010101010 or State Ration ID"
+                      value={rationNo}
+                      onChange={(e) => setRationNo(e.target.value.replace(/\s+/g, ""))}
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Design Template
+                    </label>
+                    <select
+                      value={rationCardType}
+                      onChange={(e) => setRationCardType(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="1">Photo Layout Design</option>
+                      <option value="2">Simple Layout Design</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                    <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      ₹{Number(wallet?.balance || 0).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={rationLoading || !rationNo}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2"
+                  >
+                    {rationLoading ? (
+                      <>
+                        <RefreshCw size={16} className="animate-spin" />
+                        <span>Verifying & Generating Ration PDF...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={16} />
+                        <span>Pay ₹{getDynamicService("SVC-RATION-PRINT", 25).price.toFixed(2)} & Generate Ration PDF</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </div>

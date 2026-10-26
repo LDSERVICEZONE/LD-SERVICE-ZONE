@@ -34,6 +34,10 @@ globalThis.fetch = async (url, options) => {
     if (String(url).endsWith("/auth/v1/user")) return Response.json({ id: "sb-retailer" });
     return Response.json({ error: "Invalid credentials" }, { status: 400 });
   }
+  if (String(url).startsWith("https://apinice.in")) {
+    if (String(url).includes("balance")) return Response.json({ success: true, status: "success", balance: 48.10, currency: "INR" });
+    return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
+  }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
   return originalFetch(url, options);
 };
@@ -658,5 +662,86 @@ test("admin can reset user password directly", async () => {
   });
   assert.equal(shortPassRes.status, 400);
 });
+
+test("admin can query APINICE master balance endpoint", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+  const res = await request("/apinice/balance", { token: "admin" });
+  assert.equal(res.status, 200);
+  assert.equal(typeof res.data.balance, "number");
+  assert.equal(res.data.configured, true);
+});
+
+let retailerToken;
+test("retailer cannot access APINICE print services without sufficient balance", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+  const loginRes = await request("/auth/login", { body: { credential: "other@example.test", password: "BrandNewSecret99!" } });
+  assert.equal(loginRes.status, 200);
+  retailerToken = loginRes.data.token;
+  assert.ok(retailerToken);
+
+  const balRes = await request("/wallet", { token: retailerToken });
+  const currentBal = Number(balRes.data?.wallet?.balance || 0);
+  if (currentBal > 0) {
+    await request("/admin/wallet/adjust", {
+      token: "admin",
+      body: { userId: "other", type: "debit", amount: currentBal, reason: "Zero out balance" },
+    });
+  }
+
+  const res = await request("/apinice/rc-print", {
+    token: retailerToken,
+    method: "POST",
+    body: { rcno: "OD02AB1234" },
+  });
+
+  assert.equal(res.status, 400);
+  assert.match(res.data.error, /Insufficient wallet balance/i);
+});
+
+test("APINICE print endpoints reject missing parameters", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  await request("/admin/wallet/adjust", {
+    token: "admin",
+    body: { userId: "other", type: "credit", amount: 1000, reason: "Test APINICE" },
+  });
+
+  const rcRes = await request("/apinice/rc-print", {
+    token: retailerToken,
+    method: "POST",
+    body: { rcno: "" },
+  });
+  assert.equal(rcRes.status, 400);
+
+  const dlRes = await request("/apinice/dl-print", {
+    token: retailerToken,
+    method: "POST",
+    body: { dlno: "" },
+  });
+  assert.equal(dlRes.status, 400);
+
+  const rationRes = await request("/apinice/ration-print", {
+    token: retailerToken,
+    method: "POST",
+    body: { rationno: "" },
+  });
+  assert.equal(rationRes.status, 400);
+});
+
+test("retailer with sufficient balance can generate APINICE print document", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const res = await request("/apinice/rc-print", {
+    token: retailerToken,
+    method: "POST",
+    body: { rcno: "OD02AB1234" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.ok(res.data.pdf);
+  assert.ok(res.data.ledgerId);
+});
+
 
 

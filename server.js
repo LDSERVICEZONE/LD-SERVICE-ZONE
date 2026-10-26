@@ -21,6 +21,7 @@ import { handleApplicationRoutes } from "./server/routes/applications.js"
 import { handleWalletRoutes } from "./server/routes/wallet.js"
 import { handleRechargeRoutes } from "./server/routes/recharge.js"
 import { handlePanMitraRoutes } from "./server/routes/panmitra.js"
+import { handleApiniceRoutes } from "./server/routes/apinice.js"
 import { createStateRepository } from "./server/repositories/state.js"
 import { SERVICE_SEED } from "./server/data/serviceCatalog.js"
 import { createRazorpayClient } from "./server/services/razorpay.js"
@@ -774,6 +775,19 @@ export async function handleRequest(req, res) {
       provider: panmitra,
     })
     if (panmitraHandled) return
+    const apiniceHandled = await handleApiniceRoutes({
+      req,
+      res,
+      pathName,
+      url,
+      db,
+      send,
+      saveDb,
+      audit,
+      requireAuth,
+      ensureWallet,
+    })
+    if (apiniceHandled) return
     const applicationHandled = await handleApplicationRoutes({
       req,
       res,
