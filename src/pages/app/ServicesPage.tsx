@@ -264,6 +264,18 @@ const PRINT_SERVICES = [
     color: "#2563EB",
     description: "Check NPCI mapping & DBT active bank for government subsidies, PM-Kisan & pensions",
   },
+  {
+    id: "SVC-GST-DETAILS",
+    name: "GST Number Details Verification",
+    category: "Citizen Documents",
+    badge: "GST VERIFY",
+    icon: "💼",
+    processingTime: "Instant",
+    defaultPrice: 10,
+    documents: ["GSTIN Number (15-character)"],
+    color: "#4F46E5",
+    description: "Verify GSTIN status, trade name, legal business name, constitution & address",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -489,6 +501,13 @@ export default function ServicesPage() {
   const [npciLoading, setNpciLoading] = useState(false);
   const [npciError, setNpciError] = useState("");
   const [npciResult, setNpciResult] = useState<any>(null);
+
+  // GST Details modal states
+  const [gstModalOpen, setGstModalOpen] = useState(false);
+  const [gstNumber, setGstNumber] = useState("");
+  const [gstLoading, setGstLoading] = useState(false);
+  const [gstError, setGstError] = useState("");
+  const [gstResult, setGstResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1609,6 +1628,98 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleGstSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanGst = gstNumber.trim().toUpperCase();
+    if (!cleanGst || cleanGst.length !== 15) {
+      setGstError("Please enter valid 15-character GSTIN number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-GST-DETAILS", 10);
+    if (dynamic.status === "disabled") {
+      setGstError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setGstError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setGstLoading(true);
+    setGstError("");
+    try {
+      const res = await api<any>("/apinice/gst-details", {
+        method: "POST",
+        body: JSON.stringify({ gst: cleanGst }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.details || res.legalName) {
+        setGstResult(res);
+      } else {
+        setGstError("No GSTIN record found for this number.");
+      }
+    } catch (err: any) {
+      setGstError(err.message || "Failed to fetch GST details");
+    } finally {
+      setGstLoading(false);
+    }
+  };
+
+  const printGstSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const d = res.details || {};
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>GST Registration Details Slip - ${res.gst || gstNumber}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 650px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #eef2ff; width: 38%; color: #3730a3; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#3730a3;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#4f46e5;">Goods and Services Tax (GSTIN) Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>GSTIN:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;">${res.gst || gstNumber}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Legal Name of Business</td><td><strong style="font-size:14px;color:#0f172a;">${d.legalName || res.legalName || "N/A"}</strong></td></tr>
+            <tr><td class="label">Trade Name</td><td><strong>${d.tradeName || res.tradeName || "N/A"}</strong></td></tr>
+            <tr><td class="label">GST Status</td><td><strong style="color:${(d.status || res.status || "").toLowerCase().includes("active") ? "#16a34a" : "#dc2626"};font-size:14px;">${d.status || res.status || "Active"}</strong></td></tr>
+            <tr><td class="label">Constitution of Business</td><td>${d.constitution || "N/A"}</td></tr>
+            <tr><td class="label">Taxpayer Type</td><td>${d.taxPayerType || "Regular"}</td></tr>
+            <tr><td class="label">Registration Date</td><td>${d.registrationDate || "N/A"}</td></tr>
+            <tr><td class="label">Principal Place of Business</td><td>${d.address || "N/A"}</td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official GST registration certificate verification slip issued by LD Service Zone via GST Common Portal.<br/>
+            Valid for vendor onboarding, e-invoicing, bank KYC, and tax compliance checks.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -2029,6 +2140,10 @@ export default function ServicesPage() {
                     setNpciModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-GST-DETAILS") {
+                    setGstModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -2088,6 +2203,8 @@ export default function ServicesPage() {
                       ? "bg-amber-50 text-amber-700 border border-amber-200"
                       : item.badge === "NPCI / DBT"
                       ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : item.badge === "GST VERIFY"
+                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -5137,6 +5254,182 @@ export default function ServicesPage() {
                       <Search size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-NPCI-STATUS", 20).price.toFixed(2)} & Check NPCI Status
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 17: GST Number Details Verification */}
+      {gstModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-indigo-50 to-blue-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-indigo-500/20">
+                  💼
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#0F172A] text-base">
+                    GST Number Details Verification
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Goods and Services Tax Network (GSTN) Lookup
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setGstModalOpen(false);
+                  setGstError("");
+                  setGstResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {gstError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{gstError}</span>
+              </div>
+            )}
+
+            {gstResult ? (
+              <div className="p-6 space-y-4">
+                <div className={`p-4 rounded-2xl border text-center ${
+                  (gstResult.status || gstResult.details?.status || "").toLowerCase().includes("active")
+                    ? "bg-emerald-50 border-emerald-200"
+                    : "bg-amber-50 border-amber-200"
+                }`}>
+                  <div className={`w-12 h-12 rounded-full text-white flex items-center justify-center mx-auto mb-2 text-xl shadow ${
+                    (gstResult.status || gstResult.details?.status || "").toLowerCase().includes("active")
+                      ? "bg-emerald-600"
+                      : "bg-amber-600"
+                  }`}>
+                    {(gstResult.status || gstResult.details?.status || "").toLowerCase().includes("active") ? "✓" : "!"}
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-base">
+                    {gstResult.details?.tradeName || gstResult.tradeName || gstResult.details?.legalName || "Registered Taxpayer"}
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Legal Name: <strong>{gstResult.details?.legalName || gstResult.legalName || "N/A"}</strong>
+                  </p>
+                  <span className={`inline-block mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                    (gstResult.status || gstResult.details?.status || "").toLowerCase().includes("active")
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}>
+                    Status: {gstResult.details?.status || gstResult.status || "Active"}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">GSTIN:</span>
+                    <span className="font-mono font-bold text-slate-800">{gstResult.gst || gstNumber}</span>
+                  </div>
+                  {gstResult.details?.constitution && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Constitution of Business:</span>
+                      <span className="font-bold text-slate-800">{gstResult.details.constitution}</span>
+                    </div>
+                  )}
+                  {gstResult.details?.taxPayerType && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Taxpayer Type:</span>
+                      <span className="font-bold text-slate-800">{gstResult.details.taxPayerType}</span>
+                    </div>
+                  )}
+                  {gstResult.details?.registrationDate && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Registration Date:</span>
+                      <span className="font-bold text-slate-800">{gstResult.details.registrationDate}</span>
+                    </div>
+                  )}
+                  {gstResult.details?.address && (
+                    <div className="py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 block mb-0.5">Principal Address:</span>
+                      <span className="font-semibold text-slate-800">{gstResult.details.address}</span>
+                    </div>
+                  )}
+                  {gstResult.balance !== undefined && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{Number(gstResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    onClick={() => printGstSlip(gstResult)}
+                    className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print GST Verification Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGstResult(null);
+                      setGstNumber("");
+                      setGstError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Check Another GSTIN
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleGstSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    GSTIN Number (15 Characters) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={15}
+                    placeholder="e.g. 24AAACC1206D1ZM"
+                    value={gstNumber}
+                    onChange={(e) => setGstNumber(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm uppercase tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter valid 15-character Goods & Services Tax Identification Number.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={gstLoading || !gstNumber || gstNumber.length !== 15}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {gstLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Verifying GSTIN Details...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-GST-DETAILS", 10).price.toFixed(2)} & Verify GSTIN
                       </span>
                     </>
                   )}

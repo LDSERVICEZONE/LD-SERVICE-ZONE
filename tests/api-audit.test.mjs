@@ -49,6 +49,7 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("agristack_approved_farmers_pdf")) return Response.json({ status: 100, statusMessage: "success", message: "Farmer PDF Generated Successfully", application_no: "AGRI-9988-77", data: { name: "Ramesh Pradhan", uidNumber: "543210987654", state: "OD", pdf: "data:application/pdf;base64,JVBERi0xLjQK...mock_farmer_pdf" }, balance: "48.10" });
     if (String(url).includes("udyog_aadhaar")) return Response.json({ status: true, data: { uan: "UDYAM-GJ-25-0000000", name_of_enterprise: "ABC INDUSTRIES", certificate_url: "", main_details: { major_activity: "Manufacturing", organization_type: "Proprietary", social_category: "General", date_of_commencement: "2012-10-17", city: "VAPI", state: "GUJARAT", pin: "396195" }, plants: [{ unit_name: "UNIT 1", city: "VAPI", state: "GUJARAT", pin: "396195" }] }, balance: "48.10" });
     if (String(url).includes("npci-aadhaar-link-status")) return Response.json({ status: true, StatusCode: 100, message: "NPCI Data fetched successfully", data: { aadhaar: "543210987654", bank: "STATE BANK OF INDIA", status: "ACTIVE", last_update: "2024-01-15" }, balance: "48.10" });
+    if (String(url).includes("gst_details")) return Response.json({ status: "200", details: { gstin: "24AAACC1206D1ZM", legal_name: "ABC PRIVATE LIMITED", trade_name: "ABC TECH", status: "Active", constitution: "Private Limited Company", tax_payer_type: "Regular", registration_date: "01/07/2017", state_jurisdiction: "Ward 1, Range 2", principal_address: "123 Commercial Plaza, Ahmedabad, Gujarat, 380001" }, balance: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -1057,6 +1058,28 @@ test("retailer can check NPCI Aadhaar-Bank link status", async () => {
   assert.equal(res.data.service, "SVC-NPCI-STATUS");
   assert.equal(res.data.bank, "STATE BANK OF INDIA");
   assert.equal(res.data.status, "ACTIVE");
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can verify GST number details", async () => {
+  const invalidRes = await request("/apinice/gst-details", {
+    token: retailerToken,
+    method: "POST",
+    body: { gst: "123" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/gst-details", {
+    token: retailerToken,
+    method: "POST",
+    body: { gst: "24AAACC1206D1ZM" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-GST-DETAILS");
+  assert.equal(res.data.legalName, "ABC PRIVATE LIMITED");
+  assert.equal(res.data.status, "Active");
   assert.ok(res.data.ledgerId);
 });
 

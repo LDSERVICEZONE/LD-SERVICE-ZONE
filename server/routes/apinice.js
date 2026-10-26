@@ -179,6 +179,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#2563EB",
     status: "active",
   },
+  {
+    id: "SVC-GST-DETAILS",
+    name: "GST Number Details Verification",
+    category: "Business",
+    customerPrice: 10,
+    commission: 2,
+    processingTime: "Instant",
+    documents: ["GSTIN Number (15-character)"],
+    color: "#4F46E5",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -1799,6 +1810,113 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "NPCI Aadhaar bank mapping status retrieved successfully",
+    })
+  }
+
+  // 18. POST /api/apinice/gst-details
+  if (pathName === "/api/apinice/gst-details" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-GST-DETAILS",
+      10,
+      "GST Number Details Verification",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const gst = String(input.gst || input.gstin || "").trim().toUpperCase()
+
+    if (!gst || gst.length !== 15) {
+      return respond(400, { error: "Valid 15-character GSTIN number is required (e.g. 24AAACC1206D1ZM)." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.fetchGstDetails({ gst })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to find GST details",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `GST Verification (${result.details?.legalName ? result.details.legalName + ", " : ""}GSTIN: ${gst})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-GST-DETAILS",
+      referenceId: gst,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-GST-DETAILS",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: gst,
+      legalName: result.details?.legalName,
+      tradeName: result.details?.tradeName,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-GST-DETAILS",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      gst,
+      details: result.details,
+      legalName: result.details?.legalName,
+      tradeName: result.details?.tradeName,
+      status: result.details?.status,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "GSTIN registration details retrieved successfully",
     })
   }
 

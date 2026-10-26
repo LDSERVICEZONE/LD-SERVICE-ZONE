@@ -693,6 +693,44 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async fetchGstDetails({ gst }) {
+    const cleanGst = clean(gst).replace(/[\s-]/g, "").toUpperCase()
+    if (!cleanGst || cleanGst.length !== 15) {
+      throw new Error("Valid 15-character GSTIN number is required")
+    }
+
+    const key = this.getApiKey()
+    const endpoint = `gst_details?api_key=${encodeURIComponent(key)}&gst=${encodeURIComponent(cleanGst)}`
+
+    const response = await this.request(endpoint, {
+      method: "GET",
+      timeoutMs: 45000,
+    })
+
+    if (response.status === false || (response.status !== "200" && response.status !== 200 && !response.details)) {
+      throw new Error(response.message || "GSTIN record not found or invalid")
+    }
+
+    const details = response.details || response.data || response
+    return {
+      success: true,
+      service: "GST_DETAILS",
+      gst: cleanGst,
+      details: {
+        legalName: details.legal_name || details.lgnm || "",
+        tradeName: details.trade_name || details.tradeNam || details.legal_name || "",
+        status: details.status || details.sts || "Active",
+        constitution: details.constitution || details.ctb || "",
+        taxPayerType: details.tax_payer_type || details.dty || "",
+        registrationDate: details.registration_date || details.rgdt || "",
+        address: details.principal_address || details.pradr || details.address || "",
+        stateJurisdiction: details.state_jurisdiction || details.stj || "",
+      },
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()
