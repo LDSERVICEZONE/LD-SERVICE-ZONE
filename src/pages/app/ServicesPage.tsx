@@ -167,6 +167,42 @@ const PRINT_SERVICES = [
     color: "#EC4899",
     description: "Direct instant mobile number linking with Voter ID without citizen OTP",
   },
+  {
+    id: "SVC-LL-PDF",
+    name: "Learning Licence (LL) PDF",
+    category: "Vehicle Services",
+    badge: "LL PDF",
+    icon: "📜",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["Learning Licence Number / Application ID"],
+    color: "#0284C7",
+    description: "Official Printable Learning Licence (LL) document PDF (Sarathi Format)",
+  },
+  {
+    id: "SVC-CHASSIS-TO-RC",
+    name: "Chassis to RC Details",
+    category: "Vehicle Services",
+    badge: "CHASSIS SEARCH",
+    icon: "🔍",
+    processingTime: "Instant",
+    defaultPrice: 60,
+    documents: ["Vehicle Chassis Number"],
+    color: "#D97706",
+    description: "Find vehicle plate number, owner, RTO office & registration dates using chassis number",
+  },
+  {
+    id: "SVC-RC-TO-MOBILE",
+    name: "RC to Mobile Number Search",
+    category: "Vehicle Services",
+    badge: "RC MOBILE",
+    icon: "📞",
+    processingTime: "Instant",
+    defaultPrice: 35,
+    documents: ["Vehicle Registration Number"],
+    color: "#2563EB",
+    description: "Instant lookup for registered vehicle owner contact mobile number",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -330,6 +366,27 @@ export default function ServicesPage() {
   const [voterLinkLoading, setVoterLinkLoading] = useState(false);
   const [voterLinkError, setVoterLinkError] = useState("");
   const [voterLinkResult, setVoterLinkResult] = useState<any>(null);
+
+  // Learning Licence (LL) PDF modal states
+  const [llModalOpen, setLlModalOpen] = useState(false);
+  const [llId, setLlId] = useState("");
+  const [llLoading, setLlLoading] = useState(false);
+  const [llError, setLlError] = useState("");
+  const [llPdfBase64, setLlPdfBase64] = useState<string | null>(null);
+
+  // Chassis to RC modal states
+  const [chassisModalOpen, setChassisModalOpen] = useState(false);
+  const [chassisNo, setChassisNo] = useState("");
+  const [chassisLoading, setChassisLoading] = useState(false);
+  const [chassisError, setChassisError] = useState("");
+  const [chassisResult, setChassisResult] = useState<any>(null);
+
+  // RC to Mobile modal states
+  const [rcMobileModalOpen, setRcMobileModalOpen] = useState(false);
+  const [rcMobileVehicle, setRcMobileVehicle] = useState("");
+  const [rcMobileLoading, setRcMobileLoading] = useState(false);
+  const [rcMobileError, setRcMobileError] = useState("");
+  const [rcMobileResult, setRcMobileResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -862,6 +919,231 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleLlSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = llId.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanId) {
+      setLlError("Please enter Learning Licence (LL) Number / Application ID");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-LL-PDF", 25);
+    if (dynamic.status === "disabled") {
+      setLlError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setLlError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setLlLoading(true);
+    setLlError("");
+    try {
+      const res = await api<any>("/apinice/ll-pdf", {
+        method: "POST",
+        body: JSON.stringify({ idNumber: cleanId }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdfBase64) {
+        setLlPdfBase64(res.pdfBase64);
+      } else {
+        setLlError("LL document generated, but no download stream was returned.");
+      }
+    } catch (err: any) {
+      setLlError(err.message || "Failed to download Learning Licence PDF");
+    } finally {
+      setLlLoading(false);
+    }
+  };
+
+  const handleChassisSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanChassis = chassisNo.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanChassis) {
+      setChassisError("Please enter vehicle chassis number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-CHASSIS-TO-RC", 60);
+    if (dynamic.status === "disabled") {
+      setChassisError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setChassisError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setChassisLoading(true);
+    setChassisError("");
+    try {
+      const res = await api<any>("/apinice/chassis-to-rc", {
+        method: "POST",
+        body: JSON.stringify({ chassisNumber: cleanChassis }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.plate) {
+        setChassisResult(res);
+      } else {
+        setChassisError("No vehicle details returned for this chassis number.");
+      }
+    } catch (err: any) {
+      setChassisError(err.message || "Failed to find vehicle details from chassis number");
+    } finally {
+      setChassisLoading(false);
+    }
+  };
+
+  const printChassisSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const q = res.queryResult || {};
+    const loc = res.location?.permanent || res.location?.current || {};
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Chassis Vehicle Search - ${res.plate || "RC"}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 650px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #f8fafc; width: 38%; color: #475569; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e293b;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#d97706;">Vehicle Chassis to RC Lookup Report</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Vehicle Plate:</strong> <span style="font-size:16px;font-weight:bold;color:#1d4ed8;">${res.plate || "N/A"}</span></div>
+            <div><strong>Search Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Chassis Number</td><td><strong style="font-family:monospace;">${chassisNo}</strong></td></tr>
+            <tr><td class="label">Registered Owner</td><td><strong>${res.fullName || "N/A"}</strong></td></tr>
+            <tr><td class="label">Father / Relative Name</td><td>${res.relationName || "N/A"}</td></tr>
+            <tr><td class="label">Registration Date</td><td>${q.reg_date || "N/A"}</td></tr>
+            <tr><td class="label">Fitness / RC Expiry</td><td>${q.expiry || "N/A"}</td></tr>
+            <tr><td class="label">Registering RTO Office</td><td>${q.rto_office || "N/A"}</td></tr>
+            <tr><td class="label">Registration Status</td><td><strong style="color:#059669;">${q.reg_status || "ACTIVE"}</strong></td></tr>
+            ${loc.full_address ? `<tr><td class="label">Registered Address</td><td>${loc.full_address}</td></tr>` : ""}
+          </table>
+          <div class="footer">
+            Computerized electronic enquiry search report issued by LD Service Zone.<br/>
+            Data verified from Parivahan National Vehicle Registry.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleRcMobileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanVehicle = rcMobileVehicle.trim().toUpperCase().replace(/[\s-]/g, "");
+    if (!cleanVehicle) {
+      setRcMobileError("Please enter vehicle registration number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-RC-TO-MOBILE", 35);
+    if (dynamic.status === "disabled") {
+      setRcMobileError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setRcMobileError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setRcMobileLoading(true);
+    setRcMobileError("");
+    try {
+      const res = await api<any>("/apinice/rc-to-mobile", {
+        method: "POST",
+        body: JSON.stringify({ vehicleNumber: cleanVehicle }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.contact || res.fullName) {
+        setRcMobileResult(res);
+      } else {
+        setRcMobileError("No contact mobile found for this vehicle RC.");
+      }
+    } catch (err: any) {
+      setRcMobileError(err.message || "Failed to find registered mobile number from vehicle RC");
+    } finally {
+      setRcMobileLoading(false);
+    }
+  };
+
+  const printRcMobileSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>RC Mobile Contact Slip - ${rcMobileVehicle}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 600px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #f8fafc; width: 40%; color: #475569; }
+            .contact-box { background: #eff6ff; border: 1px solid #bfdbfe; padding: 14px; border-radius: 8px; margin-bottom: 16px; text-align: center; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e293b;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#2563eb;">Vehicle RC Registered Contact Receipt</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Vehicle Plate:</strong> <span style="font-weight:bold;font-size:15px;">${rcMobileVehicle}</span></div>
+            <div><strong>Search Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <div class="contact-box">
+            <span style="font-size:12px;color:#1e40af;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;">Registered Mobile Number:</span><br/>
+            <span style="font-size:22px;font-weight:900;color:#1d4ed8;font-family:monospace;letter-spacing:1px;">${res.contact || "N/A"}</span>
+          </div>
+          <table class="table">
+            <tr><td class="label">Vehicle Owner</td><td><strong>${res.fullName || "N/A"}</strong></td></tr>
+            <tr><td class="label">Father / Relative Name</td><td>${res.relationName || "N/A"}</td></tr>
+            <tr><td class="label">Vehicle Registration No</td><td><strong>${rcMobileVehicle}</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Computerized verification report issued by LD Service Zone. Information retrieved from official vehicle registry records.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -1250,6 +1532,18 @@ export default function ServicesPage() {
                     setVoterLinkModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-LL-PDF") {
+                    setLlModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-CHASSIS-TO-RC") {
+                    setChassisModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-RC-TO-MOBILE") {
+                    setRcMobileModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -1293,6 +1587,12 @@ export default function ServicesPage() {
                       ? "bg-purple-50 text-purple-700 border border-purple-200"
                       : item.badge === "VOTER LINK"
                       ? "bg-pink-50 text-pink-700 border border-pink-200"
+                      : item.badge === "LL PDF"
+                      ? "bg-sky-50 text-sky-700 border border-sky-200"
+                      : item.badge === "CHASSIS SEARCH"
+                      ? "bg-orange-50 text-orange-700 border border-orange-200"
+                      : item.badge === "RC MOBILE"
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -3047,6 +3347,436 @@ export default function ServicesPage() {
                       <Smartphone size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-VOTER-MOBILE-LINK", 25).price.toFixed(2)} & Link Mobile
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: LEARNING LICENCE (LL) PDF */}
+      {llModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setLlModalOpen(false);
+                setLlError("");
+                setLlPdfBase64(null);
+                setLlId("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-2xl shadow-inner">
+                📜
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900">Learning Licence (LL) PDF</h3>
+                <p className="text-xs text-slate-500">
+                  Fee: ₹{getDynamicService("SVC-LL-PDF", 25).price.toFixed(2)} · Official Sarathi LL Download
+                </p>
+              </div>
+            </div>
+
+            {llError && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{llError}</span>
+              </div>
+            )}
+
+            {llPdfBase64 ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 text-sky-900 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={20} className="text-sky-600" />
+                      <h4 className="font-bold text-sm">Learning Licence Generated!</h4>
+                    </div>
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-sky-200 text-sky-900">
+                      {llId}
+                    </span>
+                  </div>
+                  <p className="text-xs text-sky-700">
+                    Your official Learning Licence document PDF is ready for download.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => downloadBase64Pdf(llPdfBase64, `Learning-Licence-${llId}.pdf`)}
+                    className="col-span-2 py-3.5 px-4 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 transition"
+                  >
+                    <Download size={16} />
+                    Download Learning Licence PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLlPdfBase64(null);
+                      setLlId("");
+                    }}
+                    className="col-span-2 py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                  >
+                    Download Another Licence
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleLlSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Learning Licence Number / Application ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. DL0420230000000, OD02LL12345"
+                    value={llId}
+                    onChange={(e) => setLlId(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider uppercase focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter Sarathi Learning Licence number or application reference ID.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={llLoading || !llId}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-sky-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {llLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Fetching Learning Licence PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-LL-PDF", 25).price.toFixed(2)} & Download LL
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 10: CHASSIS NUMBER TO RC DETAILS */}
+      {chassisModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setChassisModalOpen(false);
+                setChassisError("");
+                setChassisResult(null);
+                setChassisNo("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-2xl shadow-inner">
+                🔍
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900">Chassis to RC Details</h3>
+                <p className="text-xs text-slate-500">
+                  Fee: ₹{getDynamicService("SVC-CHASSIS-TO-RC", 60).price.toFixed(2)} · Instant Parivahan Vehicle Lookup
+                </p>
+              </div>
+            </div>
+
+            {chassisError && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{chassisError}</span>
+              </div>
+            )}
+
+            {chassisResult ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={20} className="text-amber-600" />
+                      <h4 className="font-bold text-sm">Vehicle Record Found!</h4>
+                    </div>
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                      Matched
+                    </span>
+                  </div>
+                  <div className="text-xs text-amber-800 pt-1 flex items-center justify-between">
+                    <span>Registration Plate:</span>
+                    <span className="font-mono font-black text-base text-blue-700">{chassisResult.plate}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs space-y-2">
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Registered Owner:</span>
+                    <span className="font-bold text-slate-900">{chassisResult.fullName || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Relative / Father Name:</span>
+                    <span className="font-semibold text-slate-800">{chassisResult.relationName || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Chassis Number:</span>
+                    <span className="font-mono font-semibold text-slate-800">{chassisNo}</span>
+                  </div>
+                  {chassisResult.queryResult?.reg_date && (
+                    <div className="flex justify-between py-1 border-b border-slate-200">
+                      <span className="text-slate-500">Registration Date:</span>
+                      <span className="font-semibold text-slate-800">{chassisResult.queryResult.reg_date}</span>
+                    </div>
+                  )}
+                  {chassisResult.queryResult?.expiry && (
+                    <div className="flex justify-between py-1 border-b border-slate-200">
+                      <span className="text-slate-500">Fitness / Expiry Date:</span>
+                      <span className="font-semibold text-slate-800">{chassisResult.queryResult.expiry}</span>
+                    </div>
+                  )}
+                  {chassisResult.queryResult?.rto_office && (
+                    <div className="flex justify-between py-1 border-b border-slate-200">
+                      <span className="text-slate-500">RTO Office:</span>
+                      <span className="font-semibold text-slate-800">{chassisResult.queryResult.rto_office}</span>
+                    </div>
+                  )}
+                  {chassisResult.location?.permanent?.full_address && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Registered Address:</span>
+                      <span className="font-semibold text-slate-800 text-right max-w-[65%]">{chassisResult.location.permanent.full_address}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => printChassisSlip(chassisResult)}
+                    className="py-3 px-4 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20 transition"
+                  >
+                    <Printer size={16} />
+                    Print Vehicle Slip
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChassisResult(null);
+                      setChassisNo("");
+                    }}
+                    className="py-3 px-4 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    Search Another
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleChassisSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Vehicle Chassis Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. MBLJFW240GH09017, MA3ER... (17 chars)"
+                    value={chassisNo}
+                    onChange={(e) => setChassisNo(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider uppercase focus:bg-white focus:outline-none focus:ring-4 focus:ring-amber-100 focus:border-amber-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter the complete 17-digit chassis number stamped on the vehicle.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={chassisLoading || !chassisNo}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {chassisLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Searching Vehicle Registry...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-CHASSIS-TO-RC", 60).price.toFixed(2)} & Find RC
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 11: RC TO MOBILE SEARCH */}
+      {rcMobileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setRcMobileModalOpen(false);
+                setRcMobileError("");
+                setRcMobileResult(null);
+                setRcMobileVehicle("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center text-2xl shadow-inner">
+                📞
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900">RC to Mobile Number Search</h3>
+                <p className="text-xs text-slate-500">
+                  Fee: ₹{getDynamicService("SVC-RC-TO-MOBILE", 35).price.toFixed(2)} · Instant Registered Owner Mobile Lookup
+                </p>
+              </div>
+            </div>
+
+            {rcMobileError && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{rcMobileError}</span>
+              </div>
+            )}
+
+            {rcMobileResult ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={20} className="text-blue-600" />
+                      <h4 className="font-bold text-sm">Owner Contact Found!</h4>
+                    </div>
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-blue-200 text-blue-900">
+                      {rcMobileVehicle}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-blue-200 text-center">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Registered Mobile Number</span>
+                    <div className="font-mono font-black text-2xl text-blue-700 tracking-wider mt-0.5">
+                      {rcMobileResult.contact || "Not Available"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs space-y-2">
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Vehicle Owner:</span>
+                    <span className="font-bold text-slate-900">{rcMobileResult.fullName || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200">
+                    <span className="text-slate-500">Father / Relative:</span>
+                    <span className="font-semibold text-slate-800">{rcMobileResult.relationName || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-500">Vehicle Registration:</span>
+                    <span className="font-mono font-bold text-slate-800">{rcMobileVehicle}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => printRcMobileSlip(rcMobileResult)}
+                    className="py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition"
+                  >
+                    <Printer size={16} />
+                    Print Receipt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRcMobileResult(null);
+                      setRcMobileVehicle("");
+                    }}
+                    className="py-3 px-4 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    Search Another
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleRcMobileSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Vehicle Registration Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. OD02AB1234, BR01AB2254"
+                    value={rcMobileVehicle}
+                    onChange={(e) => setRcMobileVehicle(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider uppercase focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter the vehicle plate number without spaces or special symbols.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={rcMobileLoading || !rcMobileVehicle}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {rcMobileLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Searching Registered Contact...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-RC-TO-MOBILE", 35).price.toFixed(2)} & Find Mobile
                       </span>
                     </>
                   )}

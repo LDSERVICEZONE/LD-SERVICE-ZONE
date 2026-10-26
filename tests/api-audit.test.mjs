@@ -41,6 +41,9 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("voter_id_verification")) return Response.json({ status: true, success: true, message: "done", data: { epic_number: "ABC1234567", full_name: "Rahul Sharma", relation_name: "Rajesh Sharma", relation_type: "Father", age: "32", gender: "Male", state: "Odisha", district: "Khordha", assembly: "Bhubaneswar", polling_station: "Govt High School" }, balance: "48.10" });
     if (String(url).includes("voter_pdf_download")) return Response.json({ success: true, status: "SUCCESS", message: "PDF Generated", order_id: "ORD-VTR-123", pdf_url: "https://apinice.in/sample_voter.pdf", balance_remaining: "48.10" });
     if (String(url).includes("voter_link_instant")) return Response.json({ status: "200", success: true, message: "Number linked pending Complete within 5 min", epic: "ABC1234567", mobile: "9876543210", ref_id: "REF-9988", application_no: "APP-5544", amount: "14.10", balance_left: "48.10" });
+    if (String(url).includes("ll_pdf")) return Response.json({ success: true, message: "LL PDF fetched", data: { pdf_base64: "JVBERi0xLjQK...mock_ll_pdf" }, balance_remaining: "48.10" });
+    if (String(url).includes("chassis_to_rc_p4p")) return Response.json({ StatusCode: 100, status: true, plate: "OD02AB1234", full_name: "Rahul Sharma", relation_name: "Rajesh Sharma", data: { query_result: { plate: "OD02AB1234", reg_date: "12-Apr-2023", expiry: "11-Apr-2038", rto_office: "Bhubaneswar", reg_status: "ACTIVE" } } });
+    if (String(url).includes("rc_to_mobile")) return Response.json({ StatusCode: 100, status: true, holder: { full_name: "Rahul Sharma", relation_name: "Rajesh Sharma", contact: "9876543210" } });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -864,6 +867,76 @@ test("retailer can submit voter mobile link without OTP", async () => {
   assert.ok(res.data.refId || res.data.applicationNo);
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can download Learning Licence (LL) PDF", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const emptyRes = await request("/apinice/ll-pdf", {
+    token: retailerToken,
+    method: "POST",
+    body: { idNumber: "" },
+  });
+  assert.equal(emptyRes.status, 400);
+
+  const res = await request("/apinice/ll-pdf", {
+    token: retailerToken,
+    method: "POST",
+    body: { idNumber: "DL0420230000000" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-LL-PDF");
+  assert.ok(res.data.pdfBase64);
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can lookup vehicle details by chassis number", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const emptyRes = await request("/apinice/chassis-to-rc", {
+    token: retailerToken,
+    method: "POST",
+    body: { chassisNumber: "" },
+  });
+  assert.equal(emptyRes.status, 400);
+
+  const res = await request("/apinice/chassis-to-rc", {
+    token: retailerToken,
+    method: "POST",
+    body: { chassisNumber: "MBLJFW240GH09017" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-CHASSIS-TO-RC");
+  assert.equal(res.data.plate, "OD02AB1234");
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can find registered mobile number from vehicle RC", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const emptyRes = await request("/apinice/rc-to-mobile", {
+    token: retailerToken,
+    method: "POST",
+    body: { vehicleNumber: "" },
+  });
+  assert.equal(emptyRes.status, 400);
+
+  const res = await request("/apinice/rc-to-mobile", {
+    token: retailerToken,
+    method: "POST",
+    body: { vehicleNumber: "OD02AB1234" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-RC-TO-MOBILE");
+  assert.equal(res.data.contact, "9876543210");
+  assert.ok(res.data.ledgerId);
+});
+
 
 
 

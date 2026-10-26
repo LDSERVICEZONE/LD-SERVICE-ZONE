@@ -380,6 +380,102 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async fetchLearningLicencePdf({ idNumber }) {
+    const cleanId = clean(idNumber).replace(/\s+/g, "").toUpperCase()
+    if (!cleanId) {
+      throw new Error("Learning Licence (LL) Number / ID is required")
+    }
+
+    const key = this.getApiKey()
+    const endpoint = `ll_pdf?apiKey=${encodeURIComponent(key)}&idNumber=${encodeURIComponent(cleanId)}`
+
+    const response = await this.request(endpoint, {
+      method: "GET",
+      timeoutMs: 60000,
+    })
+
+    if (response.success === false || response.status === "101" || (!response.data && !response.pdf_base64 && !response.pdf)) {
+      throw new Error(response.message || "Failed to download Learning Licence PDF")
+    }
+
+    const pdfBase64 = response.data?.pdf_base64 || response.pdf_base64 || response.pdf || null
+
+    return {
+      success: true,
+      service: "LL_PDF",
+      idNumber: cleanId,
+      pdfBase64,
+      balanceRemaining: response.balance_remaining || response.balance,
+      raw: response,
+    }
+  }
+
+  async lookupChassisToRc({ chassisNumber }) {
+    const cleanChassis = clean(chassisNumber).replace(/\s+/g, "").toUpperCase()
+    if (!cleanChassis) {
+      throw new Error("Vehicle Chassis Number is required")
+    }
+
+    const key = this.getApiKey()
+    const endpoint = `chassis_to_rc_p4p?apiKey=${encodeURIComponent(key)}&chassisNumber=${encodeURIComponent(cleanChassis)}`
+
+    const response = await this.request(endpoint, {
+      method: "GET",
+      timeoutMs: 45000,
+    })
+
+    if (response.status === false || response.StatusCode === 404 || !response.plate) {
+      throw new Error(response.message || "Vehicle not found for this chassis number")
+    }
+
+    const queryResult = response.data?.query_result || {}
+    const location = response.data?.location || {}
+
+    return {
+      success: true,
+      service: "CHASSIS_TO_RC",
+      chassisNumber: cleanChassis,
+      plate: response.plate,
+      fullName: response.full_name || "",
+      relationName: response.relation_name || "",
+      queryResult,
+      location,
+      raw: response,
+    }
+  }
+
+  async lookupRcToMobile({ vehicleNumber }) {
+    const cleanVehicle = clean(vehicleNumber).replace(/[\s-]/g, "").toUpperCase()
+    if (!cleanVehicle) {
+      throw new Error("Vehicle Registration Number is required")
+    }
+
+    const key = this.getApiKey()
+    const endpoint = `rc_to_mobile?apiKey=${encodeURIComponent(key)}&vehicalNumber=${encodeURIComponent(cleanVehicle)}`
+
+    const response = await this.request(endpoint, {
+      method: "GET",
+      timeoutMs: 45000,
+    })
+
+    if (response.status === false || response.StatusCode === 422 || !response.holder) {
+      throw new Error(response.error || response.message || "RC contact mobile number not found")
+    }
+
+    const holder = response.holder || {}
+
+    return {
+      success: true,
+      service: "RC_TO_MOBILE",
+      vehicleNumber: cleanVehicle,
+      holder,
+      fullName: holder.full_name || "",
+      relationName: holder.relation_name || "",
+      contact: holder.contact || "",
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

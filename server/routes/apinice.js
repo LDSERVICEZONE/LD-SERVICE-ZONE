@@ -91,6 +91,39 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#EC4899",
     status: "active",
   },
+  {
+    id: "SVC-LL-PDF",
+    name: "Learning Licence (LL) PDF",
+    category: "Vehicle",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Learning Licence Number / Application ID"],
+    color: "#0284C7",
+    status: "active",
+  },
+  {
+    id: "SVC-CHASSIS-TO-RC",
+    name: "Chassis Number to RC Details",
+    category: "Vehicle",
+    customerPrice: 60,
+    commission: 10,
+    processingTime: "Instant",
+    documents: ["Vehicle Chassis Number"],
+    color: "#D97706",
+    status: "active",
+  },
+  {
+    id: "SVC-RC-TO-MOBILE",
+    name: "RC to Mobile Number Search",
+    category: "Vehicle",
+    customerPrice: 35,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Vehicle Registration Number"],
+    color: "#2563EB",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -859,6 +892,318 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: result.message || "Voter mobile link request submitted successfully",
+    })
+  }
+
+  // 10. POST /api/apinice/ll-pdf
+  if (pathName === "/api/apinice/ll-pdf" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-LL-PDF",
+      25,
+      "Learning Licence (LL) PDF",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const idNumber = String(input.idNumber || input.llNo || input.llNumber || "").trim().toUpperCase().replace(/\s+/g, "")
+
+    if (!idNumber) {
+      return respond(400, { error: "Learning Licence (LL) number or ID is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.fetchLearningLicencePdf({ idNumber })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to download Learning Licence PDF from provider",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Learning Licence PDF Download (LL: ${idNumber})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-LL-PDF",
+      referenceId: idNumber,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-LL-PDF",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: idNumber,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-LL-PDF",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      pdfBase64: result.pdfBase64,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Learning Licence PDF generated successfully",
+    })
+  }
+
+  // 11. POST /api/apinice/chassis-to-rc
+  if (pathName === "/api/apinice/chassis-to-rc" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-CHASSIS-TO-RC",
+      60,
+      "Chassis Number to RC Details",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const chassisNumber = String(input.chassisNumber || input.chassisNo || "").trim().toUpperCase().replace(/\s+/g, "")
+
+    if (!chassisNumber) {
+      return respond(400, { error: "Vehicle chassis number is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.lookupChassisToRc({ chassisNumber })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to find vehicle details from chassis number",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Chassis to RC Search (Chassis: ${chassisNumber})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-CHASSIS-TO-RC",
+      referenceId: chassisNumber,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-CHASSIS-TO-RC",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: chassisNumber,
+      plate: result.plate,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-CHASSIS-TO-RC",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      plate: result.plate,
+      fullName: result.fullName,
+      relationName: result.relationName,
+      queryResult: result.queryResult,
+      location: result.location,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Vehicle details found successfully",
+    })
+  }
+
+  // 12. POST /api/apinice/rc-to-mobile
+  if (pathName === "/api/apinice/rc-to-mobile" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-RC-TO-MOBILE",
+      35,
+      "RC to Mobile Number Search",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const vehicleNumber = String(input.vehicleNumber || input.rcno || input.plate || input.vehicleNo || "").trim().toUpperCase().replace(/[\s-]/g, "")
+
+    if (!vehicleNumber) {
+      return respond(400, { error: "Vehicle registration number is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.lookupRcToMobile({ vehicleNumber })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to find registered mobile number from vehicle RC",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `RC to Mobile Search (Vehicle: ${vehicleNumber})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-RC-TO-MOBILE",
+      referenceId: vehicleNumber,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-RC-TO-MOBILE",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: vehicleNumber,
+      contact: result.contact,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-RC-TO-MOBILE",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      holder: result.holder,
+      fullName: result.fullName,
+      relationName: result.relationName,
+      contact: result.contact,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "RC mobile contact found successfully",
     })
   }
 
