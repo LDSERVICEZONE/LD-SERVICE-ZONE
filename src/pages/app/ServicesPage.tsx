@@ -203,6 +203,18 @@ const PRINT_SERVICES = [
     color: "#2563EB",
     description: "Instant lookup for registered vehicle owner contact mobile number",
   },
+  {
+    id: "SVC-ESHRAM-CARD",
+    name: "e-Shram Card Print",
+    category: "Citizen Documents",
+    badge: "ESHRAM CARD",
+    icon: "👷",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["Aadhaar Number", "Date of Birth"],
+    color: "#EA580C",
+    description: "Official Printable e-Shram Unorganised Worker Card PDF Instant Download",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -387,6 +399,14 @@ export default function ServicesPage() {
   const [rcMobileLoading, setRcMobileLoading] = useState(false);
   const [rcMobileError, setRcMobileError] = useState("");
   const [rcMobileResult, setRcMobileResult] = useState<any>(null);
+
+  // e-Shram Card modal states
+  const [eshramModalOpen, setEshramModalOpen] = useState(false);
+  const [eshramUid, setEshramUid] = useState("");
+  const [eshramDob, setEshramDob] = useState("");
+  const [eshramLoading, setEshramLoading] = useState(false);
+  const [eshramError, setEshramError] = useState("");
+  const [eshramPdfBase64, setEshramPdfBase64] = useState<string | null>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1144,6 +1164,52 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleEshramSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUid = eshramUid.trim().replace(/[\s-]/g, "");
+    const cleanDob = eshramDob.trim();
+    if (!cleanUid || cleanUid.length !== 12) {
+      setEshramError("Please enter a valid 12-digit Aadhaar number");
+      return;
+    }
+    if (!cleanDob) {
+      setEshramError("Please enter date of birth");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-ESHRAM-CARD", 25);
+    if (dynamic.status === "disabled") {
+      setEshramError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setEshramError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setEshramLoading(true);
+    setEshramError("");
+    try {
+      const res = await api<any>("/apinice/eshram-card", {
+        method: "POST",
+        body: JSON.stringify({ uidNumber: cleanUid, dob: cleanDob }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pdfBase64) {
+        setEshramPdfBase64(res.pdfBase64);
+      } else {
+        setEshramError("e-Shram card generated, but no download stream was returned.");
+      }
+    } catch (err: any) {
+      setEshramError(err.message || "Failed to download e-Shram card PDF");
+    } finally {
+      setEshramLoading(false);
+    }
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -1544,6 +1610,10 @@ export default function ServicesPage() {
                     setRcMobileModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-ESHRAM-CARD") {
+                    setEshramModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -1593,6 +1663,8 @@ export default function ServicesPage() {
                       ? "bg-orange-50 text-orange-700 border border-orange-200"
                       : item.badge === "RC MOBILE"
                       ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : item.badge === "ESHRAM CARD"
+                      ? "bg-orange-50 text-orange-700 border border-orange-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -3777,6 +3849,146 @@ export default function ServicesPage() {
                       <Smartphone size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-RC-TO-MOBILE", 35).price.toFixed(2)} & Find Mobile
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 12: E-SHRAM CARD PDF DOWNLOAD */}
+      {eshramModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setEshramModalOpen(false);
+                setEshramError("");
+                setEshramPdfBase64(null);
+                setEshramUid("");
+                setEshramDob("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center text-2xl shadow-inner">
+                👷
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900">e-Shram Card PDF Download</h3>
+                <p className="text-xs text-slate-500">
+                  Fee: ₹{getDynamicService("SVC-ESHRAM-CARD", 25).price.toFixed(2)} · Official e-Shram UAN Card
+                </p>
+              </div>
+            </div>
+
+            {eshramError && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{eshramError}</span>
+              </div>
+            )}
+
+            {eshramPdfBase64 ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-orange-50 border border-orange-200 text-orange-900 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={20} className="text-orange-600" />
+                      <h4 className="font-bold text-sm">e-Shram Card Generated!</h4>
+                    </div>
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-orange-200 text-orange-900">
+                      {eshramUid.slice(0, 4)}XXXX{eshramUid.slice(8)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-orange-700">
+                    Your official e-Shram worker card document PDF is ready for download.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => downloadBase64Pdf(eshramPdfBase64, `eShram-Card-${eshramUid}.pdf`)}
+                    className="col-span-2 py-3.5 px-4 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-600/20 transition"
+                  >
+                    <Download size={16} />
+                    Download e-Shram Card PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEshramPdfBase64(null);
+                      setEshramUid("");
+                      setEshramDob("");
+                    }}
+                    className="col-span-2 py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                  >
+                    Download Another Card
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleEshramSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    12-digit Aadhaar (UID) Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={12}
+                    placeholder="Enter 12-digit Aadhaar number"
+                    value={eshramUid}
+                    onChange={(e) => setEshramUid(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest focus:bg-white focus:outline-none focus:ring-4 focus:ring-orange-100 focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Date of Birth (as per Aadhaar) *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={eshramDob}
+                    onChange={(e) => setEshramDob(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:outline-none focus:ring-4 focus:ring-orange-100 focus:border-orange-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Select citizen's exact date of birth matching their Aadhaar record.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={eshramLoading || eshramUid.length !== 12 || !eshramDob}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-orange-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {eshramLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Fetching e-Shram Card...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-ESHRAM-CARD", 25).price.toFixed(2)} & Download Card
                       </span>
                     </>
                   )}

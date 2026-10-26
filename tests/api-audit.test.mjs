@@ -44,6 +44,7 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("ll_pdf")) return Response.json({ success: true, message: "LL PDF fetched", data: { pdf_base64: "JVBERi0xLjQK...mock_ll_pdf" }, balance_remaining: "48.10" });
     if (String(url).includes("chassis_to_rc_p4p")) return Response.json({ StatusCode: 100, status: true, plate: "OD02AB1234", full_name: "Rahul Sharma", relation_name: "Rajesh Sharma", data: { query_result: { plate: "OD02AB1234", reg_date: "12-Apr-2023", expiry: "11-Apr-2038", rto_office: "Bhubaneswar", reg_status: "ACTIVE" } } });
     if (String(url).includes("rc_to_mobile")) return Response.json({ StatusCode: 100, status: true, holder: { full_name: "Rahul Sharma", relation_name: "Rajesh Sharma", contact: "9876543210" } });
+    if (String(url).includes("eshram")) return Response.json({ success: true, message: "e-Shram PDF fetched", data: { pdf_base64: "data:application/pdf;base64,JVBERi0xLjQK...mock_eshram_pdf" }, balance_remaining: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -936,6 +937,30 @@ test("retailer can find registered mobile number from vehicle RC", async () => {
   assert.equal(res.data.contact, "9876543210");
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can download e-Shram card PDF", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const emptyRes = await request("/apinice/eshram-card", {
+    token: retailerToken,
+    method: "POST",
+    body: { uidNumber: "", dob: "" },
+  });
+  assert.equal(emptyRes.status, 400);
+
+  const res = await request("/apinice/eshram-card", {
+    token: retailerToken,
+    method: "POST",
+    body: { uidNumber: "123456789012", dob: "1990-01-01" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-ESHRAM-CARD");
+  assert.ok(res.data.pdfBase64);
+  assert.ok(res.data.ledgerId);
+});
+
 
 
 

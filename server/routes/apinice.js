@@ -124,6 +124,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#2563EB",
     status: "active",
   },
+  {
+    id: "SVC-ESHRAM-CARD",
+    name: "e-Shram Card PDF & Verification",
+    category: "Citizen",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Aadhaar Number", "Date of Birth"],
+    color: "#EA580C",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -1204,6 +1215,111 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "RC mobile contact found successfully",
+    })
+  }
+
+  // 13. POST /api/apinice/eshram-card
+  if (pathName === "/api/apinice/eshram-card" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-ESHRAM-CARD",
+      25,
+      "e-Shram Card PDF & Verification",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const uidNumber = String(input.uidNumber || input.aadhaar || input.aadhaarNo || input.uid || "").trim().replace(/[\s-]/g, "")
+    const dob = String(input.dob || "").trim()
+
+    if (!uidNumber || uidNumber.length !== 12) {
+      return respond(400, { error: "Valid 12-digit Aadhaar (UID) number is required." })
+    }
+    if (!dob) {
+      return respond(400, { error: "Date of Birth is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.downloadEshramCard({ uidNumber, dob })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to download e-Shram card from provider",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `e-Shram Card Download (UID: ${uidNumber.slice(0, 4)}XXXX${uidNumber.slice(8)})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-ESHRAM-CARD",
+      referenceId: uidNumber,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-ESHRAM-CARD",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: uidNumber,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-ESHRAM-CARD",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      pdfBase64: result.pdfBase64,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "e-Shram card PDF downloaded successfully",
     })
   }
 

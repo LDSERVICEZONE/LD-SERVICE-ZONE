@@ -476,6 +476,68 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async downloadEshramCard({ uidNumber, dob }) {
+    const cleanUid = clean(uidNumber).replace(/[\s-]/g, "")
+    const cleanDob = clean(dob)
+
+    if (!cleanUid || cleanUid.length !== 12) {
+      throw new Error("Valid 12-digit Aadhaar (UID) number is required")
+    }
+    if (!cleanDob) {
+      throw new Error("Date of Birth is required (format: DD-MM-YYYY)")
+    }
+
+    let formattedDob = cleanDob
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDob)) {
+      const [yyyy, mm, dd] = cleanDob.split("-")
+      formattedDob = `${dd}-${mm}-${yyyy}`
+    }
+
+    const key = this.getApiKey()
+
+    // 1. Try eshram_verification (low rate, reliable)
+    let response
+    try {
+      const endpoint = `eshram_verification?apiKey=${encodeURIComponent(key)}&uidNumber=${encodeURIComponent(cleanUid)}&dob=${encodeURIComponent(formattedDob)}`
+      response = await this.request(endpoint, {
+        method: "GET",
+        timeoutMs: 45000,
+      })
+    } catch (err) {
+      // Fallback to eshram_pdf
+      const fallbackEndpoint = `eshram_pdf?apiKey=${encodeURIComponent(key)}&uidNumber=${encodeURIComponent(cleanUid)}&dob=${encodeURIComponent(formattedDob)}`
+      response = await this.request(fallbackEndpoint, {
+        method: "GET",
+        timeoutMs: 45000,
+      })
+    }
+
+    if (
+      response.success === false ||
+      response.status === "101" ||
+      (!response.data && !response.pdf_base64 && !response.pdf)
+    ) {
+      throw new Error(response.message || "Failed to download e-Shram card PDF. Please verify Aadhaar & DOB.")
+    }
+
+    const pdfBase64 =
+      response.data?.pdf_base64 ||
+      response.pdf_base64 ||
+      response.pdf ||
+      (typeof response.data === "string" ? response.data : null)
+
+    return {
+      success: true,
+      service: "ESHRAM_CARD",
+      uidNumber: cleanUid,
+      dob: formattedDob,
+      pdfBase64,
+      balanceRemaining: response.balance_remaining || response.balance,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()
+
