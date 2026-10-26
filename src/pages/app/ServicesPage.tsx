@@ -104,6 +104,18 @@ const PRINT_SERVICES = [
     color: "#10B981",
     description: "Official Printable Citizen Ration Card Document PDF (NFSA Format)",
   },
+  {
+    id: "SVC-VEHICLE-CHALLAN",
+    name: "Vehicle e-Challan Check",
+    category: "Vehicle Services",
+    badge: "TRAFFIC CHALLAN",
+    icon: "🚨",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["Vehicle Registration Number"],
+    color: "#F59E0B",
+    description: "Instant Traffic Violation & Pending Fine Lookup with Full Offence Details",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -227,6 +239,13 @@ export default function ServicesPage() {
   const [rationLoading, setRationLoading] = useState(false);
   const [rationError, setRationError] = useState("");
   const [rationResultPdf, setRationResultPdf] = useState<string | null>(null);
+
+  // Vehicle Challan modal states
+  const [challanModalOpen, setChallanModalOpen] = useState(false);
+  const [challanVehicleNo, setChallanVehicleNo] = useState("");
+  const [challanLoading, setChallanLoading] = useState(false);
+  const [challanError, setChallanError] = useState("");
+  const [challanResult, setChallanResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -354,6 +373,113 @@ export default function ServicesPage() {
     } finally {
       setRationLoading(false);
     }
+  };
+
+  const handleChallanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanVehicle = challanVehicleNo.trim().toUpperCase().replace(/[\s-]/g, "");
+    if (!cleanVehicle) {
+      setChallanError("Please enter vehicle registration number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-VEHICLE-CHALLAN", 15);
+    if (dynamic.status === "disabled") {
+      setChallanError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setChallanError(
+        `Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`
+      );
+      return;
+    }
+
+    setChallanLoading(true);
+    setChallanError("");
+    try {
+      const res = await api<any>("/apinice/vehicle-challan", {
+        method: "POST",
+        body: JSON.stringify({ vehicle: cleanVehicle }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.data) {
+        setChallanResult(res.data);
+      } else {
+        setChallanError("No challan details returned by server.");
+      }
+    } catch (err: any) {
+      setChallanError(err.message || "Failed to check vehicle challan");
+    } finally {
+      setChallanLoading(false);
+    }
+  };
+
+  const printChallanSlip = (data: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const challansHtml = (data.challans || [])
+      .map(
+        (c: any, i: number) => `
+      <div style="border-bottom:1px solid #e2e8f0;padding:10px 0;">
+        <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:13px;">
+          <span>#${i + 1} Challan: ${c.challan_no || "N/A"}</span>
+          <span style="color:${String(c.challan_status).toLowerCase() === "paid" ? "#059669" : "#dc2626"};">₹${c.challan_amount || 0} (${c.challan_status || "Pending"})</span>
+        </div>
+        <div style="font-size:12px;color:#475569;margin-top:4px;line-height:1.5;">
+          <strong>Offence:</strong> ${c.offences || "Traffic Violation"}<br/>
+          <strong>Location / RTO:</strong> ${c.challan_place || ""} ${c.office_name ? "· " + c.office_name : ""}<br/>
+          <strong>Date:</strong> ${c.challan_date || "N/A"} ${c.owner_name ? "<br/><strong>Owner:</strong> " + c.owner_name : ""}
+        </div>
+      </div>
+    `
+      )
+      .join("");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>e-Challan Report - ${data.vehicleNumber}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 650px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .summary { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e293b;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#d97706;">Vehicle Traffic e-Challan Report</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Vehicle No:</strong> ${data.vehicleNumber}</div>
+            <div><strong>Report Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <div class="summary">
+            <div style="font-size:13px;font-weight:bold;margin-bottom:4px;">Challan Status Summary:</div>
+            <div style="font-size:13px;">
+              Total Challans: <strong>${data.challanCount}</strong> &nbsp;|&nbsp; 
+              Total Pending Fine: <strong style="color:${data.totalAmount > 0 ? "#dc2626" : "#059669"};">₹${data.totalAmount}</strong>
+            </div>
+          </div>
+          ${data.challanCount === 0 ? '<div style="padding:20px;background:#ecfdf5;color:#065f46;text-align:center;border-radius:8px;font-weight:bold;font-size:14px;border:1px solid #a7f3d0;">✅ NO PENDING CHALLANS FOUND. VEHICLE RECORD IS 100% CLEAN.</div>' : challansHtml}
+          <div class="footer">
+            This is a verified computerized electronic enquiry report issued by LD Service Zone.<br/>
+            To pay or dispute traffic challans, please visit your local traffic department or the official Parivahan e-Challan portal.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   useEffect(() => {
@@ -723,6 +849,10 @@ export default function ServicesPage() {
                     setRationModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-VEHICLE-CHALLAN") {
+                    setChallanModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -754,6 +884,8 @@ export default function ServicesPage() {
                   <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
                     item.badge === "VEHICLE PRINT"
                       ? "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                      : item.badge === "TRAFFIC CHALLAN"
+                      ? "bg-amber-50 text-amber-700 border border-amber-200"
                       : item.badge === "CITIZEN PRINT"
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                       : "bg-violet-50 text-violet-700"
@@ -1657,6 +1789,182 @@ export default function ServicesPage() {
                       <>
                         <Printer size={16} />
                         <span>Pay ₹{getDynamicService("SVC-RATION-PRINT", 25).price.toFixed(2)} & Generate Ration PDF</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 4: VEHICLE E-CHALLAN CHECK                               */}
+      {/* ------------------------------------------------------------- */}
+      {challanModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#07111F]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl">
+                  🚨
+                </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-slate-900 text-lg">Vehicle e-Challan Check</h3>
+                  <p className="text-xs text-slate-500">Live Traffic Violation & Pending Fine Enquiry</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setChallanModalOpen(false);
+                  setChallanError("");
+                  setChallanResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 flex items-center justify-center border border-slate-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-50/60 border border-amber-100 text-xs">
+                <div className="flex items-center gap-2 text-amber-900">
+                  <Clock size={16} className="text-amber-600" />
+                  <span>Real-time Traffic Police & Parivahan Database Lookup</span>
+                </div>
+                <span className="font-extrabold text-sm text-amber-700">
+                  Fee: ₹{getDynamicService("SVC-VEHICLE-CHALLAN", 15).price.toFixed(2)}
+                </span>
+              </div>
+
+              {challanError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                  <span>{challanError}</span>
+                </div>
+              )}
+
+              {challanResult ? (
+                <div className="space-y-4 py-1">
+                  {challanResult.challanCount === 0 ? (
+                    <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-center space-y-2">
+                      <CheckCircle2 size={36} className="mx-auto text-emerald-600" />
+                      <h4 className="font-bold text-base">Vehicle is 100% Clean!</h4>
+                      <p className="text-xs text-emerald-700">
+                        No pending challans or fines found for <strong className="font-mono">{challanResult.vehicleNumber}</strong>.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle size={20} className="text-rose-600" />
+                          <h4 className="font-bold text-sm">
+                            {challanResult.challanCount} Pending Challan{challanResult.challanCount > 1 ? "s" : ""} Found
+                          </h4>
+                        </div>
+                        <span className="font-extrabold text-base text-rose-700 font-mono">
+                          Total: ₹{challanResult.totalAmount}
+                        </span>
+                      </div>
+                      <p className="text-xs text-rose-700">
+                        Vehicle <strong className="font-mono">{challanResult.vehicleNumber}</strong> has pending traffic violation fines.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* List of Challans */}
+                  {challanResult.challans && challanResult.challans.length > 0 && (
+                    <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                      {challanResult.challans.map((c: any, idx: number) => (
+                        <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-bold text-slate-800">
+                              #{idx + 1} {c.challan_no || "Challan Record"}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                                String(c.challan_status).toLowerCase() === "paid"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-rose-100 text-rose-800"
+                              }`}
+                            >
+                              ₹{c.challan_amount || 0} · {c.challan_status || "Pending"}
+                            </span>
+                          </div>
+                          <div className="text-slate-600 text-[11px] space-y-0.5">
+                            <div><strong className="text-slate-700">Offence:</strong> {c.offences || "Traffic rule violation"}</div>
+                            <div><strong className="text-slate-700">Location:</strong> {c.challan_place || "N/A"} {c.office_name ? `(${c.office_name})` : ""}</div>
+                            {c.challan_date && <div><strong className="text-slate-700">Date:</strong> {c.challan_date}</div>}
+                            {c.owner_name && <div><strong className="text-slate-700">Owner:</strong> {c.owner_name}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => printChallanSlip(challanResult)}
+                      className="py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                    >
+                      <Printer size={16} />
+                      Print Challan Slip
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setChallanResult(null);
+                        setChallanVehicleNo("");
+                      }}
+                      className="py-3 px-4 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition"
+                    >
+                      Check Another
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleChallanSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Vehicle Registration Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. OD02AB1234, DL01AB9999, HR03AM4335"
+                      value={challanVehicleNo}
+                      onChange={(e) => setChallanVehicleNo(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider uppercase focus:bg-white focus:outline-none focus:ring-4 focus:ring-amber-100 focus:border-amber-500"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Enter full vehicle registration number without spaces or special symbols.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                    <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      ₹{Number(wallet?.balance || 0).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={challanLoading || !challanVehicleNo}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2"
+                  >
+                    {challanLoading ? (
+                      <>
+                        <RefreshCw size={16} className="animate-spin" />
+                        <span>Fetching Live Challan Records...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={16} />
+                        <span>Pay ₹{getDynamicService("SVC-VEHICLE-CHALLAN", 15).price.toFixed(2)} & Check Challans</span>
                       </>
                     )}
                   </button>

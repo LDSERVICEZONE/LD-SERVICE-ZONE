@@ -183,6 +183,37 @@ export class ApiniceProvider {
       balanceRemaining: response.balance_remaining,
     }
   }
+
+  async checkVehicleChallan(vehicleNumber) {
+    const cleanVehicle = clean(vehicleNumber).replace(/[\s-]/g, "").toUpperCase()
+    if (!cleanVehicle) {
+      throw new Error("Vehicle Registration Number is required")
+    }
+
+    const response = await this.request("challan_by_vehicle", {
+      method: "POST",
+      body: {
+        vehicle: cleanVehicle,
+      },
+      timeoutMs: 45000,
+    })
+
+    if (response.status === false && !response.data) {
+      throw new Error(response.message || "Failed to fetch vehicle challan records")
+    }
+
+    const data = response.data || {}
+    return {
+      success: true,
+      service: "VEHICLE_CHALLAN",
+      vehicleNumber: cleanVehicle,
+      challanCount: data.challan_count ?? (Array.isArray(data.challans) ? data.challans.length : 0),
+      totalAmount: data.total_amount ?? 0,
+      challans: Array.isArray(data.challans) ? data.challans : [],
+      message: response.message || "Vehicle challan lookup completed",
+      balanceRemaining: response.balance || response.balance_remaining,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

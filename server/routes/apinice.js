@@ -36,6 +36,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#10B981",
     status: "active",
   },
+  {
+    id: "SVC-VEHICLE-CHALLAN",
+    name: "Vehicle e-Challan Check",
+    category: "Vehicle",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["Vehicle Registration Number"],
+    color: "#F59E0B",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -265,6 +276,114 @@ export async function handleApiniceRoutes(context) {
         const res = await apiniceProvider.printRation({ rationno, card_type })
         return { ...res, identifier: rationno }
       },
+    })
+  }
+
+  // 5. POST /api/apinice/vehicle-challan
+  if (pathName === "/api/apinice/vehicle-challan" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-VEHICLE-CHALLAN",
+      15,
+      "Vehicle e-Challan Check",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const vehicleNumber = String(
+      input.vehicle || input.vehicleNumber || input.rcno || "",
+    )
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "")
+
+    if (!vehicleNumber) {
+      return respond(400, { error: "Vehicle registration number is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.checkVehicleChallan(vehicleNumber)
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to query vehicle challan from provider",
+      })
+    }
+
+    // Provider call succeeded — atomically debit wallet and append to immutable ledger
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Vehicle e-Challan Check (${vehicleNumber})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-VEHICLE-CHALLAN",
+      referenceId: vehicleNumber,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-VEHICLE-CHALLAN",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: vehicleNumber,
+      challanCount: result.challanCount,
+      totalAmount: result.totalAmount,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-VEHICLE-CHALLAN",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: `${svcConfig.name} completed successfully`,
     })
   }
 

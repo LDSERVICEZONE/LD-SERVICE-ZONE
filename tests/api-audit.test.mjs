@@ -36,6 +36,7 @@ globalThis.fetch = async (url, options) => {
   }
   if (String(url).startsWith("https://apinice.in")) {
     if (String(url).includes("balance")) return Response.json({ success: true, status: "success", balance: 48.10, currency: "INR" });
+    if (String(url).includes("challan")) return Response.json({ status: true, data: { vehicle_number: "OD02AB1234", challan_count: 0, total_amount: 0, challans: [] }, message: "No challan records found", balance: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -740,6 +741,30 @@ test("retailer with sufficient balance can generate APINICE print document", asy
   assert.equal(res.status, 200);
   assert.equal(res.data.ok, true);
   assert.ok(res.data.pdf);
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can perform vehicle e-challan check", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const emptyRes = await request("/apinice/vehicle-challan", {
+    token: retailerToken,
+    method: "POST",
+    body: { vehicle: "" },
+  });
+  assert.equal(emptyRes.status, 400);
+
+  const res = await request("/apinice/vehicle-challan", {
+    token: retailerToken,
+    method: "POST",
+    body: { vehicle: "OD02AB1234" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-VEHICLE-CHALLAN");
+  assert.ok(res.data.data);
+  assert.equal(res.data.data.vehicleNumber, "OD02AB1234");
   assert.ok(res.data.ledgerId);
 });
 
