@@ -116,6 +116,18 @@ const PRINT_SERVICES = [
     color: "#F59E0B",
     description: "Instant Traffic Violation & Pending Fine Lookup with Full Offence Details",
   },
+  {
+    id: "SVC-ABHA-CARD",
+    name: "ABHA Health Card Print",
+    category: "Citizen Documents",
+    badge: "HEALTH CARD",
+    icon: "🏥",
+    processingTime: "Instant",
+    defaultPrice: 35,
+    documents: ["Aadhaar Number", "Date of Birth"],
+    color: "#059669",
+    description: "Ayushman Bharat Digital Mission (ABDM) Health ID Card Instant Print",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -246,6 +258,14 @@ export default function ServicesPage() {
   const [challanLoading, setChallanLoading] = useState(false);
   const [challanError, setChallanError] = useState("");
   const [challanResult, setChallanResult] = useState<any>(null);
+
+  // ABHA Health Card modal states
+  const [abhaModalOpen, setAbhaModalOpen] = useState(false);
+  const [abhaUid, setAbhaUid] = useState("");
+  const [abhaDob, setAbhaDob] = useState("");
+  const [abhaLoading, setAbhaLoading] = useState(false);
+  const [abhaError, setAbhaError] = useState("");
+  const [abhaResult, setAbhaResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -476,6 +496,81 @@ export default function ServicesPage() {
             To pay or dispute traffic challans, please visit your local traffic department or the official Parivahan e-Challan portal.
           </div>
           <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleAbhaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUid = abhaUid.trim().replace(/[\s-]/g, "");
+    const cleanDob = abhaDob.trim();
+    if (!cleanUid || cleanUid.length !== 12) {
+      setAbhaError("Please enter a valid 12-digit Aadhaar / UID number");
+      return;
+    }
+    if (!cleanDob) {
+      setAbhaError("Please enter Date of Birth (DD-MM-YYYY)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-ABHA-CARD", 35);
+    if (dynamic.status === "disabled") {
+      setAbhaError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setAbhaError(
+        `Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`
+      );
+      return;
+    }
+
+    setAbhaLoading(true);
+    setAbhaError("");
+    try {
+      const res = await api<any>("/apinice/abha-card", {
+        method: "POST",
+        body: JSON.stringify({ uidNumber: cleanUid, dob: cleanDob }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.imageBase64 || res.pdf || (res.data && (res.data.image_base64 || res.data.pdf))) {
+        setAbhaResult({
+          imageBase64: res.imageBase64 || res.data?.image_base64,
+          pdf: res.pdf || res.data?.pdf,
+          fields: res.data?.fields,
+          uidNumber: cleanUid,
+        });
+      } else {
+        setAbhaError("ABHA card generated, but no image or PDF was returned.");
+      }
+    } catch (err: any) {
+      setAbhaError(err.message || "Failed to download ABHA Health Card");
+    } finally {
+      setAbhaLoading(false);
+    }
+  };
+
+  const printAbhaCard = (imageBase64: string) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print ABHA Card</title>
+          <style>
+            @page { size: auto; margin: 10mm; }
+            body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; background: #fff; }
+            img { max-width: 100%; height: auto; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-radius: 8px; }
+          </style>
+        </head>
+        <body>
+          <img src="${imageBase64}" onload="window.print();" />
         </body>
       </html>
     `);
@@ -853,6 +948,10 @@ export default function ServicesPage() {
                     setChallanModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-ABHA-CARD") {
+                    setAbhaModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -888,6 +987,8 @@ export default function ServicesPage() {
                       ? "bg-amber-50 text-amber-700 border border-amber-200"
                       : item.badge === "CITIZEN PRINT"
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : item.badge === "HEALTH CARD"
+                      ? "bg-teal-50 text-teal-700 border border-teal-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -1971,6 +2072,182 @@ export default function ServicesPage() {
                 </form>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: ABHA HEALTH CARD DOWNLOAD */}
+      {abhaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setAbhaModalOpen(false);
+                setAbhaError("");
+                setAbhaResult(null);
+                setAbhaUid("");
+                setAbhaDob("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl shadow-inner">
+                🏥
+              </div>
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900">ABHA Health Card Print</h3>
+                <p className="text-xs text-slate-500">
+                  Fee: ₹{getDynamicService("SVC-ABHA-CARD", 35).price.toFixed(2)} · Instant Digital Card Print
+                </p>
+              </div>
+            </div>
+
+            {abhaError && (
+              <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0 text-rose-500" />
+                <span>{abhaError}</span>
+              </div>
+            )}
+
+            {abhaResult ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={20} className="text-emerald-600" />
+                    <div>
+                      <h4 className="font-bold text-sm">ABHA Card Generated!</h4>
+                      <p className="text-xs text-emerald-700">
+                        UID: {abhaResult.uidNumber?.slice(0, 4)}XXXX{abhaResult.uidNumber?.slice(8)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                    Active
+                  </span>
+                </div>
+
+                {abhaResult.imageBase64 && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2 flex justify-center">
+                    <img
+                      src={abhaResult.imageBase64}
+                      alt="ABHA Card Preview"
+                      className="max-h-72 w-auto rounded-xl shadow-md object-contain"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  {abhaResult.imageBase64 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => printAbhaCard(abhaResult.imageBase64)}
+                        className="py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition"
+                      >
+                        <Printer size={16} />
+                        Print ABHA Card
+                      </button>
+                      <a
+                        href={abhaResult.imageBase64}
+                        download={`ABHA-Card-${abhaResult.uidNumber || "Download"}.png`}
+                        className="py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                      >
+                        <Download size={16} />
+                        Download Image
+                      </a>
+                    </>
+                  ) : abhaResult.pdf ? (
+                    <a
+                      href={abhaResult.pdf}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="col-span-2 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                    >
+                      <Download size={16} />
+                      Download / View PDF
+                    </a>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAbhaResult(null);
+                    setAbhaUid("");
+                    setAbhaDob("");
+                  }}
+                  className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                >
+                  Download Another Card
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleAbhaSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    12-Digit Aadhaar / UID Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={14}
+                    placeholder="e.g. 1234 5678 9012"
+                    value={abhaUid}
+                    onChange={(e) => setAbhaUid(e.target.value.replace(/[^\d\s-]/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-wider focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter citizen's 12-digit Aadhaar number linked to ABHA ID.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Date of Birth (as per Aadhaar) *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={abhaDob}
+                    onChange={(e) => setAbhaDob(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Select citizen's exact Date of Birth as registered in Aadhaar.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={abhaLoading || !abhaUid || !abhaDob}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {abhaLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Generating ABHA Health Card...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Printer size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-ABHA-CARD", 35).price.toFixed(2)} & Download Card
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}

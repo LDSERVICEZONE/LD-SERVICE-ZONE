@@ -37,6 +37,7 @@ globalThis.fetch = async (url, options) => {
   if (String(url).startsWith("https://apinice.in")) {
     if (String(url).includes("balance")) return Response.json({ success: true, status: "success", balance: 48.10, currency: "INR" });
     if (String(url).includes("challan")) return Response.json({ status: true, data: { vehicle_number: "OD02AB1234", challan_count: 0, total_amount: 0, challans: [] }, message: "No challan records found", balance: "48.10" });
+    if (String(url).includes("abha")) return Response.json({ success: true, message: "ABHA Card generated", data: { image_base64: "data:image/png;base64,mock_image", pdf: "mock_pdf", fields: { name: "Test Citizen" } }, balance_remaining: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -727,6 +728,13 @@ test("APINICE print endpoints reject missing parameters", async () => {
     body: { rationno: "" },
   });
   assert.equal(rationRes.status, 400);
+
+  const abhaRes = await request("/apinice/abha-card", {
+    token: retailerToken,
+    method: "POST",
+    body: { uidNumber: "123", dob: "" },
+  });
+  assert.equal(abhaRes.status, 400);
 });
 
 test("retailer with sufficient balance can generate APINICE print document", async () => {
@@ -767,6 +775,23 @@ test("retailer can perform vehicle e-challan check", async () => {
   assert.equal(res.data.data.vehicleNumber, "OD02AB1234");
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can download ABHA health card", async () => {
+  process.env.APINICE_API_KEY = "YNKMF8J6AM";
+
+  const res = await request("/apinice/abha-card", {
+    token: retailerToken,
+    method: "POST",
+    body: { uidNumber: "123456789012", dob: "15-08-1995" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.service, "SVC-ABHA-CARD");
+  assert.ok(res.data.imageBase64 || res.data.pdf);
+  assert.ok(res.data.ledgerId);
+});
+
 
 
 

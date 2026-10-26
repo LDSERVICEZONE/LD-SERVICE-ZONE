@@ -214,6 +214,58 @@ export class ApiniceProvider {
       balanceRemaining: response.balance || response.balance_remaining,
     }
   }
+
+  async downloadAbhaCard({ uidNumber, dob }) {
+    const cleanUid = clean(uidNumber).replace(/[\s-]/g, "")
+    const cleanDob = clean(dob)
+
+    if (!cleanUid || cleanUid.length !== 12) {
+      throw new Error("Valid 12-digit Aadhaar / UID number is required")
+    }
+    if (!cleanDob) {
+      throw new Error("Date of Birth is required (format: DD-MM-YYYY)")
+    }
+
+    // Normalize DOB if YYYY-MM-DD
+    let formattedDob = cleanDob
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDob)) {
+      const [yyyy, mm, dd] = cleanDob.split("-")
+      formattedDob = `${dd}-${mm}-${yyyy}`
+    }
+
+    const response = await this.request("abha_card_download", {
+      method: "POST",
+      body: {
+        uidNumber: cleanUid,
+        dob: formattedDob,
+      },
+      timeoutMs: 60000,
+    })
+
+    if (
+      response.success === false ||
+      response.status === "101" ||
+      (!response.data && !response.pdf && !response.image_base64)
+    ) {
+      throw new Error(response.message || "Failed to download ABHA Health Card")
+    }
+
+    const data = response.data || {}
+    const imageBase64 = data.image_base64 || response.image_base64 || null
+    const pdf = data.pdf || response.pdf || null
+
+    return {
+      success: true,
+      service: "ABHA_CARD",
+      uidNumber: cleanUid,
+      dob: formattedDob,
+      imageBase64,
+      pdf,
+      fields: data.fields || null,
+      balanceRemaining: response.balance_remaining || response.balance,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

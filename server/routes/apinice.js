@@ -47,6 +47,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#F59E0B",
     status: "active",
   },
+  {
+    id: "SVC-ABHA-CARD",
+    name: "ABHA Health Card Print",
+    category: "Citizen",
+    customerPrice: 35,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Aadhaar Number", "Date of Birth"],
+    color: "#059669",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -384,6 +395,119 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: `${svcConfig.name} completed successfully`,
+    })
+  }
+
+  // 6. POST /api/apinice/abha-card
+  if (pathName === "/api/apinice/abha-card" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-ABHA-CARD",
+      35,
+      "ABHA Health Card Print",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const uidNumber = String(
+      input.uidNumber || input.aadhaar || input.aadhaarNo || "",
+    )
+      .trim()
+      .replace(/[\s-]/g, "")
+    const dob = String(input.dob || "").trim()
+
+    if (!uidNumber || uidNumber.length !== 12) {
+      return respond(400, {
+        error: "Valid 12-digit Aadhaar / UID number is required.",
+      })
+    }
+    if (!dob) {
+      return respond(400, { error: "Date of Birth is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.downloadAbhaCard({ uidNumber, dob })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to download ABHA card from provider",
+      })
+    }
+
+    // Provider call succeeded — atomically debit wallet and append to immutable ledger
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `ABHA Health Card Print (UID: ${uidNumber.slice(0, 4)}XXXX${uidNumber.slice(8)})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-ABHA-CARD",
+      referenceId: uidNumber,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-ABHA-CARD",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: uidNumber,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-ABHA-CARD",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      imageBase64: result.imageBase64,
+      pdf: result.pdf,
+      ledgerId: txId,
+      transactionId: txId,
+      message: `${svcConfig.name} generated successfully`,
     })
   }
 
