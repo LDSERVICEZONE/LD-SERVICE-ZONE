@@ -168,6 +168,17 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#D97706",
     status: "active",
   },
+  {
+    id: "SVC-NPCI-STATUS",
+    name: "NPCI Aadhaar-Bank Link Status",
+    category: "Citizen",
+    customerPrice: 20,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Aadhaar Number (12-digit)"],
+    color: "#2563EB",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -1682,6 +1693,112 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "Udyog Aadhaar enterprise details retrieved successfully",
+    })
+  }
+
+  // 17. POST /api/apinice/npci-status
+  if (pathName === "/api/apinice/npci-status" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-NPCI-STATUS",
+      20,
+      "NPCI Aadhaar-Bank Link Status",
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const aadhaar = String(input.aadhaar || input.aadhar || input.uidNumber || "").trim().replace(/[\s-]/g, "")
+
+    if (!aadhaar || aadhaar.length !== 12) {
+      return respond(400, { error: "Valid 12-digit Aadhaar number is required." })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.checkNpciAadhaarStatus({ aadhaar })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to check NPCI Aadhaar bank link status",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `NPCI Aadhaar Link Status (${result.bank ? result.bank + ", " : ""}UID: ${aadhaar.slice(0, 4)}XXXX${aadhaar.slice(8)})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    const ledgerEntry = {
+      id: txId,
+      userId: auth.user.id,
+      type: "DEBIT",
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-NPCI-STATUS",
+      referenceId: aadhaar,
+      status: "SUCCESS",
+      createdAt: now(),
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-NPCI-STATUS",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: aadhaar,
+      bank: result.bank,
+      linkStatus: result.status,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-NPCI-STATUS",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      data: result,
+      aadhaar,
+      bank: result.bank,
+      status: result.status,
+      lastUpdate: result.lastUpdate,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "NPCI Aadhaar bank mapping status retrieved successfully",
     })
   }
 

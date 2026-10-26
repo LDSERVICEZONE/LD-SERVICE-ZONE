@@ -662,6 +662,37 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async checkNpciAadhaarStatus({ aadhaar }) {
+    const cleanAadhaar = clean(aadhaar).replace(/[\s-]/g, "")
+    if (!cleanAadhaar || cleanAadhaar.length !== 12) {
+      throw new Error("Valid 12-digit Aadhaar number is required")
+    }
+
+    const key = this.getApiKey()
+    const endpoint = `npci-aadhaar-link-status?apiKey=${encodeURIComponent(key)}&aadhaar=${encodeURIComponent(cleanAadhaar)}`
+
+    const response = await this.request(endpoint, {
+      method: "GET",
+      timeoutMs: 45000,
+    })
+
+    if (response.status === false || (response.StatusCode !== 100 && response.StatusCode !== "100" && !response.data)) {
+      throw new Error(response.message || "NPCI record not found for this Aadhaar")
+    }
+
+    const npciData = response.data || response
+    return {
+      success: true,
+      service: "NPCI_STATUS",
+      aadhaar: cleanAadhaar,
+      bank: npciData.bank || npciData.bank_name || "Linked Bank",
+      status: npciData.status || "ACTIVE",
+      lastUpdate: npciData.last_update || npciData.date || null,
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

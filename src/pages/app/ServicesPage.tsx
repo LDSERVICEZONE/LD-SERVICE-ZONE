@@ -252,6 +252,18 @@ const PRINT_SERVICES = [
     color: "#D97706",
     description: "Verify MSME / Udyam registration, enterprise name, activity, and unit plants",
   },
+  {
+    id: "SVC-NPCI-STATUS",
+    name: "NPCI Aadhaar-Bank Link Status",
+    category: "Citizen Documents",
+    badge: "NPCI / DBT",
+    icon: "🏦",
+    processingTime: "Instant",
+    defaultPrice: 20,
+    documents: ["Citizen Aadhaar Number (12-digit)"],
+    color: "#2563EB",
+    description: "Check NPCI mapping & DBT active bank for government subsidies, PM-Kisan & pensions",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -470,6 +482,13 @@ export default function ServicesPage() {
   const [udyamLoading, setUdyamLoading] = useState(false);
   const [udyamError, setUdyamError] = useState("");
   const [udyamResult, setUdyamResult] = useState<any>(null);
+
+  // NPCI Status modal states
+  const [npciModalOpen, setNpciModalOpen] = useState(false);
+  const [npciAadhaar, setNpciAadhaar] = useState("");
+  const [npciLoading, setNpciLoading] = useState(false);
+  const [npciError, setNpciError] = useState("");
+  const [npciResult, setNpciResult] = useState<any>(null);
 
   const handleRcSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1502,6 +1521,94 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleNpciSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanAadhaar = npciAadhaar.trim().replace(/[\s-]/g, "");
+    if (!cleanAadhaar || cleanAadhaar.length !== 12) {
+      setNpciError("Please enter valid 12-digit Aadhaar number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-NPCI-STATUS", 20);
+    if (dynamic.status === "disabled") {
+      setNpciError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setNpciError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setNpciLoading(true);
+    setNpciError("");
+    try {
+      const res = await api<any>("/apinice/npci-status", {
+        method: "POST",
+        body: JSON.stringify({ aadhaar: cleanAadhaar }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.bank || res.status) {
+        setNpciResult(res);
+      } else {
+        setNpciError("No NPCI bank mapping record found for this Aadhaar.");
+      }
+    } catch (err: any) {
+      setNpciError(err.message || "Failed to check NPCI status");
+    } finally {
+      setNpciLoading(false);
+    }
+  };
+
+  const printNpciSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>NPCI Aadhaar-Bank Mapping Slip - ${npciAadhaar}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #0f172a; max-width: 600px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #eff6ff; width: 40%; color: #1e40af; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e40af;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#2563eb;">NPCI Aadhaar-Bank Mapping & DBT Status Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Citizen Aadhaar:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;">${npciAadhaar.slice(0, 4)}XXXX${npciAadhaar.slice(8)}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Mapped Bank Name</td><td><strong style="font-size:14px;color:#0f172a;">${res.bank || "N/A"}</strong></td></tr>
+            <tr><td class="label">DBT / NPCI Status</td><td><strong style="color:${(res.status || "").toUpperCase() === "ACTIVE" ? "#16a34a" : "#dc2626"};font-size:14px;">${res.status || "ACTIVE"}</strong></td></tr>
+            <tr><td class="label">Last Mapping Date</td><td>${res.lastUpdate || new Date().toISOString().slice(0, 10)}</td></tr>
+            <tr><td class="label">Direct Benefit Transfer (DBT)</td><td><strong style="color:#16a34a;">ELIGIBLE FOR GOVT SUBSIDIES</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official NPCI seeding verification slip issued by LD Service Zone.<br/>
+            Valid confirmation for PM-Kisan, Subhadra Yojana, state welfare schemes, and student scholarship credits.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   useEffect(() => {
     api<any>("/services").then(d => setServices(d.services || [])).catch(() => setServices([]));
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
@@ -1918,6 +2025,10 @@ export default function ServicesPage() {
                     setUdyamModalOpen(true);
                     return;
                   }
+                  if (item.id === "SVC-NPCI-STATUS") {
+                    setNpciModalOpen(true);
+                    return;
+                  }
                   if (item.id === "PAN-UTI") {
                     setUtiModalOpen(true);
                     return;
@@ -1975,6 +2086,8 @@ export default function ServicesPage() {
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                       : item.badge === "MSME / UDYAM"
                       ? "bg-amber-50 text-amber-700 border border-amber-200"
+                      : item.badge === "NPCI / DBT"
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
                       : "bg-violet-50 text-violet-700"
                   }`}>
                     {item.badge || "PAN SERVICE"}
@@ -4861,6 +4974,169 @@ export default function ServicesPage() {
                       <Search size={16} />
                       <span>
                         Pay ₹{getDynamicService("SVC-UDYOG-AADHAAR", 15).price.toFixed(2)} & Verify Udyam
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 16: NPCI Aadhaar-Bank Link Status */}
+      {npciModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-blue-500/20">
+                  🏦
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#0F172A] text-base">
+                    NPCI Aadhaar-Bank Link Status
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    National Payments Corporation of India (DBT Seeding)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setNpciModalOpen(false);
+                  setNpciError("");
+                  setNpciResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {npciError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{npciError}</span>
+              </div>
+            )}
+
+            {npciResult ? (
+              <div className="p-6 space-y-4">
+                <div className={`p-4 rounded-2xl border text-center ${
+                  (npciResult.status || "").toUpperCase() === "ACTIVE"
+                    ? "bg-emerald-50 border-emerald-200"
+                    : "bg-amber-50 border-amber-200"
+                }`}>
+                  <div className={`w-12 h-12 rounded-full text-white flex items-center justify-center mx-auto mb-2 text-xl shadow ${
+                    (npciResult.status || "").toUpperCase() === "ACTIVE" ? "bg-emerald-600" : "bg-amber-600"
+                  }`}>
+                    {(npciResult.status || "").toUpperCase() === "ACTIVE" ? "✓" : "!"}
+                  </div>
+                  <h4 className={`font-bold text-base ${
+                    (npciResult.status || "").toUpperCase() === "ACTIVE" ? "text-emerald-950" : "text-amber-950"
+                  }`}>
+                    {npciResult.bank || "Mapped Bank"}
+                  </h4>
+                  <p className={`text-xs mt-0.5 font-bold ${
+                    (npciResult.status || "").toUpperCase() === "ACTIVE" ? "text-emerald-700" : "text-amber-700"
+                  }`}>
+                    NPCI / DBT Status: {npciResult.status || "ACTIVE"}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Citizen Aadhaar:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {npciAadhaar.slice(0, 4)}XXXX{npciAadhaar.slice(8)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Linked Bank:</span>
+                    <span className="font-bold text-slate-800">{npciResult.bank}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Direct Benefit Transfer (DBT):</span>
+                    <span className="font-bold text-emerald-700">ACTIVE & READY</span>
+                  </div>
+                  {npciResult.lastUpdate && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Last Seeding Date:</span>
+                      <span className="font-bold text-slate-800">{npciResult.lastUpdate}</span>
+                    </div>
+                  )}
+                  {npciResult.balance !== undefined && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ₹{Number(npciResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    onClick={() => printNpciSlip(npciResult)}
+                    className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print NPCI / DBT Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNpciResult(null);
+                      setNpciAadhaar("");
+                      setNpciError("");
+                    }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Check Another Citizen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleNpciSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Citizen Aadhaar Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={14}
+                    placeholder="e.g. 5432 1098 7654"
+                    value={npciAadhaar}
+                    onChange={(e) => setNpciAadhaar(e.target.value.replace(/[^0-9]/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter citizen's 12-digit Aadhaar to verify bank NPCI mapping for DBT subsidies.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={npciLoading || !npciAadhaar || npciAadhaar.length !== 12}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {npciLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Checking NPCI Seeding...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-NPCI-STATUS", 20).price.toFixed(2)} & Check NPCI Status
                       </span>
                     </>
                   )}
