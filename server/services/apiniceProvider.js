@@ -117,7 +117,13 @@ export class ApiniceProvider {
       timeoutMs: 60000,
     })
 
-    if (response.status === "error" || response.status === 400 || !response.data) {
+    const pdf = response.pdf || response.data?.pdf || response.data?.url || null
+    if (
+      response.status === "error" ||
+      response.status === "404" ||
+      response.status === 400 ||
+      (!pdf && !response.data)
+    ) {
       throw new Error(response.message || response.data?.message || "Failed to generate RC print")
     }
 
@@ -125,8 +131,10 @@ export class ApiniceProvider {
       success: true,
       service: "RC_PRINT",
       rcno: cleanRc,
-      pdf: response.data.pdf || response.data.url || null,
-      balanceRemaining: response.balance_remaining,
+      pdf,
+      applicationNo: response.application_no || response.data?.application_no || null,
+      balanceRemaining: response.balance_remaining || response.balance,
+      raw: response,
     }
   }
 
@@ -154,7 +162,13 @@ export class ApiniceProvider {
       timeoutMs: 60000,
     })
 
-    if (response.status === "error" || response.status === 400 || !response.data) {
+    const pdf = response.pdf || response.data?.pdf || response.data?.url || null
+    if (
+      response.status === "error" ||
+      response.status === "404" ||
+      response.status === 400 ||
+      (!pdf && !response.data)
+    ) {
       throw new Error(response.message || response.data?.message || "Failed to generate Driving Licence print")
     }
 
@@ -162,8 +176,10 @@ export class ApiniceProvider {
       success: true,
       service: "DL_PRINT",
       dlno: cleanDl,
-      pdf: response.data.pdf || response.data.url || null,
-      balanceRemaining: response.balance_remaining,
+      pdf,
+      applicationNo: response.application_no || response.data?.application_no || null,
+      balanceRemaining: response.balance_remaining || response.balance,
+      raw: response,
     }
   }
 
@@ -180,7 +196,13 @@ export class ApiniceProvider {
       timeoutMs: 60000,
     })
 
-    if (response.status === "error" || response.status === 400 || !response.data) {
+    const pdf = response.pdf || response.data?.pdf || response.data?.url || null
+    if (
+      response.status === "error" ||
+      response.status === "404" ||
+      response.status === 400 ||
+      (!pdf && !response.data)
+    ) {
       throw new Error(response.message || response.data?.message || "Failed to generate Ration Card print")
     }
 
@@ -188,8 +210,10 @@ export class ApiniceProvider {
       success: true,
       service: "RATION_PRINT",
       rationno: cleanRation,
-      pdf: response.data.pdf || response.data.url || null,
-      balanceRemaining: response.balance_remaining,
+      pdf,
+      applicationNo: response.application_no || response.data?.application_no || null,
+      balanceRemaining: response.balance_remaining || response.balance,
+      raw: response,
     }
   }
 
