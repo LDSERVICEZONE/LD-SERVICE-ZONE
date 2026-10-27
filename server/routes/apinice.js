@@ -355,11 +355,24 @@ export function seedApiniceServices(db) {
     if (!existing) {
       db.services.push({
         ...def,
+        provider: "apinice",
         createdAt: now(),
         updatedAt: now(),
       })
     } else {
-      existing.category = def.category
+      existing.provider = "apinice"
+      if (!existing.category) existing.category = def.category
+      if (!existing.name) existing.name = def.name
+      if (!existing.processingTime) existing.processingTime = def.processingTime || "Instant"
+      if (existing.customerPrice === undefined || existing.customerPrice === null) {
+        existing.customerPrice = def.customerPrice
+      }
+      if (existing.commission === undefined || existing.commission === null) {
+        existing.commission = def.commission
+      }
+      if (!Array.isArray(existing.documents) || existing.documents.length === 0) {
+        existing.documents = [...def.documents]
+      }
     }
   }
 }

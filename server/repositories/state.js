@@ -222,7 +222,9 @@ export function createStateRepository(config) {
               customerPrice: Number(rel.customerPrice !== undefined ? rel.customerPrice : existing.customerPrice || 0),
               commission: Number(rel.retailerCommission !== undefined ? rel.retailerCommission : existing.commission || 0),
               processingDays: rel.processingDays !== undefined ? rel.processingDays : existing.processingDays,
+              processingTime: existing.processingTime || (rel.processingDays ? `${rel.processingDays} days` : "Instant"),
               active: rel.active !== undefined ? (rel.active !== false) : (existing.active !== false),
+              status: existing.status || (rel.active === false ? "disabled" : "active"),
               documents: rel.requiredDocuments || existing.documents || [],
             }
           })
@@ -236,7 +238,9 @@ export function createStateRepository(config) {
             customerPrice: Number(service.customerPrice || 0),
             commission: Number(service.retailerCommission || 0),
             processingDays: service.processingDays,
+            processingTime: service.processingDays ? `${service.processingDays} days` : "Instant",
             active: service.active !== false,
+            status: service.active === false ? "disabled" : "active",
             formSchema: service.formSchema || null,
             documents: service.requiredDocuments || [],
             createdAt: service.createdAt,
@@ -576,22 +580,17 @@ export function createStateRepository(config) {
             }
             const categoryRows = [...categoryIds].map(([name, id]) => ({ id, name, active: true }))
             if (categoryRows.length) {
-              await fetch(`${supabaseUrl}/rest/v1/ServiceCategory?on_conflict=id`, {
+              const catRes = await fetch(`${supabaseUrl}/rest/v1/ServiceCategory?on_conflict=id`, {
                 method: "POST",
                 headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
                 body: JSON.stringify(categoryRows),
               })
+              if (!catRes.ok) {
+                const txt = await catRes.text().catch(() => "")
+                console.warn(`Supabase ServiceCategory sync notice (${catRes.status}):`, txt)
+              }
             }
-          } catch (catErr) {
-            console.warn("Supabase ServiceCategory sync notice:", catErr?.message)
-          }
 
-          try {
-            const categoryIds = new Map()
-            for (const service of snapshot.services || []) {
-              const name = service.category || "General"
-              if (!categoryIds.has(name)) categoryIds.set(name, `cat_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`)
-            }
             const services = (snapshot.services || []).map((service) => ({
               id: service.id,
               categoryId: categoryIds.get(service.category || "General"),
@@ -608,11 +607,15 @@ export function createStateRepository(config) {
               updatedAt: new Date().toISOString(),
             }))
             if (services.length) {
-              await fetch(`${supabaseUrl}/rest/v1/Service?on_conflict=id`, {
+              const svcRes = await fetch(`${supabaseUrl}/rest/v1/Service?on_conflict=id`, {
                 method: "POST",
                 headers: { ...authHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
                 body: JSON.stringify(services),
               })
+              if (!svcRes.ok) {
+                const txt = await svcRes.text().catch(() => "")
+                console.warn(`Supabase Service sync notice (${svcRes.status}):`, txt)
+              }
             }
           } catch (serviceErr) {
             console.warn("Supabase Service sync notice:", serviceErr?.message)

@@ -19,6 +19,7 @@ export async function handleCatalogRoutes(context) {
   const isSuperAdmin = (user) => user?.role === "admin" && (user?.adminRole === "super_admin" || !user?.adminRole)
 
   if (pathName === "/api/services" && req.method === "POST") {
+    seedApiniceServices(db)
     const auth = requireAuth(req, res, db, "admin")
     if (!auth) return true
     if (!isSuperAdmin(auth.user)) {
@@ -26,8 +27,8 @@ export async function handleCatalogRoutes(context) {
     }
     const input = await parseJson(req)
     const name = String(input.name || "").trim()
-    const category = String(input.category || "Other").trim()
-    const processingTime = String(input.processingTime || "").trim()
+    const category = String(input.category || "General").trim()
+    const processingTime = String(input.processingTime || "1-3 days").trim()
     const documents = Array.isArray(input.documents)
       ? input.documents
           .map((document) => String(document).trim())
@@ -38,7 +39,6 @@ export async function handleCatalogRoutes(context) {
     if (
       !name ||
       !category ||
-      !processingTime ||
       !Number.isFinite(customerPrice) ||
       customerPrice < 0 ||
       !Number.isFinite(commission) ||
@@ -46,7 +46,7 @@ export async function handleCatalogRoutes(context) {
     ) {
       return respond(400, {
         error:
-          "Name, category, processing time, customer price and commission are required",
+          "Name, category, customer price and commission are required",
       })
     }
     const service = {
@@ -57,7 +57,10 @@ export async function handleCatalogRoutes(context) {
       customerPrice,
       commission,
       documents,
+      subCategory: input.subCategory ? String(input.subCategory).trim() : undefined,
       color: String(input.color || "#4F46E5"),
+      status: input.status === "disabled" ? "disabled" : "active",
+      provider: input.provider || "manual",
       createdAt: now(),
       updatedAt: now(),
     }
@@ -68,23 +71,26 @@ export async function handleCatalogRoutes(context) {
     audit(db, auth.user, "SERVICE_CREATED", "service", service.id, {
       name: service.name,
       category: service.category,
+      customerPrice: service.customerPrice,
+      commission: service.commission,
     })
     await saveDb(db)
     return respond(201, { service })
   }
 
   if (/^\/api\/services\/[^/]+$/.test(pathName) && req.method === "PATCH") {
+    seedApiniceServices(db)
     const auth = requireAuth(req, res, db, "admin")
     if (!auth) return true
     if (!isSuperAdmin(auth.user)) {
       return respond(403, { error: "Super admin access required to update services or pricing" })
     }
-    const serviceId = pathName.split("/").pop()
+    const serviceId = decodeURIComponent(pathName.split("/").pop())
     const service = db.services.find((candidate) => candidate.id === serviceId)
-    if (!service) return respond(404, { error: "Service not found" })
+    if (!service) return respond(404, { error: `Service "${serviceId}" not found in catalog` })
     const input = await parseJson(req)
-    for (const field of ["name", "category", "processingTime"]) {
-      if (input[field] !== undefined)
+    for (const field of ["name", "category", "subCategory", "processingTime", "provider"]) {
+      if (input[field] !== undefined && String(input[field]).trim() !== "")
         service[field] = String(input[field]).trim()
     }
     for (const field of ["customerPrice", "commission"]) {
@@ -109,30 +115,31 @@ export async function handleCatalogRoutes(context) {
     if (input.status !== undefined) {
       service.status = input.status === "disabled" ? "disabled" : "active"
     }
-    if (!service.name || !service.category || !service.processingTime) {
-      return respond(400, {
-        error: "Name, category and processing time are required",
-      })
-    }
+    if (!service.name) service.name = "Untitled Service"
+    if (!service.category) service.category = "General"
+    if (!service.processingTime) service.processingTime = "Instant"
     service.updatedAt = now()
     audit(db, auth.user, "SERVICE_UPDATED", "service", service.id, {
       name: service.name,
       category: service.category,
       status: service.status,
+      customerPrice: service.customerPrice,
+      commission: service.commission,
     })
     await saveDb(db)
     return respond(200, { service })
   }
 
   if (/^\/api\/services\/[^/]+$/.test(pathName) && req.method === "DELETE") {
+    seedApiniceServices(db)
     const auth = requireAuth(req, res, db, "admin")
     if (!auth) return true
     if (!isSuperAdmin(auth.user)) {
       return respond(403, { error: "Super admin access required to delete services" })
     }
-    const serviceId = pathName.split("/").pop()
+    const serviceId = decodeURIComponent(pathName.split("/").pop())
     const serviceIndex = db.services.findIndex((candidate) => candidate.id === serviceId)
-    if (serviceIndex === -1) return respond(404, { error: "Service not found" })
+    if (serviceIndex === -1) return respond(404, { error: `Service "${serviceId}" not found in catalog` })
     const [deletedService] = db.services.splice(serviceIndex, 1)
     audit(db, auth.user, "SERVICE_DELETED", "service", serviceId, {
       name: deletedService.name,

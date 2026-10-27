@@ -21,7 +21,7 @@ import { handleApplicationRoutes } from "./server/routes/applications.js"
 import { handleWalletRoutes } from "./server/routes/wallet.js"
 import { handleRechargeRoutes } from "./server/routes/recharge.js"
 import { handlePanMitraRoutes } from "./server/routes/panmitra.js"
-import { handleApiniceRoutes } from "./server/routes/apinice.js"
+import { handleApiniceRoutes, seedApiniceServices } from "./server/routes/apinice.js"
 import { createStateRepository } from "./server/repositories/state.js"
 import { SERVICE_SEED } from "./server/data/serviceCatalog.js"
 import { createRazorpayClient } from "./server/services/razorpay.js"
@@ -560,6 +560,7 @@ function normalizeDb(db) {
     ensureWallet(user.id)
   }
   seedServices(db)
+  seedApiniceServices(db)
 }
 normalizeDb(db)
 if (DATA_STORE === "supabase") {

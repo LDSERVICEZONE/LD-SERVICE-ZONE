@@ -64,7 +64,7 @@ export function createResponseSender({ publicAppUrl, isVercel }) {
       Vary: "Origin",
       "Access-Control-Allow-Origin": getCorsOrigin(res._req),
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
+      "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
       ...headers,
     })
     res.end(JSON.stringify(payload))
