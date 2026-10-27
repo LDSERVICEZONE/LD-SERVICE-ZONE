@@ -196,7 +196,7 @@ export default function Dashboard() {
             {[
               ["💳", "Add Money", "/dashboard/wallet"],
               ["📋", "Applications", "/dashboard/applications"],
-              ["🪪", "PAN Services", "/dashboard/services"],
+              ["⚡", "All Services", "/dashboard/services"],
               ["📊", "Analytics", "/dashboard/analytics"],
             ].map(([icon, label, path]) => (
               <button

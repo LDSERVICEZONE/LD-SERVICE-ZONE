@@ -2991,10 +2991,10 @@ export default function ServicesPage() {
         <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#E2E8F0] text-xs font-semibold text-[#4F46E5] shadow-sm">
-              ✨ Official PAN Card Agency & Services Hub
+              ✨ Official Citizen & Digital Services Hub
             </div>
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0F172A] mt-3">PAN Card Services</h1>
-            <p className="text-[#64748B] text-sm mt-1 max-w-xl">Official paperless PAN card issuance, lost PAN search, UTI PSA agency enablement, and live application tracking.</p>
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0F172A] mt-3">All Services</h1>
+            <p className="text-[#64748B] text-sm mt-1 max-w-xl">Official paperless PAN card issuance, instant vehicle prints, citizen document downloads, and live tracking.</p>
           </div>
           <div className="grid grid-cols-3 gap-2 min-w-[290px]">
             {[
@@ -3021,7 +3021,7 @@ export default function ServicesPage() {
                   Official UTI PSA Agency Active
                 </span>
                 <span className="text-[10px] text-violet-300 bg-white/10 px-2.5 py-0.5 rounded-full">
-                  via LD Service Zone & PanMitra
+                  via LD Service Zone
                 </span>
               </div>
               <div className="flex flex-wrap items-baseline gap-3">
@@ -3048,7 +3048,7 @@ export default function ServicesPage() {
                 )}
               </div>
               <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-                🔐 <strong>First Login Instructions:</strong> Log in at UTI PSA portal using your ID <span className="font-mono text-amber-300 font-semibold">{vleProfile.vleId}</span>. Check your email ({vleProfile.user?.email || "registered email"}) for your initial login password sent by UTIITSL/PanMitra.
+                🔐 <strong>First Login Instructions:</strong> Log in at UTI PSA portal using your ID <span className="font-mono text-amber-300 font-semibold">{vleProfile.vleId}</span>. Check your email ({vleProfile.user?.email || "registered email"}) for your initial login password sent by UTIITSL.
               </p>
             </div>
 
