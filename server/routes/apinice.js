@@ -457,6 +457,11 @@ export async function handleApiniceRoutes(context) {
       })
     }
 
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
     let input = {}
     try {
       input = await parseJson(req)
@@ -468,16 +473,12 @@ export async function handleApiniceRoutes(context) {
     try {
       result = await executor(input)
     } catch (apiErr) {
+      wallet.balance = balanceBefore
+      wallet.updatedAt = now()
       return respond(400, {
         error: apiErr.message || "Provider service failed",
       })
     }
-
-    // Provider call succeeded — atomically debit wallet and append to immutable ledger
-    const balanceBefore = Number(wallet.balance)
-    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
-    wallet.balance = balanceAfter
-    wallet.updatedAt = now()
 
     const txId = createId("TXN")
     const description = `${descriptionPrefix} (${result.identifier || result.dlno || result.rcno || result.rationno})`
