@@ -1414,6 +1414,156 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async lookupMobileToRc({ mobile }) {
+    const cleanMobile = clean(mobile).replace(/\D/g, "")
+    if (!cleanMobile || cleanMobile.length !== 10) {
+      throw new Error("Valid 10-digit mobile number is required (e.g. 9876543210)")
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      api_key: key,
+      mobile: cleanMobile,
+      mobileNumber: cleanMobile,
+    }
+
+    const response = await this.request("mobile_to_rc", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (
+      response.status === false ||
+      response.status === "error" ||
+      response.error_code ||
+      (!response.data && !Array.isArray(response.rc_numbers))
+    ) {
+      throw new Error(response.message || "No registered vehicle RC records found for this mobile number")
+    }
+
+    const data = response.data || response
+    const rcList = Array.isArray(data.rc_numbers)
+      ? data.rc_numbers
+      : Array.isArray(data.vehicles)
+      ? data.vehicles
+      : []
+
+    return {
+      success: true,
+      service: "MOBILE_TO_RC",
+      mobile: cleanMobile,
+      count: Number(data.count ?? rcList.length),
+      rcNumbers: rcList,
+      message: response.message || "Vehicles found successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
+
+  async fetchPanAddressDetails({ pan }) {
+    const cleanPan = clean(pan).replace(/[\s-]/g, "").toUpperCase()
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      throw new Error("Valid 10-character PAN number is required (e.g. ABCDE1234F)")
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      api_key: key,
+      pan: cleanPan,
+      panno: cleanPan,
+    }
+
+    const response = await this.request("pan_address_details", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (
+      response.status === false ||
+      response.status === "error" ||
+      response.error_code ||
+      (!response.data && !response.address)
+    ) {
+      throw new Error(response.message || "PAN address record not found or temporarily unavailable")
+    }
+
+    const data = response.data || response
+    const addr = data.address || {}
+
+    return {
+      success: true,
+      service: "PAN_ADDRESS_DETAILS",
+      pan: cleanPan,
+      fullName: data.full_name || data.name || "",
+      dob: data.dob || "",
+      category: data.category || "",
+      aadhaarLinked: Boolean(data.aadhaar_linked),
+      maskedAadhaar: data.masked_aadhaar || "",
+      email: data.email || "",
+      phone: data.phone_number || data.phone || "",
+      address: {
+        line1: addr.line_1 || addr.line1 || "",
+        line2: addr.line_2 || addr.line2 || "",
+        street: addr.street || "",
+        city: addr.city || "",
+        state: addr.state || "",
+        zip: addr.zip || addr.pincode || "",
+        country: addr.country || "INDIA",
+        full: addr.full || [addr.line_1, addr.line_2, addr.street, addr.city, addr.state, addr.zip].filter(Boolean).join(", "),
+      },
+      message: response.message || "PAN address details retrieved successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
+
+  async extractPanFromImage({ photoBase64, mimeType = "image/jpeg" }) {
+    if (!photoBase64) {
+      throw new Error("PAN card image is required (JPEG/PNG, max 5MB)")
+    }
+
+    const key = this.getApiKey()
+    const cleanB64 = String(photoBase64).replace(/^data:image\/[a-zA-Z]+;base64,/, "").trim()
+    const buffer = Buffer.from(cleanB64, "base64")
+    const blob = new Blob([buffer], { type: mimeType || "image/jpeg" })
+
+    const form = new FormData()
+    form.append("apiKey", key)
+    form.append("api_key", key)
+    form.append("pan_image", blob, "pan_card.jpg")
+
+    const response = await this.request("pan_ocr", {
+      method: "POST",
+      body: form,
+      timeoutMs: 60000,
+    })
+
+    if (
+      response.status === false ||
+      response.status === "error" ||
+      response.error_code ||
+      (!response.data && !response.pan_number && !response.pan)
+    ) {
+      throw new Error(response.message || "Failed to extract PAN card details from image")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "PAN_OCR",
+      panNumber: data.pan_number || data.pan || data.pan_no || "",
+      name: data.name || data.full_name || "",
+      fatherName: data.father_name || data.fatherName || data.father || "",
+      dob: data.dob || data.date_of_birth || "",
+      confidence: data.confidence || "High",
+      message: response.message || "PAN card details extracted successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

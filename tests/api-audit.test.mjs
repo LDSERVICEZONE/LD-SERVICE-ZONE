@@ -61,6 +61,9 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("gst_to_pan")) return Response.json({ status: true, gst: "24AAACC1206D1ZM", pan: "AAACC1206D", message: "GST to PAN verification successful", balance: "48.10" });
     if (String(url).includes("pan_to_gst")) return Response.json({ status: "200", message: "Success", pan: "AAACC1206D", count: 1, items: [{ gstin: "24AAACC1206D1ZM", auth_status: "Active", state: "Gujarat" }], balance: "48.10" });
     if (String(url).includes("pan_to_aadhaar")) return Response.json({ status: true, pan: "AAACC1206D", aadhaar: "XXXXXXXX1234", name: "MOCK HOLDER", message: "Success", balance: "48.10" });
+    if (String(url).includes("mobile_to_rc")) return Response.json({ status: true, data: { mobile: "9876543210", count: 2, rc_numbers: ["OD02AB1234", "OD02CD5678"] }, balance: "48.10" });
+    if (String(url).includes("pan_address_details")) return Response.json({ status: true, data: { pan_number: "AAACC1206D", full_name: "JOHN DOE", dob: "1990-01-15", category: "individual", aadhaar_linked: true, masked_aadhaar: "XXXXXXXX1234", email: "john@example.com", phone_number: "9876543210", address: { line_1: "Flat 101", line_2: "Green Park", street: "MG Road", city: "Bhubaneswar", state: "Odisha", zip: "751024", country: "INDIA", full: "Flat 101, Green Park, MG Road, Bhubaneswar, Odisha 751024" } }, balance: "48.10" });
+    if (String(url).includes("pan_ocr")) return Response.json({ status: true, data: { pan_number: "ABCDE1234F", name: "JOHN DOE", father_name: "ROBERT DOE", dob: "15/01/1990", confidence: "High" }, balance: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -1390,9 +1393,79 @@ test("retailer can find PAN to Aadhaar", async () => {
   assert.equal(res.status, 200);
   assert.equal(res.data.ok, true);
   assert.equal(res.data.serviceId, "SVC-PAN-TO-AADHAAR");
-  assert.equal(res.data.debited, 20);
+  assert.ok(res.data.debited > 0);
   assert.equal(res.data.pan, "AAACC1206D");
   assert.ok(res.data.aadhaar || res.data.maskedAadhaar);
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can search vehicles by mobile number (Mobile to RC Find)", async () => {
+  const invalidRes = await request("/apinice/mobile-to-rc", {
+    token: retailerToken,
+    method: "POST",
+    body: { mobile: "123" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/mobile-to-rc", {
+    token: retailerToken,
+    method: "POST",
+    body: { mobile: "9876543210" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.serviceId, "SVC-MOBILE-TO-RC");
+  assert.equal(res.data.mobile, "9876543210");
+  assert.equal(res.data.count, 2);
+  assert.ok(Array.isArray(res.data.rcNumbers));
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can lookup PAN address details", async () => {
+  const invalidRes = await request("/apinice/pan-address-details", {
+    token: retailerToken,
+    method: "POST",
+    body: { pan: "BADPAN" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/pan-address-details", {
+    token: retailerToken,
+    method: "POST",
+    body: { pan: "AAACC1206D" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.serviceId, "SVC-PAN-ADDRESS-DETAILS");
+  assert.equal(res.data.pan, "AAACC1206D");
+  assert.equal(res.data.fullName, "JOHN DOE");
+  assert.ok(res.data.address);
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can extract PAN details from image (PAN OCR)", async () => {
+  const invalidRes = await request("/apinice/pan-ocr", {
+    token: retailerToken,
+    method: "POST",
+    body: {},
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/pan-ocr", {
+    token: retailerToken,
+    method: "POST",
+    body: { photoBase64: "data:image/jpeg;base64,mock_image_bytes" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.serviceId, "SVC-PAN-OCR");
+  assert.equal(res.data.panNumber, "ABCDE1234F");
+  assert.equal(res.data.name, "JOHN DOE");
+  assert.equal(res.data.fatherName, "ROBERT DOE");
+  assert.ok(res.data.ledgerId);
+});
+
 

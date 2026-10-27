@@ -304,11 +304,44 @@ export const DEFAULT_APINICE_SERVICES = [
     id: "SVC-PAN-TO-AADHAAR",
     name: "PAN to Aadhaar Find",
     category: "PAN Card Services",
-    customerPrice: 20,
-    commission: 4,
+    customerPrice: 50,
+    commission: 5,
     processingTime: "Instant",
     documents: ["10-character PAN Number"],
     color: "#7C3AED",
+    status: "active",
+  },
+  {
+    id: "SVC-MOBILE-TO-RC",
+    name: "Mobile to RC Find",
+    category: "Vehicle Services",
+    customerPrice: 20,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["10-digit Registered Mobile Number"],
+    color: "#2563EB",
+    status: "active",
+  },
+  {
+    id: "SVC-PAN-ADDRESS-DETAILS",
+    name: "PAN Card Address Details",
+    category: "PAN Card Services",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["10-character PAN Number"],
+    color: "#4F46E5",
+    status: "active",
+  },
+  {
+    id: "SVC-PAN-OCR",
+    name: "PAN Card Details by PAN Image",
+    category: "PAN Card Services",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["PAN Card Image (JPG/PNG)"],
+    color: "#0891B2",
     status: "active",
   },
 ]
@@ -3390,6 +3423,302 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "Linked Aadhaar number retrieved successfully",
+    })
+  }
+
+  // 28. Mobile to RC Find
+  if ((pathName === "/api/apinice/mobile-to-rc" || pathName === "/api/apinice/mobile_to_rc") && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    let payload = {}
+    try {
+      payload = await parseJson(req)
+    } catch {
+      payload = {}
+    }
+
+    const mobile = String(payload.mobile || payload.mobileNumber || payload.contact || "").replace(/\D/g, "")
+    if (!mobile || mobile.length !== 10) {
+      return respond(400, { error: "Valid 10-digit mobile number is required (e.g. 9876543210)." })
+    }
+
+    const svcConfig = getServiceConfig(db, "SVC-MOBILE-TO-RC", 20, "Mobile to RC Find")
+    if (svcConfig.status === "disabled") {
+      return respond(403, { error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.` })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.lookupMobileToRc({ mobile })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "No vehicle RC records found for this mobile number.",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `Mobile to RC Find (Mobile: ${mobile})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    db.walletLedger.unshift({
+      id: txId,
+      userId: auth.user.id,
+      type: "debit",
+      reference: txId,
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-MOBILE-TO-RC",
+      referenceId: mobile,
+      status: "success",
+      createdAt: now(),
+    })
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-MOBILE-TO-RC",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: mobile,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-MOBILE-TO-RC",
+      serviceId: "SVC-MOBILE-TO-RC",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      mobile,
+      count: result.count,
+      rcNumbers: result.rcNumbers,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: `Found ${result.count} registered vehicles for mobile ${mobile}`,
+    })
+  }
+
+  // 29. PAN Card Address Details
+  if ((pathName === "/api/apinice/pan-address-details" || pathName === "/api/apinice/pan_address_details") && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    let payload = {}
+    try {
+      payload = await parseJson(req)
+    } catch {
+      payload = {}
+    }
+
+    const pan = String(payload.pan || payload.panno || payload.panNumber || "").replace(/[\s-]/g, "").toUpperCase()
+    if (!pan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      return respond(400, { error: "Valid 10-character PAN number is required (e.g. ABCDE1234F)." })
+    }
+
+    const svcConfig = getServiceConfig(db, "SVC-PAN-ADDRESS-DETAILS", 15, "PAN Card Address Details")
+    if (svcConfig.status === "disabled") {
+      return respond(403, { error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.` })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.fetchPanAddressDetails({ pan })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to retrieve address details for this PAN card.",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `PAN Card Address Details (PAN: ${pan})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    db.walletLedger.unshift({
+      id: txId,
+      userId: auth.user.id,
+      type: "debit",
+      reference: txId,
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-PAN-ADDRESS-DETAILS",
+      referenceId: pan,
+      status: "success",
+      createdAt: now(),
+    })
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-PAN-ADDRESS-DETAILS",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: pan,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-PAN-ADDRESS-DETAILS",
+      serviceId: "SVC-PAN-ADDRESS-DETAILS",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      pan,
+      fullName: result.fullName,
+      dob: result.dob,
+      category: result.category,
+      aadhaarLinked: result.aadhaarLinked,
+      maskedAadhaar: result.maskedAadhaar,
+      email: result.email,
+      phone: result.phone,
+      address: result.address,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "PAN address details retrieved successfully",
+    })
+  }
+
+  // 30. PAN Card Details by PAN Image (OCR)
+  if ((pathName === "/api/apinice/pan-ocr" || pathName === "/api/apinice/pan_ocr") && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    let payload = {}
+    try {
+      payload = await parseJson(req)
+    } catch {
+      payload = {}
+    }
+
+    const photoBase64 = String(payload.photoBase64 || payload.image || payload.pan_image || "").trim()
+    if (!photoBase64) {
+      return respond(400, { error: "PAN card photo image (JPEG/PNG) is required." })
+    }
+
+    const svcConfig = getServiceConfig(db, "SVC-PAN-OCR", 15, "PAN Card Details by PAN Image")
+    if (svcConfig.status === "disabled") {
+      return respond(403, { error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.` })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.extractPanFromImage({
+        photoBase64,
+        mimeType: payload.mimeType || "image/jpeg",
+      })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to extract PAN card details from the uploaded image.",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `PAN Details by Image OCR (${result.panNumber || "Extracted"})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    db.walletLedger.unshift({
+      id: txId,
+      userId: auth.user.id,
+      type: "debit",
+      reference: txId,
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-PAN-OCR",
+      referenceId: result.panNumber || txId,
+      status: "success",
+      createdAt: now(),
+    })
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-PAN-OCR",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: result.panNumber,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-PAN-OCR",
+      serviceId: "SVC-PAN-OCR",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      panNumber: result.panNumber,
+      name: result.name,
+      fatherName: result.fatherName,
+      dob: result.dob,
+      confidence: result.confidence,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "PAN card details extracted from image successfully",
     })
   }
 

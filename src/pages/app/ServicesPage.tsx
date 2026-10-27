@@ -394,6 +394,42 @@ const PRINT_SERVICES = [
     color: "#4338CA",
     description: "Generate high-resolution UTI / NSDL printable PAN card PDF with photo & signature",
   },
+  {
+    id: "SVC-MOBILE-TO-RC",
+    name: "Mobile to RC Find",
+    category: "Vehicle Services",
+    badge: "NICE EASY",
+    icon: "📱",
+    processingTime: "Instant",
+    defaultPrice: 20,
+    documents: ["10-digit Registered Mobile Number"],
+    color: "#2563EB",
+    description: "Search all registered vehicle plate/RC numbers linked to a mobile number",
+  },
+  {
+    id: "SVC-PAN-ADDRESS-DETAILS",
+    name: "PAN Card Address Details",
+    category: "PAN Card Services",
+    badge: "NICE EASY",
+    icon: "🏠",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["PAN Card Number (10-character)"],
+    color: "#4F46E5",
+    description: "Lookup verified registered communication address, email & phone linked to PAN",
+  },
+  {
+    id: "SVC-PAN-OCR",
+    name: "PAN Card Details by PAN Image",
+    category: "PAN Card Services",
+    badge: "NICE EASY",
+    icon: "🖼️",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["PAN Card Photo (JPG/PNG)"],
+    color: "#0891B2",
+    description: "Instant OCR extraction of PAN number, full name, father name, and date of birth from photo",
+  },
 ];
 
 const PAN_SERVICES = [
@@ -683,6 +719,28 @@ export default function ServicesPage() {
   const [panToAadhaarLoading, setPanToAadhaarLoading] = useState(false);
   const [panToAadhaarError, setPanToAadhaarError] = useState("");
   const [panToAadhaarResult, setPanToAadhaarResult] = useState<any>(null);
+
+  // Mobile to RC Find modal states
+  const [mobileToRcModalOpen, setMobileToRcModalOpen] = useState(false);
+  const [mobileToRcInput, setMobileToRcInput] = useState("");
+  const [mobileToRcLoading, setMobileToRcLoading] = useState(false);
+  const [mobileToRcError, setMobileToRcError] = useState("");
+  const [mobileToRcResult, setMobileToRcResult] = useState<any>(null);
+
+  // PAN Card Address Details modal states
+  const [panAddressModalOpen, setPanAddressModalOpen] = useState(false);
+  const [panAddressInput, setPanAddressInput] = useState("");
+  const [panAddressLoading, setPanAddressLoading] = useState(false);
+  const [panAddressError, setPanAddressError] = useState("");
+  const [panAddressResult, setPanAddressResult] = useState<any>(null);
+
+  // PAN Card Details by PAN Image (OCR) modal states
+  const [panOcrModalOpen, setPanOcrModalOpen] = useState(false);
+  const [panOcrPhotoBase64, setPanOcrPhotoBase64] = useState("");
+  const [panOcrPhotoFileName, setPanOcrPhotoFileName] = useState("");
+  const [panOcrLoading, setPanOcrLoading] = useState(false);
+  const [panOcrError, setPanOcrError] = useState("");
+  const [panOcrResult, setPanOcrResult] = useState<any>(null);
 
   // Voter Manual PDF Instant modal states
   const [voterManualModalOpen, setVoterManualModalOpen] = useState(false);
@@ -2671,6 +2729,314 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleMobileToRcSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanMobile = mobileToRcInput.trim().replace(/\D/g, "");
+    if (!cleanMobile || cleanMobile.length !== 10) {
+      setMobileToRcError("Please enter valid 10-digit mobile number");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-MOBILE-TO-RC", 20);
+    if (dynamic.status === "disabled") {
+      setMobileToRcError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setMobileToRcError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setMobileToRcLoading(true);
+    setMobileToRcError("");
+    try {
+      const res = await api<any>("/apinice/mobile-to-rc", {
+        method: "POST",
+        body: JSON.stringify({ mobile: cleanMobile }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.rcNumbers || res.data?.rc_numbers || res.count !== undefined) {
+        setMobileToRcResult(res);
+      } else {
+        setMobileToRcError("No vehicle RC records found for this mobile number.");
+      }
+    } catch (err: any) {
+      setMobileToRcError(err.message || "Failed to find vehicles from mobile number");
+    } finally {
+      setMobileToRcLoading(false);
+    }
+  };
+
+  const printMobileToRcSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const mob = res.mobile || mobileToRcInput;
+    const rcList = res.rcNumbers || res.data?.rc_numbers || [];
+    const count = res.count ?? rcList.length;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Mobile to RC Search - ${mob}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+            .badge { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 6px 12px; border-radius: 6px; font-family: monospace; font-weight: bold; font-size: 14px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 9px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #f8fafc; width: 40%; color: #1e40af; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e40af;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#2563eb;">Mobile Number to Vehicle RC Search Report</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Registered Mobile:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#2563eb;">+91 ${mob}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Total Vehicles Found</td><td><strong style="font-size:15px;color:#2563eb;">${count} Registered Vehicle(s)</strong></td></tr>
+            <tr><td class="label">Query Mobile Number</td><td><strong>+91 ${mob}</strong></td></tr>
+            <tr><td class="label">Status</td><td><strong style="color:#16a34a;">RECORD LOCATED & VERIFIED ✓</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <h4 style="margin:16px 0 8px;color:#1e40af;">Registered Vehicle Registration Numbers:</h4>
+          <div class="badges">
+            ${rcList.map((rc: string) => `<span class="badge">${rc}</span>`).join("")}
+          </div>
+          <div class="footer">
+            Official vehicle ownership linkage report issued via Parivahan & Vahan registry by LD Service Zone.<br/>
+            Valid for customer documentation and vehicle record tracking.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePanAddressSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPan = panAddressInput.trim().toUpperCase().replace(/[\s-]/g, "");
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      setPanAddressError("Please enter valid 10-character PAN number (e.g. ABCDE1234F)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-PAN-ADDRESS-DETAILS", 15);
+    if (dynamic.status === "disabled") {
+      setPanAddressError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setPanAddressError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setPanAddressLoading(true);
+    setPanAddressError("");
+    try {
+      const res = await api<any>("/apinice/pan-address-details", {
+        method: "POST",
+        body: JSON.stringify({ pan: cleanPan }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.address || res.fullName || res.data?.address) {
+        setPanAddressResult(res);
+      } else {
+        setPanAddressError("No address record found for this PAN card.");
+      }
+    } catch (err: any) {
+      setPanAddressError(err.message || "Failed to retrieve PAN address details");
+    } finally {
+      setPanAddressLoading(false);
+    }
+  };
+
+  const printPanAddressSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const panNum = res.pan || panAddressInput;
+    const addr = res.address || res.data?.address || {};
+    const fullAddr = addr.full || [addr.line1, addr.line2, addr.street, addr.city, addr.state, addr.zip].filter(Boolean).join(", ") || "N/A";
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PAN Card Address Verification - ${panNum}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 9px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #eef2ff; width: 38%; color: #3730a3; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#3730a3;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#4f46e5;">PAN Card Official Registered Address Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>PAN Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#4f46e5;">${panNum}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:15px;color:#3730a3;font-family:monospace;letter-spacing:1px;">${panNum}</strong></td></tr>
+            <tr><td class="label">Cardholder Full Name</td><td><strong>${res.fullName || res.data?.full_name || "N/A"}</strong></td></tr>
+            ${res.dob ? `<tr><td class="label">Date of Birth</td><td>${res.dob}</td></tr>` : ''}
+            ${res.category ? `<tr><td class="label">PAN Category</td><td><span style="text-transform:capitalize;">${res.category}</span></td></tr>` : ''}
+            <tr><td class="label">Full Registered Address</td><td><strong style="color:#0f172a;line-height:1.5;">${fullAddr}</strong></td></tr>
+            ${addr.city ? `<tr><td class="label">City / District</td><td>${addr.city}</td></tr>` : ''}
+            ${addr.state ? `<tr><td class="label">State</td><td>${addr.state}</td></tr>` : ''}
+            ${addr.zip ? `<tr><td class="label">Postal PIN Code</td><td><strong>${addr.zip}</strong></td></tr>` : ''}
+            ${res.maskedAadhaar ? `<tr><td class="label">Linked Aadhaar</td><td><strong>${res.maskedAadhaar}</strong></td></tr>` : ''}
+            <tr><td class="label">Aadhaar Linkage Status</td><td><strong style="color:${res.aadhaarLinked ? "#16a34a" : "#64748b"};">${res.aadhaarLinked ? "LINKED ✓" : "NOT LINKED / UNCONFIRMED"}</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Authenticated official PAN address record provided by LD Service Zone via Income Tax Department records.<br/>
+            Valid as address verification for banking, KYC, telecom, and utility applications.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePanOcrPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setPanOcrError("Photo size must be less than 5MB");
+      return;
+    }
+    setPanOcrPhotoFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPanOcrPhotoBase64(reader.result as string);
+      setPanOcrError("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePanOcrSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!panOcrPhotoBase64) {
+      setPanOcrError("Please upload or drag a PAN card photo");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-PAN-OCR", 15);
+    if (dynamic.status === "disabled") {
+      setPanOcrError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setPanOcrError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setPanOcrLoading(true);
+    setPanOcrError("");
+    try {
+      const res = await api<any>("/apinice/pan-ocr", {
+        method: "POST",
+        body: JSON.stringify({ photoBase64: panOcrPhotoBase64 }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.panNumber || res.name || res.data?.pan_number) {
+        setPanOcrResult(res);
+      } else {
+        setPanOcrError("Failed to extract legible details from uploaded PAN image.");
+      }
+    } catch (err: any) {
+      setPanOcrError(err.message || "Failed to extract PAN card details from image");
+    } finally {
+      setPanOcrLoading(false);
+    }
+  };
+
+  const printPanOcrSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const panNum = res.panNumber || res.data?.pan_number || "N/A";
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PAN Card Image OCR Extraction - ${panNum}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #0891b2; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 9px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #ecfeff; width: 38%; color: #0e7490; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#0e7490;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#0891b2;">PAN Image OCR Extraction Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Extracted PAN:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#0891b2;">${panNum}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:16px;color:#0e7490;font-family:monospace;letter-spacing:1px;">${panNum}</strong></td></tr>
+            <tr><td class="label">Cardholder Name</td><td><strong style="font-size:14px;">${res.name || res.data?.name || "N/A"}</strong></td></tr>
+            <tr><td class="label">Father's Name</td><td><strong>${res.fatherName || res.data?.father_name || "N/A"}</strong></td></tr>
+            <tr><td class="label">Date of Birth</td><td><strong>${res.dob || res.data?.dob || "N/A"}</strong></td></tr>
+            <tr><td class="label">OCR Confidence</td><td><strong style="color:#16a34a;">${res.confidence || "High (Verified)"} ✓</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Automated computer vision & OCR extraction validated by LD Service Zone platform.<br/>
+            Extracted directly from high-resolution PAN card image upload.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+
   const handleVoterManualPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -3693,6 +4059,18 @@ export default function ServicesPage() {
                   }
                   if (item.id === "SVC-PAN-TO-AADHAAR") {
                     setPanToAadhaarModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-MOBILE-TO-RC") {
+                    setMobileToRcModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-PAN-ADDRESS-DETAILS") {
+                    setPanAddressModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-PAN-OCR") {
+                    setPanOcrModalOpen(true);
                     return;
                   }
                   if (item.id === "SVC-PAN-PRINT-V2") {
@@ -9353,6 +9731,455 @@ export default function ServicesPage() {
           </div>
         </div>
       )}
+
+      {/* Modal 28: Mobile to RC Find */}
+      {mobileToRcModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md">
+                  <Smartphone className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg leading-tight">Mobile to RC Find</h3>
+                  <p className="text-xs text-blue-100">Locate vehicle registrations from mobile number</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setMobileToRcModalOpen(false);
+                  setMobileToRcResult(null);
+                  setMobileToRcError("");
+                }}
+                className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {mobileToRcError && (
+              <div className="mx-6 mt-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{mobileToRcError}</span>
+              </div>
+            )}
+
+            {mobileToRcResult ? (
+              <div className="p-6 space-y-5 overflow-y-auto">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <h4 className="font-bold text-sm text-emerald-900">
+                      {mobileToRcResult.count ?? mobileToRcResult.rcNumbers?.length ?? 0} Vehicle(s) Found
+                    </h4>
+                    <p className="text-xs text-emerald-700">
+                      Linked to mobile +91 {mobileToRcResult.mobile || mobileToRcInput}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
+                    Registered Vehicle Plates:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+                    {(mobileToRcResult.rcNumbers || mobileToRcResult.data?.rc_numbers || []).map((rc: string, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between font-mono font-bold text-sm text-blue-700"
+                      >
+                        <span>{rc}</span>
+                        <Car size={16} className="text-slate-400" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => printMobileToRcSlip(mobileToRcResult)}
+                    className="flex-1 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                  >
+                    <Printer size={16} />
+                    <span>Print Customer Slip</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileToRcResult(null);
+                      setMobileToRcInput("");
+                    }}
+                    className="px-5 py-3 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                  >
+                    New Search
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleMobileToRcSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    10-digit Registered Mobile Number *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-3.5 text-slate-400 font-mono text-sm">+91</span>
+                    <input
+                      type="tel"
+                      required
+                      maxLength={10}
+                      placeholder="9876543210"
+                      value={mobileToRcInput}
+                      onChange={(e) => setMobileToRcInput(e.target.value.replace(/\D/g, ""))}
+                      className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Searches nationwide Vahan & Parivahan database for all vehicles registered to this mobile.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={mobileToRcLoading || mobileToRcInput.trim().length !== 10}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {mobileToRcLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Searching Vahan Registry...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-MOBILE-TO-RC", 20).price.toFixed(2)} & Find RC Details
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 29: PAN Card Address Details */}
+      {panAddressModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg leading-tight">PAN Card Address Details</h3>
+                  <p className="text-xs text-indigo-100">Official registered address lookup for PAN card</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setPanAddressModalOpen(false);
+                  setPanAddressResult(null);
+                  setPanAddressError("");
+                }}
+                className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {panAddressError && (
+              <div className="mx-6 mt-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{panAddressError}</span>
+              </div>
+            )}
+
+            {panAddressResult ? (
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <h4 className="font-bold text-sm text-emerald-900">Address Record Located</h4>
+                    <p className="text-xs text-emerald-700">PAN: {panAddressResult.pan}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs">
+                  <div>
+                    <span className="text-slate-400 block mb-0.5">Cardholder Name:</span>
+                    <span className="font-bold text-sm text-slate-800">{panAddressResult.fullName || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block mb-0.5">Registered Address:</span>
+                    <span className="font-medium text-slate-800 leading-relaxed block">
+                      {panAddressResult.address?.full ||
+                        [
+                          panAddressResult.address?.line1,
+                          panAddressResult.address?.line2,
+                          panAddressResult.address?.street,
+                          panAddressResult.address?.city,
+                          panAddressResult.address?.state,
+                          panAddressResult.address?.zip,
+                        ].filter(Boolean).join(", ") ||
+                        "N/A"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+                    <div>
+                      <span className="text-slate-400 block mb-0.5">City / District:</span>
+                      <span className="font-semibold text-slate-700">{panAddressResult.address?.city || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block mb-0.5">PIN Code:</span>
+                      <span className="font-mono font-bold text-slate-800">{panAddressResult.address?.zip || "N/A"}</span>
+                    </div>
+                  </div>
+                  {panAddressResult.maskedAadhaar && (
+                    <div className="pt-2 border-t border-slate-200">
+                      <span className="text-slate-400 block mb-0.5">Linked Aadhaar:</span>
+                      <span className="font-mono font-bold text-slate-800">{panAddressResult.maskedAadhaar}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => printPanAddressSlip(panAddressResult)}
+                    className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2"
+                  >
+                    <Printer size={16} />
+                    <span>Print Address Slip</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPanAddressResult(null);
+                      setPanAddressInput("");
+                    }}
+                    className="px-5 py-3 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                  >
+                    New Search
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handlePanAddressSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    PAN Card Number (10 Characters) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={10}
+                    placeholder="e.g. ABCDE1234F"
+                    value={panAddressInput}
+                    onChange={(e) => setPanAddressInput(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 uppercase"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Retrieves official Income Tax registered residential / office address.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={panAddressLoading || panAddressInput.trim().length !== 10}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {panAddressLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Fetching Address Details...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-PAN-ADDRESS-DETAILS", 15).price.toFixed(2)} & Get Address
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 30: PAN Card Details by PAN Image (OCR) */}
+      {panOcrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-gradient-to-r from-cyan-600 via-teal-600 to-cyan-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md">
+                  <Upload className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg leading-tight">PAN Card Details by Image</h3>
+                  <p className="text-xs text-cyan-100">Upload photo to extract PAN details automatically</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setPanOcrModalOpen(false);
+                  setPanOcrResult(null);
+                  setPanOcrError("");
+                  setPanOcrPhotoBase64("");
+                  setPanOcrPhotoFileName("");
+                }}
+                className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {panOcrError && (
+              <div className="mx-6 mt-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{panOcrError}</span>
+              </div>
+            )}
+
+            {panOcrResult ? (
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <h4 className="font-bold text-sm text-emerald-900">OCR Extraction Successful</h4>
+                    <p className="text-xs text-emerald-700">PAN details extracted with high accuracy</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs">
+                  <div>
+                    <span className="text-slate-400 block mb-0.5">Extracted PAN Number:</span>
+                    <span className="font-mono font-bold text-lg text-cyan-700 tracking-wider">
+                      {panOcrResult.panNumber || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block mb-0.5">Cardholder Full Name:</span>
+                    <span className="font-bold text-sm text-slate-800">{panOcrResult.name || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block mb-0.5">Father's Name:</span>
+                    <span className="font-semibold text-slate-700">{panOcrResult.fatherName || "N/A"}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+                    <div>
+                      <span className="text-slate-400 block mb-0.5">Date of Birth:</span>
+                      <span className="font-semibold text-slate-700">{panOcrResult.dob || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block mb-0.5">OCR Confidence:</span>
+                      <span className="font-semibold text-emerald-600">{panOcrResult.confidence || "High"} ✓</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => printPanOcrSlip(panOcrResult)}
+                    className="flex-1 py-3 rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition flex items-center justify-center gap-2"
+                  >
+                    <Printer size={16} />
+                    <span>Print Extracted Slip</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPanOcrResult(null);
+                      setPanOcrPhotoBase64("");
+                      setPanOcrPhotoFileName("");
+                    }}
+                    className="px-5 py-3 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                  >
+                    Scan Another
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handlePanOcrSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Upload PAN Card Photo (JPG / PNG, max 5MB) *
+                  </label>
+                  <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:bg-slate-50 transition cursor-pointer relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      required
+                      onChange={handlePanOcrPhotoUpload}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    {panOcrPhotoBase64 ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <img
+                          src={panOcrPhotoBase64}
+                          alt="PAN preview"
+                          className="h-28 object-contain rounded-xl border border-slate-200 shadow-sm"
+                        />
+                        <span className="text-xs font-medium text-slate-600">{panOcrPhotoFileName || "Photo selected"}</span>
+                        <span className="text-[11px] text-cyan-600 font-bold">Click to replace photo</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-slate-500">
+                        <Upload size={28} className="text-cyan-500" />
+                        <span className="text-xs font-semibold text-slate-700">Click or Drag & Drop PAN Card Photo</span>
+                        <span className="text-[11px] text-slate-400">Clear frontal photo of PAN card</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={panOcrLoading || !panOcrPhotoBase64}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-cyan-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {panOcrLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Extracting PAN Data with OCR...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-PAN-OCR", 15).price.toFixed(2)} & Extract Details
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
