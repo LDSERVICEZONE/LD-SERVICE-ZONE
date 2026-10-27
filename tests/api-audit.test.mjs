@@ -770,6 +770,18 @@ test("retailer with sufficient balance can generate APINICE print document", asy
   assert.equal(res.data.ok, true);
   assert.ok(res.data.pdf);
   assert.ok(res.data.ledgerId);
+
+  const walletRes = await request("/wallet", { token: retailerToken });
+  assert.equal(walletRes.status, 200);
+  assert.ok(walletRes.data.wallet.todayOutflow >= 30);
+
+  const ledgerRes = await request("/wallet/ledger", { token: retailerToken });
+  assert.equal(ledgerRes.status, 200);
+  const rcEntry = ledgerRes.data.ledger.find((e) => e.id === res.data.ledgerId);
+  assert.ok(rcEntry);
+  assert.equal(rcEntry.type, "debit");
+  assert.equal(rcEntry.status, "success");
+  assert.equal(rcEntry.amount, 30);
 });
 
 test("retailer can perform vehicle e-challan check", async () => {

@@ -264,12 +264,12 @@ export async function handleWalletRoutes(context) {
     const todayInflow = ledger
       .filter(
         (entry) =>
-          entry.type === "credit" && new Date(entry.createdAt) >= today,
+          String(entry.type || "").toLowerCase() === "credit" && new Date(entry.createdAt) >= today,
       )
       .reduce((total, entry) => total + Number(entry.amount || 0), 0)
     const todayOutflow = ledger
       .filter(
-        (entry) => entry.type === "debit" && new Date(entry.createdAt) >= today,
+        (entry) => String(entry.type || "").toLowerCase() === "debit" && new Date(entry.createdAt) >= today,
       )
       .reduce((total, entry) => total + Number(entry.amount || 0), 0)
     return respond(200, { wallet: { ...wallet, todayInflow, todayOutflow } })

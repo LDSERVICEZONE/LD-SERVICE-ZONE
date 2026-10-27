@@ -344,7 +344,7 @@ export function createStateRepository(config) {
         state.walletLedger = ledgerRows.map((entry) => ({
           id: entry.id, userId: entry.userId, type: String(entry.type || "ADJUSTMENT").toLowerCase(),
           amount: Number(entry.amount || 0), reference: entry.reference, description: entry.description || "",
-          status: entry.status || "success", balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt,
+          status: String(entry.status || "success").toLowerCase(), balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt,
         }))
       }
       // Reconcile wallets with the immutable ledger source of truth
@@ -353,7 +353,7 @@ export function createStateRepository(config) {
           const latest = state.walletLedger.find(
             (e) =>
               e.userId === userId &&
-              (e.status === "success" || e.status === "paid") &&
+              (String(e.status || "").toLowerCase() === "success" || String(e.status || "").toLowerCase() === "paid") &&
               typeof e.balanceAfter === "number" &&
               !isNaN(e.balanceAfter),
           )

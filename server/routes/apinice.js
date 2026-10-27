@@ -420,14 +420,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId,
       referenceId: result.identifier || null,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -581,14 +582,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-VEHICLE-CHALLAN",
       referenceId: vehicleNumber,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -694,14 +696,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-ABHA-CARD",
       referenceId: uidNumber,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -797,14 +800,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-VOTER-VERIFY",
       referenceId: epic,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -904,14 +908,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-VOTER-PDF",
       referenceId: epicNumber,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1011,14 +1016,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-VOTER-MOBILE-LINK",
       referenceId: epic,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1114,14 +1120,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-LL-PDF",
       referenceId: idNumber,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1215,14 +1222,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-CHASSIS-TO-RC",
       referenceId: chassisNumber,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1321,14 +1329,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-RC-TO-MOBILE",
       referenceId: vehicleNumber,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1430,14 +1439,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-ESHRAM-CARD",
       referenceId: uidNumber,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1542,14 +1552,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-AADHAAR-PVC",
       referenceId: txId,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1648,14 +1659,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-AGRISTACK-FARMER",
       referenceId: uidNumber,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1753,14 +1765,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-UDYOG-AADHAAR",
       referenceId: uan,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1860,14 +1873,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-NPCI-STATUS",
       referenceId: aadhaar,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -1966,14 +1980,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-GST-DETAILS",
       referenceId: gst,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -2077,14 +2092,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-PASSPORT-VERIFY",
       referenceId: fileNo,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -2184,14 +2200,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-IFSC-DETAILS",
       referenceId: ifsc,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -2302,14 +2319,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-ELECTRIC-BILL",
       referenceId: caNumber,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -2407,14 +2425,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-PAN-FIND",
       referenceId: result.panNumber || aadhaarNo,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -2515,14 +2534,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-PAN-DETAILS",
       referenceId: panNo,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -2669,14 +2689,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-VOTER-MANUAL-PDF",
       referenceId: epicNo,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -2844,14 +2865,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-AADHAAR-MANUAL",
       referenceId: aadharno,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)
@@ -2984,14 +3006,15 @@ export async function handleApiniceRoutes(context) {
     const ledgerEntry = {
       id: txId,
       userId: auth.user.id,
-      type: "DEBIT",
+      type: "debit",
+      reference: txId,
       amount: requiredPrice,
       balanceBefore,
       balanceAfter,
       description,
       serviceId: "SVC-PAN-PRINT-V2",
       referenceId: pan,
-      status: "SUCCESS",
+      status: "success",
       createdAt: now(),
     }
     db.walletLedger.unshift(ledgerEntry)

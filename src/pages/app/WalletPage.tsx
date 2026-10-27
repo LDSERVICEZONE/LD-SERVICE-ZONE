@@ -176,8 +176,8 @@ export default function WalletPage() {
       l.id || "",
       l.description || "",
       l.reference || "",
-      l.type === "credit" ? l.amount : "",
-      l.type === "debit" ? l.amount : "",
+      String(l.type || "").toLowerCase() === "credit" ? l.amount : "",
+      String(l.type || "").toLowerCase() === "debit" ? l.amount : "",
       l.balanceAfter || 0,
       l.status || "",
     ]);
@@ -447,17 +447,17 @@ export default function WalletPage() {
                       <div className="text-[10px] text-[#94A3B8] font-mono">{l.reference}</div>
                     </td>
                     <td className="py-3 text-emerald-600 font-mono font-semibold whitespace-nowrap">
-                      {l.type === "credit" ? `+₹${Number(l.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—"}
+                      {String(l.type || "").toLowerCase() === "credit" ? `+₹${Number(l.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—"}
                     </td>
                     <td className="py-3 text-red-500 font-mono font-semibold whitespace-nowrap">
-                      {l.type === "debit" ? `-₹${Number(l.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—"}
+                      {String(l.type || "").toLowerCase() === "debit" ? `-₹${Number(l.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—"}
                     </td>
                     <td className="py-3 font-mono-data font-semibold text-slate-900 whitespace-nowrap">
                       ₹{Number(l.balanceAfter || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-3 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        l.status === "success" || l.status === "paid"
+                        String(l.status || "").toLowerCase() === "success" || String(l.status || "").toLowerCase() === "paid"
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : "bg-slate-100 text-slate-600"
                       }`}>
