@@ -16,9 +16,14 @@ export async function handleCatalogRoutes(context) {
     return respond(200, { services: db.services || [] })
   }
 
+  const isSuperAdmin = (user) => user?.role === "admin" && (user?.adminRole === "super_admin" || !user?.adminRole)
+
   if (pathName === "/api/services" && req.method === "POST") {
     const auth = requireAuth(req, res, db, "admin")
     if (!auth) return true
+    if (!isSuperAdmin(auth.user)) {
+      return respond(403, { error: "Super admin access required to create services" })
+    }
     const input = await parseJson(req)
     const name = String(input.name || "").trim()
     const category = String(input.category || "Other").trim()
@@ -71,6 +76,9 @@ export async function handleCatalogRoutes(context) {
   if (/^\/api\/services\/[^/]+$/.test(pathName) && req.method === "PATCH") {
     const auth = requireAuth(req, res, db, "admin")
     if (!auth) return true
+    if (!isSuperAdmin(auth.user)) {
+      return respond(403, { error: "Super admin access required to update services or pricing" })
+    }
     const serviceId = pathName.split("/").pop()
     const service = db.services.find((candidate) => candidate.id === serviceId)
     if (!service) return respond(404, { error: "Service not found" })
@@ -119,6 +127,9 @@ export async function handleCatalogRoutes(context) {
   if (/^\/api\/services\/[^/]+$/.test(pathName) && req.method === "DELETE") {
     const auth = requireAuth(req, res, db, "admin")
     if (!auth) return true
+    if (!isSuperAdmin(auth.user)) {
+      return respond(403, { error: "Super admin access required to delete services" })
+    }
     const serviceId = pathName.split("/").pop()
     const serviceIndex = db.services.findIndex((candidate) => candidate.id === serviceId)
     if (serviceIndex === -1) return respond(404, { error: "Service not found" })
