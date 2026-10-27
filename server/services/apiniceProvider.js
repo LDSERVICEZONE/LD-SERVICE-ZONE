@@ -1291,6 +1291,128 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+  async fetchGstToPan({ gst }) {
+    const cleanGst = clean(gst).replace(/[\s-]/g, "").toUpperCase()
+    if (!cleanGst || cleanGst.length !== 15) {
+      throw new Error("Valid 15-character GSTIN number is required (e.g. 24AAACC1206D1ZM)")
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      api_key: key,
+      gst: cleanGst,
+    }
+
+    const response = await this.request("gst_to_pan_verification", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (response.status === false || response.error_code || (!response.pan && !response.data?.pan)) {
+      throw new Error(response.message || "Failed to find linked PAN from GST number")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "GST_TO_PAN",
+      gst: cleanGst,
+      pan: (data.pan || response.pan || cleanGst.slice(2, 12)).toUpperCase(),
+      message: response.message || "GST to PAN fetched successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
+
+  async fetchPanToGst({ pan }) {
+    const cleanPan = clean(pan).replace(/[\s-]/g, "").toUpperCase()
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      throw new Error("Valid 10-character PAN number is required (e.g. ABCDE1234F)")
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      api_key: key,
+      pan: cleanPan,
+    }
+
+    const response = await this.request("pan_to_gst", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (response.status === "error" || response.status === false || response.error_code) {
+      throw new Error(response.message || "Failed to find registered GST numbers for this PAN")
+    }
+
+    const items = Array.isArray(response.items)
+      ? response.items
+      : Array.isArray(response.data?.items)
+      ? response.data.items
+      : Array.isArray(response.data)
+      ? response.data
+      : []
+
+    return {
+      success: true,
+      service: "PAN_TO_GST",
+      pan: cleanPan,
+      count: Number(response.count ?? items.length),
+      items: items.map((it) => ({
+        gstin: it.gstin || it.gst || "",
+        authStatus: it.auth_status || it.status || "Active",
+        state: it.state || it.state_jurisdiction || "",
+      })),
+      message: response.message || "PAN to GST retrieved successfully",
+      balanceRemaining: response.balance || response.balance_left,
+      raw: response,
+    }
+  }
+
+  async fetchPanToAadhaar({ pan }) {
+    const cleanPan = clean(pan).replace(/[\s-]/g, "").toUpperCase()
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      throw new Error("Valid 10-character PAN number is required (e.g. ABCDE1234F)")
+    }
+
+    const key = this.getApiKey()
+    const body = {
+      api_key: key,
+      pan: cleanPan,
+      panno: cleanPan,
+    }
+
+    const response = await this.request("pan_to_aadhaar", {
+      method: "POST",
+      body,
+      timeoutMs: 45000,
+    })
+
+    if (
+      response.status === "error" ||
+      response.status === false ||
+      response.status === "404" ||
+      response.error_code ||
+      (!response.aadhaar && !response.data?.aadhaar && !response.aadhaar_no && !response.data?.aadhaar_no)
+    ) {
+      throw new Error(response.message || "Aadhaar record not linked or temporarily unavailable for this PAN")
+    }
+
+    const data = response.data || response
+    return {
+      success: true,
+      service: "PAN_TO_AADHAAR",
+      pan: cleanPan,
+      aadhaar: data.aadhaar || data.aadhaar_no || data.aadhaar_number || response.aadhaar || "",
+      name: data.name || data.full_name || "",
+      message: response.message || "Linked Aadhaar number retrieved successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    }
+  }
 }
 
 export const apiniceProvider = new ApiniceProvider()

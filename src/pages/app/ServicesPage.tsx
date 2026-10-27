@@ -347,6 +347,42 @@ const PRINT_SERVICES = [
     description: "Verify PAN cardholder full name, father's name, DOB, and active status instantly",
   },
   {
+    id: "SVC-GST-TO-PAN",
+    name: "GST to PAN Verification",
+    category: "PAN Card Services",
+    badge: "GST TO PAN",
+    icon: "🪪",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["GSTIN Number (15-character)"],
+    color: "#2563EB",
+    description: "Extract linked PAN card number and legal status from GSTIN instantly",
+  },
+  {
+    id: "SVC-PAN-TO-GST",
+    name: "PAN to GST Verification",
+    category: "PAN Card Services",
+    badge: "PAN TO GST",
+    icon: "💼",
+    processingTime: "Instant",
+    defaultPrice: 10,
+    documents: ["PAN Card Number (10-character)"],
+    color: "#0D9488",
+    description: "Find all active and registered GSTIN numbers linked to a PAN card across all states",
+  },
+  {
+    id: "SVC-PAN-TO-AADHAAR",
+    name: "PAN to Aadhaar Find",
+    category: "PAN Card Services",
+    badge: "PAN TO AADHAAR",
+    icon: "🆔",
+    processingTime: "Instant",
+    defaultPrice: 20,
+    documents: ["PAN Card Number (10-character)"],
+    color: "#7C3AED",
+    description: "Find and verify linked 12-digit Aadhaar number from PAN card record",
+  },
+  {
     id: "SVC-PAN-PRINT-V2",
     name: "PAN Card High-Res Print (v2)",
     category: "PAN Card Services",
@@ -626,6 +662,27 @@ export default function ServicesPage() {
   const [panDetailsLoading, setPanDetailsLoading] = useState(false);
   const [panDetailsError, setPanDetailsError] = useState("");
   const [panDetailsResult, setPanDetailsResult] = useState<any>(null);
+
+  // GST to PAN Verification modal states
+  const [gstToPanModalOpen, setGstToPanModalOpen] = useState(false);
+  const [gstToPanInput, setGstToPanInput] = useState("");
+  const [gstToPanLoading, setGstToPanLoading] = useState(false);
+  const [gstToPanError, setGstToPanError] = useState("");
+  const [gstToPanResult, setGstToPanResult] = useState<any>(null);
+
+  // PAN to GST Verification modal states
+  const [panToGstModalOpen, setPanToGstModalOpen] = useState(false);
+  const [panToGstInput, setPanToGstInput] = useState("");
+  const [panToGstLoading, setPanToGstLoading] = useState(false);
+  const [panToGstError, setPanToGstError] = useState("");
+  const [panToGstResult, setPanToGstResult] = useState<any>(null);
+
+  // PAN to Aadhaar Find modal states
+  const [panToAadhaarModalOpen, setPanToAadhaarModalOpen] = useState(false);
+  const [panToAadhaarInput, setPanToAadhaarInput] = useState("");
+  const [panToAadhaarLoading, setPanToAadhaarLoading] = useState(false);
+  const [panToAadhaarError, setPanToAadhaarError] = useState("");
+  const [panToAadhaarResult, setPanToAadhaarResult] = useState<any>(null);
 
   // Voter Manual PDF Instant modal states
   const [voterManualModalOpen, setVoterManualModalOpen] = useState(false);
@@ -2319,6 +2376,301 @@ export default function ServicesPage() {
     printWindow.document.close();
   };
 
+  const handleGstToPanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanGst = gstToPanInput.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanGst || cleanGst.length !== 15) {
+      setGstToPanError("Please enter valid 15-character GSTIN number (e.g. 24AAACC1206D1ZM)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-GST-TO-PAN", 15);
+    if (dynamic.status === "disabled") {
+      setGstToPanError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setGstToPanError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setGstToPanLoading(true);
+    setGstToPanError("");
+    try {
+      const res = await api<any>("/apinice/gst-to-pan", {
+        method: "POST",
+        body: JSON.stringify({ gst: cleanGst }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.pan || res.data?.pan) {
+        setGstToPanResult(res);
+      } else {
+        setGstToPanError("No linked PAN found for this GSTIN number.");
+      }
+    } catch (err: any) {
+      setGstToPanError(err.message || "Failed to verify GST to PAN");
+    } finally {
+      setGstToPanLoading(false);
+    }
+  };
+
+  const printGstToPanSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const panNum = res.pan || res.data?.pan || "N/A";
+    const gstNum = res.gst || gstToPanInput;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>GST to PAN Verification - ${gstNum}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 9px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #eff6ff; width: 40%; color: #1e40af; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e40af;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#2563eb;">GST to PAN Verification Receipt</h3>
+          </div>
+          <div class="meta">
+            <div><strong>GSTIN:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#2563eb;">${gstNum}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">GSTIN Number</td><td><strong style="font-size:15px;color:#1e40af;font-family:monospace;letter-spacing:1px;">${gstNum}</strong></td></tr>
+            <tr><td class="label">Linked PAN Number</td><td><strong style="font-size:16px;color:#16a34a;font-family:monospace;letter-spacing:1px;">${panNum}</strong></td></tr>
+            <tr><td class="label">State Code</td><td><strong>${gstNum.substring(0, 2)}</strong></td></tr>
+            <tr><td class="label">Verification Status</td><td><strong style="color:#16a34a;">OFFICIALLY VERIFIED ✓</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official GSTIN to PAN Verification record authenticated by LD Service Zone via GST System.<br/>
+            Valid for corporate compliance, vendor verification, tax audits, and banking KYC.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePanToGstSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPan = panToGstInput.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      setPanToGstError("Please enter valid 10-character PAN number (e.g. ABCDE1234F)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-PAN-TO-GST", 10);
+    if (dynamic.status === "disabled") {
+      setPanToGstError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setPanToGstError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setPanToGstLoading(true);
+    setPanToGstError("");
+    try {
+      const res = await api<any>("/apinice/pan-to-gst", {
+        method: "POST",
+        body: JSON.stringify({ pan: cleanPan }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.items || res.data?.items) {
+        setPanToGstResult(res);
+      } else {
+        setPanToGstError("No registered GSTIN found for this PAN number.");
+      }
+    } catch (err: any) {
+      setPanToGstError(err.message || "Failed to search PAN to GST records");
+    } finally {
+      setPanToGstLoading(false);
+    }
+  };
+
+  const printPanToGstSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const panNum = res.pan || panToGstInput;
+    const items = res.items || res.data?.items || [];
+    const rows = items.map((it: any, idx: number) => `
+      <tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td><strong style="font-family:monospace;color:#0f766e;font-size:13px;">${it.gstin || "N/A"}</strong></td>
+        <td>${it.state || "N/A"}</td>
+        <td><span style="font-weight:bold;color:${it.auth_status === 'Active' ? '#16a34a' : '#d97706'};">${it.auth_status || 'Active'}</span></td>
+      </tr>
+    `).join("");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PAN to GST Verification - ${panNum}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #0d9488; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table th { padding: 8px 10px; background: #ccfbf1; border: 1px solid #99f6e4; font-size: 12px; text-align: left; color: #115e59; }
+            .table td { padding: 7px 10px; border: 1px solid #e2e8f0; font-size: 12px; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#115e59;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#0d9488;">PAN to All-India GST Registrations Report</h3>
+          </div>
+          <div class="meta">
+            <div><strong>PAN Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#0d9488;">${panNum}</span></div>
+            <div><strong>Total Linked GSTINs:</strong> <strong>${items.length}</strong></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width:40px;text-align:center;">#</th>
+                <th>GSTIN Number</th>
+                <th>State / Jurisdiction</th>
+                <th>Registration Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="4" style="text-align:center;">No GSTIN records found</td></tr>'}
+            </tbody>
+          </table>
+          <div class="footer">
+            Official All-India PAN to GST Registry report issued by LD Service Zone via GST Common Portal.<br/>
+            Valid for corporate due diligence, tax compliance, vendor onboarding, and credit appraisal.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePanToAadhaarSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPan = panToAadhaarInput.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanPan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      setPanToAadhaarError("Please enter valid 10-character PAN number (e.g. ABCDE1234F)");
+      return;
+    }
+    const dynamic = getDynamicService("SVC-PAN-TO-AADHAAR", 20);
+    if (dynamic.status === "disabled") {
+      setPanToAadhaarError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dynamic.price) {
+      setPanToAadhaarError(`Insufficient wallet balance. Required: ₹${dynamic.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}`);
+      return;
+    }
+
+    setPanToAadhaarLoading(true);
+    setPanToAadhaarError("");
+    try {
+      const res = await api<any>("/apinice/pan-to-aadhaar", {
+        method: "POST",
+        body: JSON.stringify({ pan: cleanPan }),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      if (res.aadhaar || res.maskedAadhaar || res.data?.aadhaar) {
+        setPanToAadhaarResult(res);
+      } else {
+        setPanToAadhaarError("No linked Aadhaar record found for this PAN number.");
+      }
+    } catch (err: any) {
+      setPanToAadhaarError(err.message || "Failed to find PAN to Aadhaar details");
+    } finally {
+      setPanToAadhaarLoading(false);
+    }
+  };
+
+  const printPanToAadhaarSlip = (res: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const panNum = res.pan || panToAadhaarInput;
+    const aadhaarNum = res.aadhaar || res.maskedAadhaar || res.data?.aadhaar || "N/A";
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PAN to Aadhaar Lookup - ${panNum}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
+            .header { text-align: center; border-bottom: 2px solid #7c3aed; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 9px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+            .table td.label { font-weight: bold; background: #f5f3ff; width: 40%; color: #5b21b6; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#5b21b6;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#7c3aed;">PAN to Aadhaar Link Verification Slip</h3>
+          </div>
+          <div class="meta">
+            <div><strong>PAN Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#7c3aed;">${panNum}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:15px;color:#5b21b6;font-family:monospace;letter-spacing:1px;">${panNum}</strong></td></tr>
+            <tr><td class="label">Linked Aadhaar Number</td><td><strong style="font-size:16px;color:#16a34a;font-family:monospace;letter-spacing:1px;">${aadhaarNum}</strong></td></tr>
+            ${res.fullName ? `<tr><td class="label">Cardholder Name</td><td><strong>${res.fullName}</strong></td></tr>` : ''}
+            <tr><td class="label">Linkage Status</td><td><strong style="color:#16a34a;">OFFICIALLY LINKED & VERIFIED ✓</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+          </table>
+          <div class="footer">
+            Official PAN-Aadhaar linkage record authenticated by LD Service Zone via Income Tax e-Filing & UIDAI registry.<br/>
+            Valid for banking, demat accounts, ITR filing, and government subsidy verification.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const handleVoterManualPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -3329,6 +3681,18 @@ export default function ServicesPage() {
                   }
                   if (item.id === "SVC-PAN-DETAILS") {
                     setPanDetailsModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-GST-TO-PAN") {
+                    setGstToPanModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-PAN-TO-GST") {
+                    setPanToGstModalOpen(true);
+                    return;
+                  }
+                  if (item.id === "SVC-PAN-TO-AADHAAR") {
+                    setPanToAadhaarModalOpen(true);
                     return;
                   }
                   if (item.id === "SVC-PAN-PRINT-V2") {
@@ -8527,6 +8891,465 @@ export default function ServicesPage() {
                 </form>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 24: GST to PAN Verification */}
+      {gstToPanModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-50 via-indigo-50/40 to-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-lg shadow-md shadow-blue-500/20">
+                  🪪
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    GST to PAN Verification
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Extract linked PAN number and legal status from GSTIN
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setGstToPanModalOpen(false);
+                  setGstToPanError("");
+                  setGstToPanResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {gstToPanError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{gstToPanError}</span>
+              </div>
+            )}
+
+            {gstToPanResult ? (
+              <div className="p-6 space-y-4">
+                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-blue-950 text-base">
+                    PAN Found & Verified
+                  </h4>
+                  <p className="text-lg font-mono font-black text-blue-700 mt-1 tracking-wider">
+                    {gstToPanResult.pan}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">GSTIN Number:</span>
+                    <span className="font-mono font-bold text-slate-800">{gstToPanResult.gst || gstToPanInput}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Extracted PAN:</span>
+                    <span className="font-mono font-extrabold text-blue-700">{gstToPanResult.pan}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">State Code:</span>
+                    <span className="font-bold text-slate-800">
+                      {gstToPanResult.stateCode || (gstToPanResult.gst ? gstToPanResult.gst.substring(0, 2) : "N/A")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Status:</span>
+                    <span className="font-bold text-emerald-600">OFFICIALLY VERIFIED ✓</span>
+                  </div>
+                  {gstToPanResult.balance !== undefined && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">New Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-900">
+                        ₹{Number(gstToPanResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => printGstToPanSlip(gstToPanResult)}
+                    className="flex-1 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print Verification Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGstToPanResult(null);
+                      setGstToPanInput("");
+                      setGstToPanError("");
+                    }}
+                    className="flex-1 py-3 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Verify Another GSTIN
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleGstToPanSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    GSTIN Number (15 Characters) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={15}
+                    placeholder="e.g. 24AAACC1206D1ZM"
+                    value={gstToPanInput}
+                    onChange={(e) => setGstToPanInput(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 uppercase"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter the 15-character Goods and Services Tax Identification Number.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={gstToPanLoading || gstToPanInput.trim().length !== 15}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {gstToPanLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Verifying with GST Registry...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-GST-TO-PAN", 15).price.toFixed(2)} & Verify PAN
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 25: PAN to GST Verification */}
+      {panToGstModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 bg-gradient-to-r from-teal-50 via-emerald-50/40 to-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center text-lg shadow-md shadow-teal-500/20">
+                  💼
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    PAN to GST Verification
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Find all active & registered GSTINs linked to PAN across India
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setPanToGstModalOpen(false);
+                  setPanToGstError("");
+                  setPanToGstResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {panToGstError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{panToGstError}</span>
+              </div>
+            )}
+
+            {panToGstResult ? (
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-teal-950 text-sm">
+                      PAN: <span className="font-mono text-teal-700">{panToGstResult.pan}</span>
+                    </h4>
+                    <p className="text-xs text-teal-700 mt-0.5">
+                      Found {panToGstResult.items?.length || panToGstResult.count || 0} registered GSTINs across India
+                    </p>
+                  </div>
+                  <div className="px-3 py-1 bg-teal-600 text-white rounded-full text-xs font-bold shadow">
+                    {panToGstResult.items?.length || panToGstResult.count || 0} Records
+                  </div>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto rounded-2xl border border-slate-200">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-600 font-semibold sticky top-0">
+                      <tr>
+                        <th className="p-2.5 pl-3">GSTIN</th>
+                        <th className="p-2.5">State</th>
+                        <th className="p-2.5 pr-3 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {(panToGstResult.items || []).map((it: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2.5 pl-3 font-mono font-bold text-teal-700">
+                            {it.gstin}
+                          </td>
+                          <td className="p-2.5 text-slate-700">{it.state || "N/A"}</td>
+                          <td className="p-2.5 pr-3 text-right">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              it.auth_status === "Active"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}>
+                              {it.auth_status || "Active"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => printPanToGstSlip(panToGstResult)}
+                    className="flex-1 py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print Full GST Report
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPanToGstResult(null);
+                      setPanToGstInput("");
+                      setPanToGstError("");
+                    }}
+                    className="flex-1 py-3 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Search Another PAN
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handlePanToGstSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    PAN Card Number (10 Characters) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={10}
+                    placeholder="e.g. ABCDE1234F"
+                    value={panToGstInput}
+                    onChange={(e) => setPanToGstInput(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest focus:bg-white focus:outline-none focus:ring-4 focus:ring-teal-100 focus:border-teal-500 uppercase"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Searches across all state tax databases for business entities registered under this PAN.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={panToGstLoading || panToGstInput.trim().length !== 10}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-teal-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {panToGstLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Searching All-India GST Registrations...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-PAN-TO-GST", 10).price.toFixed(2)} & Find GSTINs
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 26: PAN to Aadhaar Find */}
+      {panToAadhaarModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 bg-gradient-to-r from-purple-50 via-indigo-50/40 to-slate-50 border-b border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center text-lg shadow-md shadow-purple-500/20">
+                  🆔
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    PAN to Aadhaar Find
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Lookup linked Aadhaar number from PAN card record
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setPanToAadhaarModalOpen(false);
+                  setPanToAadhaarError("");
+                  setPanToAadhaarResult(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {panToAadhaarError && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{panToAadhaarError}</span>
+              </div>
+            )}
+
+            {panToAadhaarResult ? (
+              <div className="p-6 space-y-4">
+                <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-center">
+                  <div className="w-12 h-12 rounded-full bg-purple-600 text-white flex items-center justify-center mx-auto mb-2 text-xl shadow">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-purple-950 text-base">
+                    Linked Aadhaar Retrieved
+                  </h4>
+                  <p className="text-lg font-mono font-black text-purple-700 mt-1 tracking-wider">
+                    {panToAadhaarResult.aadhaar || panToAadhaarResult.maskedAadhaar || "Linked & Verified"}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">PAN Number:</span>
+                    <span className="font-mono font-bold text-slate-800">{panToAadhaarResult.pan || panToAadhaarInput}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Linked Aadhaar:</span>
+                    <span className="font-mono font-extrabold text-purple-700">
+                      {panToAadhaarResult.aadhaar || panToAadhaarResult.maskedAadhaar}
+                    </span>
+                  </div>
+                  {panToAadhaarResult.fullName && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Full Name:</span>
+                      <span className="font-bold text-slate-800">{panToAadhaarResult.fullName}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Linkage Status:</span>
+                    <span className="font-bold text-emerald-600">OFFICIALLY LINKED & VERIFIED ✓</span>
+                  </div>
+                  {panToAadhaarResult.balance !== undefined && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">New Wallet Balance:</span>
+                      <span className="font-mono font-bold text-slate-900">
+                        ₹{Number(panToAadhaarResult.balance).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => printPanToAadhaarSlip(panToAadhaarResult)}
+                    className="flex-1 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Print Linkage Slip
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPanToAadhaarResult(null);
+                      setPanToAadhaarInput("");
+                      setPanToAadhaarError("");
+                    }}
+                    className="flex-1 py-3 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                  >
+                    Find Another Aadhaar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handlePanToAadhaarSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    PAN Card Number (10 Characters) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={10}
+                    placeholder="e.g. ABCDE1234F"
+                    value={panToAadhaarInput}
+                    onChange={(e) => setPanToAadhaarInput(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 font-mono text-sm tracking-widest focus:bg-white focus:outline-none focus:ring-4 focus:ring-purple-100 focus:border-purple-500 uppercase"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Retrieves the official UIDAI Aadhaar number linked to this Income Tax PAN.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <span className="font-semibold text-slate-600">Your Wallet Balance:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    ₹{Number(wallet?.balance || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={panToAadhaarLoading || panToAadhaarInput.trim().length !== 10}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-purple-500/20 transition flex items-center justify-center gap-2"
+                >
+                  {panToAadhaarLoading ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Retrieving Linked Aadhaar Record...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} />
+                      <span>
+                        Pay ₹{getDynamicService("SVC-PAN-TO-AADHAAR", 20).price.toFixed(2)} & Find Aadhaar
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}

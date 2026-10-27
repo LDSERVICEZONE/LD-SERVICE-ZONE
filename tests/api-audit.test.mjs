@@ -58,6 +58,9 @@ globalThis.fetch = async (url, options) => {
     if (String(url).includes("voter-manual-pdf")) return Response.json({ status: "success", message: "Voter PDF Manual submitted successfully", data: { epic_no: "ABC1234567", name: "RAHUL KUMAR", pdf_url: "https://apinice.in/sample_voter_card.pdf" }, balance_remaining: "48.10" });
     if (String(url).includes("aadhar-manual")) return Response.json({ status: "success", message: "Aadhaar Card Manual generated successfully", data: { aadharno: "123456789012", name: "Rahul Kumar", pdf_url: "https://apinice.in/sample_aadhaar.pdf" }, balance_remaining: "48.10" });
     if (String(url).includes("pan_card_print")) return Response.json({ status: "success", message: "PAN Card High-Res generated successfully", data: { id: "PAN-9988", pan_number: "ABCDE1234F", name: "RAHUL KUMAR", pdf_url: "https://apinice.in/sample_pan.pdf", status: "completed" }, balance: "48.10" });
+    if (String(url).includes("gst_to_pan")) return Response.json({ status: true, gst: "24AAACC1206D1ZM", pan: "AAACC1206D", message: "GST to PAN verification successful", balance: "48.10" });
+    if (String(url).includes("pan_to_gst")) return Response.json({ status: "200", message: "Success", pan: "AAACC1206D", count: 1, items: [{ gstin: "24AAACC1206D1ZM", auth_status: "Active", state: "Gujarat" }], balance: "48.10" });
+    if (String(url).includes("pan_to_aadhaar")) return Response.json({ status: true, pan: "AAACC1206D", aadhaar: "XXXXXXXX1234", name: "MOCK HOLDER", message: "Success", balance: "48.10" });
     return Response.json({ status: "success", data: { pdf: "JVBERi0xLjQK...mock_pdf" }, balance_remaining: "38.70" });
   }
   if (!String(url).startsWith("http://127.0.0.1:")) throw new Error("External calls are forbidden in audit tests");
@@ -1323,3 +1326,70 @@ test("retailer can generate high-resolution PAN card print PDF", async () => {
   assert.ok(res.data.pdfUrl);
   assert.ok(res.data.ledgerId);
 });
+
+test("retailer can verify GST to PAN", async () => {
+  const invalidRes = await request("/apinice/gst-to-pan", {
+    token: retailerToken,
+    method: "POST",
+    body: { gst: "123" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/gst-to-pan", {
+    token: retailerToken,
+    method: "POST",
+    body: { gst: "24AAACC1206D1ZM" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.serviceId, "SVC-GST-TO-PAN");
+  assert.equal(res.data.gst, "24AAACC1206D1ZM");
+  assert.ok(res.data.pan);
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can verify PAN to GST", async () => {
+  const invalidRes = await request("/apinice/pan-to-gst", {
+    token: retailerToken,
+    method: "POST",
+    body: { pan: "INVALID" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/pan-to-gst", {
+    token: retailerToken,
+    method: "POST",
+    body: { pan: "AAACC1206D" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.serviceId, "SVC-PAN-TO-GST");
+  assert.equal(res.data.pan, "AAACC1206D");
+  assert.ok(Array.isArray(res.data.items));
+  assert.ok(res.data.ledgerId);
+});
+
+test("retailer can find PAN to Aadhaar", async () => {
+  const invalidRes = await request("/apinice/pan-to-aadhaar", {
+    token: retailerToken,
+    method: "POST",
+    body: { pan: "INVALID" },
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const res = await request("/apinice/pan-to-aadhaar", {
+    token: retailerToken,
+    method: "POST",
+    body: { pan: "AAACC1206D" },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.serviceId, "SVC-PAN-TO-AADHAAR");
+  assert.equal(res.data.pan, "AAACC1206D");
+  assert.ok(res.data.aadhaar || res.data.maskedAadhaar);
+  assert.ok(res.data.ledgerId);
+});
+

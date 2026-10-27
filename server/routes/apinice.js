@@ -278,6 +278,39 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#4338CA",
     status: "active",
   },
+  {
+    id: "SVC-GST-TO-PAN",
+    name: "GST to PAN Verification",
+    category: "Utilities & Banking",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["15-character GSTIN Number"],
+    color: "#2563EB",
+    status: "active",
+  },
+  {
+    id: "SVC-PAN-TO-GST",
+    name: "PAN to GST Verification",
+    category: "PAN Card Services",
+    customerPrice: 12,
+    commission: 2,
+    processingTime: "Instant",
+    documents: ["10-character PAN Number"],
+    color: "#4F46E5",
+    status: "active",
+  },
+  {
+    id: "SVC-PAN-TO-AADHAAR",
+    name: "PAN to Aadhaar Number Find",
+    category: "PAN Card Services",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["10-character PAN Number"],
+    color: "#7C3AED",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -3049,6 +3082,314 @@ export async function handleApiniceRoutes(context) {
       ledgerId: txId,
       transactionId: txId,
       message: "High-resolution PAN card print generated successfully",
+    })
+  }
+
+  // 25. POST /api/apinice/gst-to-pan
+  if (pathName === "/api/apinice/gst-to-pan" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const gst = String(input.gst || input.gstin || "").trim().toUpperCase().replace(/\s+/g, "")
+    if (!gst || gst.length !== 15) {
+      return respond(400, { error: "Valid 15-character GSTIN number is required (e.g. 24AAACC1206D1ZM)." })
+    }
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-GST-TO-PAN",
+      15,
+      "GST to PAN Verification"
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.fetchGstToPan({ gst })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to find linked PAN from GST number.",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `GST to PAN Verification (GSTIN: ${gst}, PAN: ${result.pan})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    db.walletLedger.unshift({
+      id: txId,
+      userId: auth.user.id,
+      type: "debit",
+      reference: txId,
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-GST-TO-PAN",
+      referenceId: gst,
+      status: "success",
+      createdAt: now(),
+    })
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-GST-TO-PAN",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: gst,
+      pan: result.pan,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-GST-TO-PAN",
+      serviceId: "SVC-GST-TO-PAN",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      gst,
+      pan: result.pan,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "GST to PAN linked record retrieved successfully",
+    })
+  }
+
+  // 26. POST /api/apinice/pan-to-gst
+  if (pathName === "/api/apinice/pan-to-gst" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const pan = String(input.pan || input.panno || "").trim().toUpperCase().replace(/\s+/g, "")
+    if (!pan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      return respond(400, { error: "Valid 10-character PAN number is required (e.g. ABCDE1234F)." })
+    }
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-PAN-TO-GST",
+      10,
+      "PAN to GST Verification"
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.fetchPanToGst({ pan })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to find registered GST numbers for this PAN.",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `PAN to GST Verification (PAN: ${pan}, ${result.count || 0} GSTINs found)`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    db.walletLedger.unshift({
+      id: txId,
+      userId: auth.user.id,
+      type: "debit",
+      reference: txId,
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-PAN-TO-GST",
+      referenceId: pan,
+      status: "success",
+      createdAt: now(),
+    })
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-PAN-TO-GST",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: pan,
+      gstCount: result.count,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-PAN-TO-GST",
+      serviceId: "SVC-PAN-TO-GST",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      pan,
+      count: result.count,
+      items: result.items,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: `Found ${result.count} registered GSTIN records for PAN ${pan}`,
+    })
+  }
+
+  // 27. POST /api/apinice/pan-to-aadhaar
+  if (pathName === "/api/apinice/pan-to-aadhaar" && req.method === "POST") {
+    const auth = requireAuth(req, res, db)
+    if (!auth) return true
+
+    let input = {}
+    try {
+      input = await parseJson(req)
+    } catch {
+      input = {}
+    }
+
+    const pan = String(input.pan || input.panno || "").trim().toUpperCase().replace(/\s+/g, "")
+    if (!pan || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      return respond(400, { error: "Valid 10-character PAN number is required (e.g. ABCDE1234F)." })
+    }
+
+    const svcConfig = getServiceConfig(
+      db,
+      "SVC-PAN-TO-AADHAAR",
+      20,
+      "PAN to Aadhaar Find"
+    )
+    if (svcConfig.status === "disabled") {
+      return respond(403, {
+        error: `${svcConfig.name} is temporarily disabled by admin. Please try again later.`,
+      })
+    }
+
+    const wallet = ensureWallet(auth.user.id)
+    const requiredPrice = svcConfig.price
+    if (Number(wallet.balance) < requiredPrice) {
+      return respond(400, {
+        error: `Insufficient wallet balance. Required: ₹${requiredPrice.toFixed(2)}, Current: ₹${Number(wallet.balance).toFixed(2)}. Please recharge your wallet.`,
+        required: requiredPrice,
+        balance: Number(wallet.balance),
+      })
+    }
+
+    let result
+    try {
+      result = await apiniceProvider.fetchPanToAadhaar({ pan })
+    } catch (apiErr) {
+      return respond(400, {
+        error: apiErr.message || "Failed to find linked Aadhaar number for this PAN.",
+      })
+    }
+
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
+    const txId = createId("TXN")
+    const description = `PAN to Aadhaar Number Find (PAN: ${pan})`
+
+    if (!Array.isArray(db.walletLedger)) {
+      db.walletLedger = []
+    }
+
+    db.walletLedger.unshift({
+      id: txId,
+      userId: auth.user.id,
+      type: "debit",
+      reference: txId,
+      amount: requiredPrice,
+      balanceBefore,
+      balanceAfter,
+      description,
+      serviceId: "SVC-PAN-TO-AADHAAR",
+      referenceId: pan,
+      status: "success",
+      createdAt: now(),
+    })
+
+    audit(db, auth.user, "SERVICE_PURCHASE", "wallet", txId, {
+      serviceId: "SVC-PAN-TO-AADHAAR",
+      serviceName: svcConfig.name,
+      amount: requiredPrice,
+      balanceAfter,
+      identifier: pan,
+    })
+
+    await saveDb(db)
+
+    return respond(200, {
+      ok: true,
+      service: "SVC-PAN-TO-AADHAAR",
+      serviceId: "SVC-PAN-TO-AADHAAR",
+      serviceName: svcConfig.name,
+      debited: requiredPrice,
+      balance: balanceAfter,
+      pan,
+      aadhaar: result.aadhaar,
+      maskedAadhaar: result.maskedAadhaar || result.aadhaar,
+      name: result.name,
+      data: result,
+      ledgerId: txId,
+      transactionId: txId,
+      message: "Linked Aadhaar number retrieved successfully",
     })
   }
 
