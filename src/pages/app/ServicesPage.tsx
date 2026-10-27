@@ -2523,7 +2523,7 @@ export default function ServicesPage() {
         <td style="text-align:center;">${idx + 1}</td>
         <td><strong style="font-family:monospace;color:#0f766e;font-size:13px;">${it.gstin || "N/A"}</strong></td>
         <td>${it.state || "N/A"}</td>
-        <td><span style="font-weight:bold;color:${it.auth_status === 'Active' ? '#16a34a' : '#d97706'};">${it.auth_status || 'Active'}</span></td>
+        <td><span style="font-weight:bold;color:${(it.auth_status === 'Active' || it.authStatus === 'Active') ? '#16a34a' : '#d97706'};">${it.auth_status || it.authStatus || 'Active'}</span></td>
       </tr>
     `).join("");
 
@@ -9117,11 +9117,11 @@ export default function ServicesPage() {
                           <td className="p-2.5 text-slate-700">{it.state || "N/A"}</td>
                           <td className="p-2.5 pr-3 text-right">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              it.auth_status === "Active"
+                              (it.auth_status === "Active" || it.authStatus === "Active")
                                 ? "bg-emerald-100 text-emerald-700"
                                 : "bg-amber-100 text-amber-700"
                             }`}>
-                              {it.auth_status || "Active"}
+                              {it.auth_status || it.authStatus || "Active"}
                             </span>
                           </td>
                         </tr>

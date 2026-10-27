@@ -1344,6 +1344,7 @@ test("retailer can verify GST to PAN", async () => {
   assert.equal(res.status, 200);
   assert.equal(res.data.ok, true);
   assert.equal(res.data.serviceId, "SVC-GST-TO-PAN");
+  assert.equal(res.data.debited, 15);
   assert.equal(res.data.gst, "24AAACC1206D1ZM");
   assert.ok(res.data.pan);
   assert.ok(res.data.ledgerId);
@@ -1366,6 +1367,7 @@ test("retailer can verify PAN to GST", async () => {
   assert.equal(res.status, 200);
   assert.equal(res.data.ok, true);
   assert.equal(res.data.serviceId, "SVC-PAN-TO-GST");
+  assert.equal(res.data.debited, 10);
   assert.equal(res.data.pan, "AAACC1206D");
   assert.ok(Array.isArray(res.data.items));
   assert.ok(res.data.ledgerId);
@@ -1388,6 +1390,7 @@ test("retailer can find PAN to Aadhaar", async () => {
   assert.equal(res.status, 200);
   assert.equal(res.data.ok, true);
   assert.equal(res.data.serviceId, "SVC-PAN-TO-AADHAAR");
+  assert.equal(res.data.debited, 20);
   assert.equal(res.data.pan, "AAACC1206D");
   assert.ok(res.data.aadhaar || res.data.maskedAadhaar);
   assert.ok(res.data.ledgerId);

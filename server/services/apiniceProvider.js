@@ -1363,7 +1363,8 @@ export class ApiniceProvider {
       count: Number(response.count ?? items.length),
       items: items.map((it) => ({
         gstin: it.gstin || it.gst || "",
-        authStatus: it.auth_status || it.status || "Active",
+        authStatus: it.auth_status || it.authStatus || it.status || "Active",
+        auth_status: it.auth_status || it.authStatus || it.status || "Active",
         state: it.state || it.state_jurisdiction || "",
       })),
       message: response.message || "PAN to GST retrieved successfully",
