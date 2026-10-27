@@ -7743,6 +7743,14 @@ export default function ServicesPage() {
                         Pay ₹{getDynamicService("SVC-VOTER-MANUAL-PDF", 25).price.toFixed(2)} & Generate Card
                       </span>
                     </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ------------------------------------------------------------- */}
       {/* MODAL 24: AADHAAR MANUAL PRINT (V2)                           */}
       {/* ------------------------------------------------------------- */}
