@@ -56,18 +56,13 @@ const EMPTY_SERVICE = {
 };
 
 const CATEGORIES = [
+  "Vehicle Services",
+  "Aadhaar Services",
+  "Voter Services",
+  "PAN Card Services",
+  "Citizen Documents",
+  "Utilities & Banking",
   "Government",
-  "PAN",
-  "Vehicle",
-  "Citizen",
-  "Voter",
-  "Business",
-  "Financial",
-  "Utilities",
-  "Tax",
-  "Certificate",
-  "Recharge",
-  "Bills",
   "Other",
 ];
 

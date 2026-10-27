@@ -27,6 +27,12 @@ export interface UserProfile {
   kycStatus: string
   emailVerifiedAt?: string
   createdAt: string
+  // Product-specific identity extensions
+  panmitraVleId?: string
+  panMitraVleId?: string
+  panMitraRegistrationCode?: string
+  aadhaarNumber?: string
+  panNumber?: string
 }
 
 export interface WalletState {
@@ -49,6 +55,14 @@ export interface AppContextType {
   login: (token: string, user: UserProfile) => void
   logout: () => Promise<void>
   refreshUser: () => Promise<UserProfile | null>
+
+  // Role & Permission Helpers for current product
+  isAdmin: boolean
+  isSuperAdmin: boolean
+  isRetailer: boolean
+  isStaff: boolean
+  hasVleId: boolean
+  vleId: string | null
 
   // Wallet state
   wallet: WalletState | null
@@ -78,6 +92,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const loggedIn = Boolean(token && user)
   const role: "retailer" | "admin" =
     user?.role === "admin" ? "admin" : "retailer"
+  const isAdmin = user?.role === "admin"
+  const isSuperAdmin = Boolean(
+    user?.role === "admin" &&
+      (user?.adminRole === "super_admin" || !user?.adminRole),
+  )
+  const isRetailer = user?.role === "retailer"
+  const isStaff = Boolean(
+    user?.role === "admin" &&
+      (user?.adminRole === "verification_agent" ||
+        user?.adminRole === "support_staff"),
+  )
+  const vleId = user?.panmitraVleId || user?.panMitraVleId || null
+  const hasVleId = Boolean(vleId)
 
   // Refresh user profile from backend
   const refreshUser = useCallback(async (): Promise<UserProfile | null> => {
@@ -213,6 +240,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     login,
     logout,
     refreshUser,
+    isAdmin,
+    isSuperAdmin,
+    isRetailer,
+    isStaff,
+    hasVleId,
+    vleId,
     wallet,
     walletLoading,
     refreshWallet,
@@ -242,6 +275,12 @@ export function useAuth() {
     login,
     logout,
     refreshUser,
+    isAdmin,
+    isSuperAdmin,
+    isRetailer,
+    isStaff,
+    hasVleId,
+    vleId,
   } = useApp()
   return {
     user,
@@ -253,6 +292,12 @@ export function useAuth() {
     login,
     logout,
     refreshUser,
+    isAdmin,
+    isSuperAdmin,
+    isRetailer,
+    isStaff,
+    hasVleId,
+    vleId,
   }
 }
 
