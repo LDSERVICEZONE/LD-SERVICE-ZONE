@@ -61,15 +61,12 @@ function openBase64Pdf(base64Data: string) {
 
 const BASE_CATEGORIES = [
   "All Services",
-  "Voter Services",
   "Vehicle Services",
+  "Aadhaar Services",
+  "Voter Services",
+  "PAN Card Services",
   "Citizen Documents",
-  "New PAN",
-  "Correction & Reprint",
-  "UTI PAN",
-  "NSDL PAN",
-  "Coupons & VLE",
-  "Status Tracking",
+  "Utilities & Banking",
 ];
 
 const PRINT_SERVICES = [
@@ -124,7 +121,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-ABHA-CARD",
     name: "ABHA Health Card Print",
-    category: "Citizen Documents",
+    category: "Aadhaar Services",
     badge: "HEALTH CARD",
     icon: "🏥",
     processingTime: "Instant",
@@ -220,7 +217,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-ESHRAM-CARD",
     name: "e-Shram Card Print",
-    category: "Citizen Documents",
+    category: "Aadhaar Services",
     badge: "ESHRAM CARD",
     icon: "👷",
     processingTime: "Instant",
@@ -232,7 +229,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-AADHAAR-PVC",
     name: "Aadhaar PVC Card Print",
-    category: "Citizen Documents",
+    category: "Aadhaar Services",
     badge: "AADHAAR PVC",
     icon: "💳",
     processingTime: "Instant",
@@ -244,7 +241,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-AADHAAR-MANUAL",
     name: "Aadhaar Manual Print (v2)",
-    category: "Citizen Documents",
+    category: "Aadhaar Services",
     badge: "AADHAAR V2",
     icon: "🪪",
     processingTime: "Instant",
@@ -280,7 +277,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-NPCI-STATUS",
     name: "NPCI Aadhaar-Bank Link Status",
-    category: "Citizen Documents",
+    category: "Aadhaar Services",
     badge: "NPCI / DBT",
     icon: "🏦",
     processingTime: "Instant",
@@ -292,7 +289,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-GST-DETAILS",
     name: "GST Number Details Verification",
-    category: "Citizen Documents",
+    category: "Utilities & Banking",
     badge: "GST VERIFY",
     icon: "💼",
     processingTime: "Instant",
@@ -316,7 +313,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-IFSC-DETAILS",
     name: "Bank IFSC Code Details",
-    category: "Financial Documents",
+    category: "Utilities & Banking",
     badge: "IFSC LOOKUP",
     icon: "🏦",
     processingTime: "Instant",
@@ -328,7 +325,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-ELECTRIC-BILL",
     name: "Electricity Bill PDF Download",
-    category: "Utilities Documents",
+    category: "Utilities & Banking",
     badge: "ELECTRIC BILL",
     icon: "💡",
     processingTime: "Instant",
@@ -340,7 +337,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-PAN-DETAILS",
     name: "PAN Details Verification",
-    category: "Financial Documents",
+    category: "PAN Card Services",
     badge: "PAN VERIFY",
     icon: "🪪",
     processingTime: "Instant",
@@ -352,7 +349,7 @@ const PRINT_SERVICES = [
   {
     id: "SVC-PAN-PRINT-V2",
     name: "PAN Card High-Res Print (v2)",
-    category: "Financial Documents",
+    category: "PAN Card Services",
     badge: "PAN PRINT",
     icon: "🪪",
     processingTime: "Instant",
@@ -2804,8 +2801,8 @@ export default function ServicesPage() {
 
   const categories = BASE_CATEGORIES;
 
-  const filteredServices = useMemo(() => {
-    const all = [
+  const allAvailableServices = useMemo(() => {
+    return [
       ...PRINT_SERVICES.map((s) => {
         const dyn = getDynamicService(s.id, s.defaultPrice);
         return {
@@ -2820,15 +2817,64 @@ export default function ServicesPage() {
         const matched = services.find((s) => s.id === p.id);
         return {
           ...p,
-          category: "PAN",
+          category: "PAN Card Services",
           customerPrice: matched && Number.isFinite(matched.customerPrice) ? matched.customerPrice : p.customerPrice,
           badge: "PAN SERVICE",
           isPrintService: false,
         };
       }),
     ];
+  }, [services]);
 
-    return all.filter((s) => {
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { "All Services": 0 };
+    for (const c of BASE_CATEGORIES) {
+      if (c !== "All Services") counts[c] = 0;
+    }
+    const activeList = allAvailableServices.filter((s: any) => s.status !== "disabled");
+    counts["All Services"] = activeList.length;
+
+    for (const s of activeList) {
+      if (s.category === "Vehicle Services" || s.category === "Vehicle") {
+        counts["Vehicle Services"] = (counts["Vehicle Services"] || 0) + 1;
+      } else if (
+        s.category === "Aadhaar Services" ||
+        s.category === "Aadhaar" ||
+        s.id.includes("AADHAAR") ||
+        s.id === "SVC-ABHA-CARD" ||
+        s.id === "SVC-ESHRAM-CARD" ||
+        s.id === "SVC-NPCI-STATUS"
+      ) {
+        counts["Aadhaar Services"] = (counts["Aadhaar Services"] || 0) + 1;
+      } else if (s.category === "Voter Services" || s.category === "Voter" || s.id.includes("VOTER")) {
+        counts["Voter Services"] = (counts["Voter Services"] || 0) + 1;
+      } else if (s.category === "PAN Card Services" || s.category === "PAN" || s.id.includes("PAN")) {
+        counts["PAN Card Services"] = (counts["PAN Card Services"] || 0) + 1;
+      } else if (
+        s.category === "Citizen Documents" ||
+        s.category === "Citizen" ||
+        s.id === "SVC-RATION-PRINT" ||
+        s.id === "SVC-AGRISTACK-FARMER" ||
+        s.id === "SVC-UDYOG-AADHAAR" ||
+        s.id === "SVC-PASSPORT-VERIFY"
+      ) {
+        counts["Citizen Documents"] = (counts["Citizen Documents"] || 0) + 1;
+      } else if (
+        s.category === "Utilities & Banking" ||
+        s.category === "Financial Documents" ||
+        s.category === "Utilities Documents" ||
+        s.id === "SVC-ELECTRIC-BILL" ||
+        s.id === "SVC-GST-DETAILS" ||
+        s.id === "SVC-IFSC-DETAILS"
+      ) {
+        counts["Utilities & Banking"] = (counts["Utilities & Banking"] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [allAvailableServices]);
+
+  const filteredServices = useMemo(() => {
+    return allAvailableServices.filter((s) => {
       if ((s as any).status === "disabled") return false;
 
       const matchesSearch =
@@ -2837,18 +2883,44 @@ export default function ServicesPage() {
       if (!matchesSearch) return false;
 
       if (activeCategory === "All Services" || activeCategory === "All") return true;
-      if (activeCategory === "Voter Services") return s.category === "Voter Services";
-      if (activeCategory === "Vehicle Services") return s.category === "Vehicle Services";
-      if (activeCategory === "Citizen Documents") return s.category === "Citizen Documents" || s.category === "Voter Services";
-      if (activeCategory === "New PAN") return s.id === "PAN-NEW" || s.id === "PAN-NSDL" || s.id === "PAN-UTI";
-      if (activeCategory === "Correction & Reprint") return s.id === "PAN-CORRECTION" || s.id === "PAN-REPRINT";
-      if (activeCategory === "UTI PAN") return s.id.includes("UTI") && !s.id.includes("STATUS");
-      if (activeCategory === "NSDL PAN") return s.id.includes("NSDL") && !s.id.includes("STATUS");
-      if (activeCategory === "Coupons & VLE") return s.id.includes("COUPON") || s.id === "PAN-UTI";
-      if (activeCategory === "Status Tracking") return s.id.includes("STATUS");
+      if (activeCategory === "Vehicle Services") return s.category === "Vehicle Services" || s.category === "Vehicle";
+      if (activeCategory === "Aadhaar Services") {
+        return (
+          s.category === "Aadhaar Services" ||
+          s.category === "Aadhaar" ||
+          s.id.includes("AADHAAR") ||
+          s.id === "SVC-ABHA-CARD" ||
+          s.id === "SVC-ESHRAM-CARD" ||
+          s.id === "SVC-NPCI-STATUS"
+        );
+      }
+      if (activeCategory === "Voter Services") return s.category === "Voter Services" || s.category === "Voter" || s.id.includes("VOTER");
+      if (activeCategory === "PAN Card Services" || activeCategory === "PAN Services") {
+        return s.category === "PAN Card Services" || s.category === "PAN" || s.id.includes("PAN");
+      }
+      if (activeCategory === "Citizen Documents") {
+        return (
+          s.category === "Citizen Documents" ||
+          s.category === "Citizen" ||
+          s.id === "SVC-RATION-PRINT" ||
+          s.id === "SVC-AGRISTACK-FARMER" ||
+          s.id === "SVC-UDYOG-AADHAAR" ||
+          s.id === "SVC-PASSPORT-VERIFY"
+        );
+      }
+      if (activeCategory === "Utilities & Banking") {
+        return (
+          s.category === "Utilities & Banking" ||
+          s.category === "Financial Documents" ||
+          s.category === "Utilities Documents" ||
+          s.id === "SVC-ELECTRIC-BILL" ||
+          s.id === "SVC-GST-DETAILS" ||
+          s.id === "SVC-IFSC-DETAILS"
+        );
+      }
       return true;
     });
-  }, [search, activeCategory, services]);
+  }, [search, activeCategory, allAvailableServices]);
 
   const openApplication = (service: any) => {
     setForm({});
@@ -3111,26 +3183,40 @@ export default function ServicesPage() {
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg">🔍</span>
           <input
             aria-label="Search services"
-            placeholder="Search PAN services, UTI, NSDL, tracking..."
+            placeholder="Search services across Vehicle, Aadhaar, Voter, PAN, Citizen documents..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-[#E2E8F0] bg-white text-[#0F172A] text-sm shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-[#1D56D8] placeholder-[#A0AEC0]"
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {categories.map(c => (
-            <button
-              key={c}
-              onClick={() => setActiveCategory(c)}
-              className={`whitespace-nowrap px-4 py-3 rounded-2xl text-sm font-semibold border transition-all ${
-                activeCategory === c
-                  ? "bg-[#1D56D8] text-white border-[#1D56D8] shadow-md shadow-blue-200"
-                  : "bg-white border-[#E2E8F0] text-[#475569] hover:border-blue-300 hover:bg-blue-50/50"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
+          {categories.map(c => {
+            const count = categoryCounts[c];
+            return (
+              <button
+                key={c}
+                onClick={() => setActiveCategory(c)}
+                className={`whitespace-nowrap px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold border transition-all flex items-center gap-2 ${
+                  activeCategory === c
+                    ? "bg-[#1D56D8] text-white border-[#1D56D8] shadow-md shadow-blue-200"
+                    : "bg-white border-[#E2E8F0] text-[#475569] hover:border-blue-300 hover:bg-blue-50/50"
+                }`}
+              >
+                <span>{c}</span>
+                {typeof count === "number" && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      activeCategory === c
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

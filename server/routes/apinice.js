@@ -6,7 +6,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-RC-PRINT",
     name: "RC Smart Card Print",
-    category: "Vehicle",
+    category: "Vehicle Services",
     customerPrice: 30,
     commission: 5,
     processingTime: "Instant",
@@ -17,7 +17,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-DL-PRINT",
     name: "Driving Licence Print",
-    category: "Vehicle",
+    category: "Vehicle Services",
     customerPrice: 25,
     commission: 5,
     processingTime: "Instant",
@@ -28,7 +28,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-RATION-PRINT",
     name: "Ration Card Print",
-    category: "Citizen",
+    category: "Citizen Documents",
     customerPrice: 25,
     commission: 5,
     processingTime: "Instant",
@@ -39,7 +39,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-VEHICLE-CHALLAN",
     name: "Vehicle e-Challan Check",
-    category: "Vehicle",
+    category: "Vehicle Services",
     customerPrice: 15,
     commission: 3,
     processingTime: "Instant",
@@ -50,7 +50,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-ABHA-CARD",
     name: "ABHA Health Card Print",
-    category: "Citizen",
+    category: "Aadhaar Services",
     customerPrice: 35,
     commission: 5,
     processingTime: "Instant",
@@ -61,7 +61,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-VOTER-VERIFY",
     name: "Voter ID Verification",
-    category: "Voter",
+    category: "Voter Services",
     customerPrice: 10,
     commission: 2,
     processingTime: "Instant",
@@ -72,7 +72,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-VOTER-PDF",
     name: "Voter Card PDF Download",
-    category: "Voter",
+    category: "Voter Services",
     customerPrice: 55,
     commission: 5,
     processingTime: "Instant / 1-2 hrs",
@@ -83,7 +83,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-VOTER-MOBILE-LINK",
     name: "Voter Mobile Link Without OTP",
-    category: "Voter",
+    category: "Voter Services",
     customerPrice: 25,
     commission: 5,
     processingTime: "Instant (5 mins)",
@@ -94,7 +94,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-LL-PDF",
     name: "Learning Licence (LL) PDF",
-    category: "Vehicle",
+    category: "Vehicle Services",
     customerPrice: 25,
     commission: 5,
     processingTime: "Instant",
@@ -105,7 +105,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-CHASSIS-TO-RC",
     name: "Chassis Number to RC Details",
-    category: "Vehicle",
+    category: "Vehicle Services",
     customerPrice: 60,
     commission: 10,
     processingTime: "Instant",
@@ -116,7 +116,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-RC-TO-MOBILE",
     name: "RC to Mobile Number Search",
-    category: "Vehicle",
+    category: "Vehicle Services",
     customerPrice: 35,
     commission: 5,
     processingTime: "Instant",
@@ -127,7 +127,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-ESHRAM-CARD",
     name: "e-Shram Card PDF & Verification",
-    category: "Citizen",
+    category: "Aadhaar Services",
     customerPrice: 25,
     commission: 5,
     processingTime: "Instant",
@@ -138,7 +138,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-AADHAAR-PVC",
     name: "Aadhaar PVC Card Print",
-    category: "Citizen",
+    category: "Aadhaar Services",
     customerPrice: 25,
     commission: 5,
     processingTime: "Instant",
@@ -149,7 +149,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-AGRISTACK-FARMER",
     name: "AgriStack Farmer PDF Check",
-    category: "Citizen",
+    category: "Citizen Documents",
     customerPrice: 20,
     commission: 5,
     processingTime: "Instant",
@@ -160,7 +160,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-UDYOG-AADHAAR",
     name: "Udyog Aadhaar (MSME) Details",
-    category: "Citizen",
+    category: "Citizen Documents",
     customerPrice: 15,
     commission: 5,
     processingTime: "Instant",
@@ -171,7 +171,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-NPCI-STATUS",
     name: "NPCI Aadhaar-Bank Link Status",
-    category: "Citizen",
+    category: "Aadhaar Services",
     customerPrice: 20,
     commission: 5,
     processingTime: "Instant",
@@ -182,7 +182,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-GST-DETAILS",
     name: "GST Number Details Verification",
-    category: "Business",
+    category: "Utilities & Banking",
     customerPrice: 10,
     commission: 2,
     processingTime: "Instant",
@@ -193,7 +193,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-PASSPORT-VERIFY",
     name: "Passport Details Verification",
-    category: "Citizen",
+    category: "Citizen Documents",
     customerPrice: 20,
     commission: 5,
     processingTime: "Instant",
@@ -204,7 +204,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-IFSC-DETAILS",
     name: "Bank IFSC Code Details",
-    category: "Financial",
+    category: "Utilities & Banking",
     customerPrice: 5,
     commission: 1,
     processingTime: "Instant",
@@ -215,7 +215,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-ELECTRIC-BILL",
     name: "Electricity Bill PDF Download",
-    category: "Utilities",
+    category: "Utilities & Banking",
     customerPrice: 15,
     commission: 3,
     processingTime: "Instant",
@@ -226,7 +226,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-PAN-FIND",
     name: "PAN Find by Aadhaar",
-    category: "PAN",
+    category: "PAN Card Services",
     customerPrice: 20,
     commission: 5,
     processingTime: "Instant",
@@ -237,7 +237,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-PAN-DETAILS",
     name: "PAN Details Verification",
-    category: "PAN",
+    category: "PAN Card Services",
     customerPrice: 15,
     commission: 3,
     processingTime: "Instant",
@@ -248,7 +248,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-VOTER-MANUAL-PDF",
     name: "Voter Manual PDF Instant (v2)",
-    category: "Voter",
+    category: "Voter Services",
     customerPrice: 25,
     commission: 5,
     processingTime: "Instant",
@@ -259,7 +259,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-AADHAAR-MANUAL",
     name: "Aadhaar Manual Print (v2)",
-    category: "Citizen",
+    category: "Aadhaar Services",
     customerPrice: 25,
     commission: 5,
     processingTime: "Instant",
@@ -270,7 +270,7 @@ export const DEFAULT_APINICE_SERVICES = [
   {
     id: "SVC-PAN-PRINT-V2",
     name: "PAN Card High-Res Manual Print (v2)",
-    category: "PAN",
+    category: "PAN Card Services",
     customerPrice: 25,
     commission: 5,
     processingTime: "Instant",
@@ -285,12 +285,15 @@ export function seedApiniceServices(db) {
     db.services = []
   }
   for (const def of DEFAULT_APINICE_SERVICES) {
-    if (!db.services.some((s) => s.id === def.id)) {
+    const existing = db.services.find((s) => s.id === def.id)
+    if (!existing) {
       db.services.push({
         ...def,
         createdAt: now(),
         updatedAt: now(),
       })
+    } else {
+      existing.category = def.category
     }
   }
 }
