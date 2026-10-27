@@ -305,7 +305,7 @@ export function createStateRepository(config) {
       const relationalWallets = await fetch(`${supabaseUrl}/rest/v1/Wallet?select=*`, {
         headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
       })
-      const relationalLedger = await fetch(`${supabaseUrl}/rest/v1/WalletLedger?select=*`, {
+      const relationalLedger = await fetch(`${supabaseUrl}/rest/v1/WalletLedger?select=*&order=createdAt.desc`, {
         headers: { apikey: supabaseServiceRoleKey, Authorization: `Bearer ${supabaseServiceRoleKey}` },
       })
       if (!relationalPayments.ok || !relationalWallets.ok || !relationalLedger.ok) {
@@ -341,14 +341,18 @@ export function createStateRepository(config) {
         }
       }
       if (ledgerRows.length) {
-        state.walletLedger = ledgerRows.map((entry) => ({
-          id: entry.id, userId: entry.userId, type: String(entry.type || "ADJUSTMENT").toLowerCase(),
-          amount: Number(entry.amount || 0), reference: entry.reference, description: entry.description || "",
-          status: String(entry.status || "success").toLowerCase(), balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt,
-        }))
+        state.walletLedger = ledgerRows
+          .map((entry) => ({
+            id: entry.id, userId: entry.userId, type: String(entry.type || "ADJUSTMENT").toLowerCase(),
+            amount: Number(entry.amount || 0), reference: entry.reference, description: entry.description || "",
+            status: String(entry.status || "success").toLowerCase(), balanceAfter: Number(entry.balanceAfter || 0), createdAt: entry.createdAt,
+          }))
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       }
       // Reconcile wallets with the immutable ledger source of truth
       if (Array.isArray(state.walletLedger) && state.walletLedger.length > 0) {
+        // Guarantee descending sort order so latest transaction is first
+        state.walletLedger.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         for (const [userId, wallet] of Object.entries(state.wallets || {})) {
           const latest = state.walletLedger.find(
             (e) =>
