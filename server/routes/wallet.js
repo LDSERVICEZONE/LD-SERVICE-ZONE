@@ -204,6 +204,30 @@ export async function handleWalletRoutes(context) {
 
       const status = String(body.status || body.STATUS || "").toLowerCase()
       if (status === "success" && payment.status !== "paid") {
+        if (allapiClient.isConfigured) {
+          try {
+            const check = await allapiClient.checkStatus(orderId)
+            if (
+              !check?.status ||
+              String(check.results?.status || "").toLowerCase() !== "success"
+            ) {
+              return respond(400, { error: "Payment verification failed with AllAPI gateway" })
+            }
+            if (
+              check.results?.txn_amount !== undefined &&
+              Math.abs(Number(check.results.txn_amount) - Number(payment.amount)) > 0.01
+            ) {
+              return respond(400, { error: "Transaction amount mismatch with gateway record" })
+            }
+            if (check.results?.txn_id) body.txn_id = check.results.txn_id
+            if (check.results?.utr_number) body.utr_number = check.results.utr_number
+          } catch (verifyErr) {
+            return respond(400, {
+              error: verifyErr.message || "Failed to verify payment status with AllAPI gateway",
+            })
+          }
+        }
+
         payment.status = "paid"
         payment.gatewayPaymentId =
           body.txn_id || body.utr_number || `ALLAPI-${Date.now()}`

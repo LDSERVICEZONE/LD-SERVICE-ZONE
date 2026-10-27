@@ -3458,19 +3458,21 @@ export async function handleApiniceRoutes(context) {
       })
     }
 
-    let result
-    try {
-      result = await apiniceProvider.lookupMobileToRc({ mobile })
-    } catch (apiErr) {
-      return respond(400, {
-        error: apiErr.message || "No vehicle RC records found for this mobile number.",
-      })
-    }
-
     const balanceBefore = Number(wallet.balance)
     const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
     wallet.balance = balanceAfter
     wallet.updatedAt = now()
+
+    let result
+    try {
+      result = await apiniceProvider.lookupMobileToRc({ mobile })
+    } catch (apiErr) {
+      wallet.balance = balanceBefore
+      wallet.updatedAt = now()
+      return respond(400, {
+        error: apiErr.message || "No vehicle RC records found for this mobile number.",
+      })
+    }
 
     const txId = createId("TXN")
     const description = `Mobile to RC Find (Mobile: ${mobile})`
@@ -3553,19 +3555,21 @@ export async function handleApiniceRoutes(context) {
       })
     }
 
-    let result
-    try {
-      result = await apiniceProvider.fetchPanAddressDetails({ pan })
-    } catch (apiErr) {
-      return respond(400, {
-        error: apiErr.message || "Failed to retrieve address details for this PAN card.",
-      })
-    }
-
     const balanceBefore = Number(wallet.balance)
     const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
     wallet.balance = balanceAfter
     wallet.updatedAt = now()
+
+    let result
+    try {
+      result = await apiniceProvider.fetchPanAddressDetails({ pan })
+    } catch (apiErr) {
+      wallet.balance = balanceBefore
+      wallet.updatedAt = now()
+      return respond(400, {
+        error: apiErr.message || "Failed to retrieve address details for this PAN card.",
+      })
+    }
 
     const txId = createId("TXN")
     const description = `PAN Card Address Details (PAN: ${pan})`
@@ -3654,6 +3658,11 @@ export async function handleApiniceRoutes(context) {
       })
     }
 
+    const balanceBefore = Number(wallet.balance)
+    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
+    wallet.balance = balanceAfter
+    wallet.updatedAt = now()
+
     let result
     try {
       result = await apiniceProvider.extractPanFromImage({
@@ -3661,15 +3670,12 @@ export async function handleApiniceRoutes(context) {
         mimeType: payload.mimeType || "image/jpeg",
       })
     } catch (apiErr) {
+      wallet.balance = balanceBefore
+      wallet.updatedAt = now()
       return respond(400, {
         error: apiErr.message || "Failed to extract PAN card details from the uploaded image.",
       })
     }
-
-    const balanceBefore = Number(wallet.balance)
-    const balanceAfter = Number((balanceBefore - requiredPrice).toFixed(2))
-    wallet.balance = balanceAfter
-    wallet.updatedAt = now()
 
     const txId = createId("TXN")
     const description = `PAN Details by Image OCR (${result.panNumber || "Extracted"})`

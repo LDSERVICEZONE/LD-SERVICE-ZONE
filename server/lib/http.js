@@ -58,6 +58,9 @@ export function createResponseSender({ publicAppUrl, isVercel }) {
     res.writeHead(status, {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "SAMEORIGIN",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
       Vary: "Origin",
       "Access-Control-Allow-Origin": getCorsOrigin(res._req),
       "Access-Control-Allow-Headers": "Content-Type, Authorization",

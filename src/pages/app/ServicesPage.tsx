@@ -59,6 +59,16 @@ function openBase64Pdf(base64Data: string) {
   }
 }
 
+function escapeHtml(val: any): string {
+  if (val === null || val === undefined) return "";
+  return String(val)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const BASE_CATEGORIES = [
   "All Services",
   "Vehicle Services",
@@ -2783,7 +2793,7 @@ export default function ServicesPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Mobile to RC Search - ${mob}</title>
+          <title>Mobile to RC Search - ${escapeHtml(mob)}</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
             .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; }
@@ -2804,18 +2814,18 @@ export default function ServicesPage() {
             <h3 style="margin:8px 0 0;color:#2563eb;">Mobile Number to Vehicle RC Search Report</h3>
           </div>
           <div class="meta">
-            <div><strong>Registered Mobile:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#2563eb;">+91 ${mob}</span></div>
+            <div><strong>Registered Mobile:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#2563eb;">+91 ${escapeHtml(mob)}</span></div>
             <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
           </div>
           <table class="table">
-            <tr><td class="label">Total Vehicles Found</td><td><strong style="font-size:15px;color:#2563eb;">${count} Registered Vehicle(s)</strong></td></tr>
-            <tr><td class="label">Query Mobile Number</td><td><strong>+91 ${mob}</strong></td></tr>
+            <tr><td class="label">Total Vehicles Found</td><td><strong style="font-size:15px;color:#2563eb;">${escapeHtml(count)} Registered Vehicle(s)</strong></td></tr>
+            <tr><td class="label">Query Mobile Number</td><td><strong>+91 ${escapeHtml(mob)}</strong></td></tr>
             <tr><td class="label">Status</td><td><strong style="color:#16a34a;">RECORD LOCATED & VERIFIED ✓</strong></td></tr>
-            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${escapeHtml(res.ledgerId || res.transactionId || "N/A")}</td></tr>
           </table>
           <h4 style="margin:16px 0 8px;color:#1e40af;">Registered Vehicle Registration Numbers:</h4>
           <div class="badges">
-            ${rcList.map((rc: string) => `<span class="badge">${rc}</span>`).join("")}
+            ${rcList.map((rc: string) => `<span class="badge">${escapeHtml(rc)}</span>`).join("")}
           </div>
           <div class="footer">
             Official vehicle ownership linkage report issued via Parivahan & Vahan registry by LD Service Zone.<br/>
@@ -2882,7 +2892,7 @@ export default function ServicesPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>PAN Card Address Verification - ${panNum}</title>
+          <title>PAN Card Address Verification - ${escapeHtml(panNum)}</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
             .header { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-bottom: 16px; }
@@ -2901,21 +2911,21 @@ export default function ServicesPage() {
             <h3 style="margin:8px 0 0;color:#4f46e5;">PAN Card Official Registered Address Slip</h3>
           </div>
           <div class="meta">
-            <div><strong>PAN Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#4f46e5;">${panNum}</span></div>
+            <div><strong>PAN Number:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#4f46e5;">${escapeHtml(panNum)}</span></div>
             <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
           </div>
           <table class="table">
-            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:15px;color:#3730a3;font-family:monospace;letter-spacing:1px;">${panNum}</strong></td></tr>
-            <tr><td class="label">Cardholder Full Name</td><td><strong>${res.fullName || res.data?.full_name || "N/A"}</strong></td></tr>
-            ${res.dob ? `<tr><td class="label">Date of Birth</td><td>${res.dob}</td></tr>` : ''}
-            ${res.category ? `<tr><td class="label">PAN Category</td><td><span style="text-transform:capitalize;">${res.category}</span></td></tr>` : ''}
-            <tr><td class="label">Full Registered Address</td><td><strong style="color:#0f172a;line-height:1.5;">${fullAddr}</strong></td></tr>
-            ${addr.city ? `<tr><td class="label">City / District</td><td>${addr.city}</td></tr>` : ''}
-            ${addr.state ? `<tr><td class="label">State</td><td>${addr.state}</td></tr>` : ''}
-            ${addr.zip ? `<tr><td class="label">Postal PIN Code</td><td><strong>${addr.zip}</strong></td></tr>` : ''}
-            ${res.maskedAadhaar ? `<tr><td class="label">Linked Aadhaar</td><td><strong>${res.maskedAadhaar}</strong></td></tr>` : ''}
+            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:15px;color:#3730a3;font-family:monospace;letter-spacing:1px;">${escapeHtml(panNum)}</strong></td></tr>
+            <tr><td class="label">Cardholder Full Name</td><td><strong>${escapeHtml(res.fullName || res.data?.full_name || "N/A")}</strong></td></tr>
+            ${res.dob ? `<tr><td class="label">Date of Birth</td><td>${escapeHtml(res.dob)}</td></tr>` : ''}
+            ${res.category ? `<tr><td class="label">PAN Category</td><td><span style="text-transform:capitalize;">${escapeHtml(res.category)}</span></td></tr>` : ''}
+            <tr><td class="label">Full Registered Address</td><td><strong style="color:#0f172a;line-height:1.5;">${escapeHtml(fullAddr)}</strong></td></tr>
+            ${addr.city ? `<tr><td class="label">City / District</td><td>${escapeHtml(addr.city)}</td></tr>` : ''}
+            ${addr.state ? `<tr><td class="label">State</td><td>${escapeHtml(addr.state)}</td></tr>` : ''}
+            ${addr.zip ? `<tr><td class="label">Postal PIN Code</td><td><strong>${escapeHtml(addr.zip)}</strong></td></tr>` : ''}
+            ${res.maskedAadhaar ? `<tr><td class="label">Linked Aadhaar</td><td><strong>${escapeHtml(res.maskedAadhaar)}</strong></td></tr>` : ''}
             <tr><td class="label">Aadhaar Linkage Status</td><td><strong style="color:${res.aadhaarLinked ? "#16a34a" : "#64748b"};">${res.aadhaarLinked ? "LINKED ✓" : "NOT LINKED / UNCONFIRMED"}</strong></td></tr>
-            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${escapeHtml(res.ledgerId || res.transactionId || "N/A")}</td></tr>
           </table>
           <div class="footer">
             Authenticated official PAN address record provided by LD Service Zone via Income Tax Department records.<br/>
@@ -2995,7 +3005,7 @@ export default function ServicesPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>PAN Card Image OCR Extraction - ${panNum}</title>
+          <title>PAN Card Image OCR Extraction - ${escapeHtml(panNum)}</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; }
             .header { text-align: center; border-bottom: 2px solid #0891b2; padding-bottom: 12px; margin-bottom: 16px; }
@@ -3014,16 +3024,16 @@ export default function ServicesPage() {
             <h3 style="margin:8px 0 0;color:#0891b2;">PAN Image OCR Extraction Verification Slip</h3>
           </div>
           <div class="meta">
-            <div><strong>Extracted PAN:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#0891b2;">${panNum}</span></div>
+            <div><strong>Extracted PAN:</strong> <span style="font-weight:bold;font-size:14px;font-family:monospace;color:#0891b2;">${escapeHtml(panNum)}</span></div>
             <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
           </div>
           <table class="table">
-            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:16px;color:#0e7490;font-family:monospace;letter-spacing:1px;">${panNum}</strong></td></tr>
-            <tr><td class="label">Cardholder Name</td><td><strong style="font-size:14px;">${res.name || res.data?.name || "N/A"}</strong></td></tr>
-            <tr><td class="label">Father's Name</td><td><strong>${res.fatherName || res.data?.father_name || "N/A"}</strong></td></tr>
-            <tr><td class="label">Date of Birth</td><td><strong>${res.dob || res.data?.dob || "N/A"}</strong></td></tr>
-            <tr><td class="label">OCR Confidence</td><td><strong style="color:#16a34a;">${res.confidence || "High (Verified)"} ✓</strong></td></tr>
-            <tr><td class="label">Transaction Reference</td><td>${res.ledgerId || res.transactionId || "N/A"}</td></tr>
+            <tr><td class="label">Permanent Account Number (PAN)</td><td><strong style="font-size:16px;color:#0e7490;font-family:monospace;letter-spacing:1px;">${escapeHtml(panNum)}</strong></td></tr>
+            <tr><td class="label">Cardholder Name</td><td><strong style="font-size:14px;">${escapeHtml(res.name || res.data?.name || "N/A")}</strong></td></tr>
+            <tr><td class="label">Father's Name</td><td><strong>${escapeHtml(res.fatherName || res.data?.father_name || "N/A")}</strong></td></tr>
+            <tr><td class="label">Date of Birth</td><td><strong>${escapeHtml(res.dob || res.data?.dob || "N/A")}</strong></td></tr>
+            <tr><td class="label">OCR Confidence</td><td><strong style="color:#16a34a;">${escapeHtml(res.confidence || "High (Verified)")} ✓</strong></td></tr>
+            <tr><td class="label">Transaction Reference</td><td>${escapeHtml(res.ledgerId || res.transactionId || "N/A")}</td></tr>
           </table>
           <div class="footer">
             Automated computer vision & OCR extraction validated by LD Service Zone platform.<br/>
