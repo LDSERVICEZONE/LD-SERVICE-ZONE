@@ -1,6 +1,5 @@
 export const SERVICE_SEED = [
-  /*
-  // Government Identity & Transport (Temporarily disabled pending provider integration)
+  // Government Identity & Transport
   { id: "S001", category: "Government", name: "Voter ID Card", processingTime: "7-15 days", customerPrice: 100, commission: 0, documents: ["Aadhaar", "DOB Proof"], color: "#4F46E5" },
   { id: "VOTER-NEW", category: "Government", name: "New Voter ID", processingTime: "7-15 days", customerPrice: 100, commission: 0, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#4F46E5" },
   { id: "VOTER-CORRECTION", category: "Government", name: "Voter ID Correction", processingTime: "7-15 days", customerPrice: 100, commission: 0, documents: ["Voter ID", "Aadhaar", "Supporting Proof"], color: "#F59E0B" },
@@ -32,7 +31,6 @@ export const SERVICE_SEED = [
   { id: "INCOME-RENEW", category: "Certificate", name: "Income Certificate Renewal", processingTime: "7-10 days", customerPrice: 150, commission: 0, documents: ["Old Certificate", "Aadhaar"], color: "#10B981" },
   { id: "CASTE-NEW", category: "Certificate", name: "New Caste Certificate", processingTime: "10-15 days", customerPrice: 100, commission: 0, documents: ["Aadhaar", "Old Caste Cert"], color: "#06B6D4" },
   { id: "CASTE-CORRECTION", category: "Certificate", name: "Caste Certificate Correction", processingTime: "10-15 days", customerPrice: 100, commission: 0, documents: ["Certificate", "Supporting Proof"], color: "#F59E0B" },
-  */
 
   // Live PAN Services
   { id: "PAN-NEW", category: "PAN", name: "New PAN Card", processingTime: "7-15 days", customerPrice: 107, commission: 0, documents: ["Aadhaar", "DOB Proof", "Photograph"], color: "#F87171" },

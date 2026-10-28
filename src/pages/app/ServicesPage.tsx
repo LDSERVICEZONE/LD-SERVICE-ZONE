@@ -78,6 +78,7 @@ const BASE_CATEGORIES = [
   "Voter Services",
   "PAN Card Services",
   "Citizen Documents",
+  "Certificates",
   "Utilities & Banking",
 ];
 
@@ -4464,7 +4465,77 @@ export default function ServicesPage() {
     api<any>("/panmitra/vle-profile").then(setVleProfile).catch(() => {});
   }, []);
 
-  const categories = BASE_CATEGORIES;
+  const catalogExtraServices = useMemo(() => {
+    const printIds = new Set(PRINT_SERVICES.map((s) => s.id));
+    const panIds = new Set(PAN_SERVICES.map((p) => p.id));
+    const ignoredIds = new Set(["S001", "S002", "S003", "S004", "S005", "S007"]);
+
+    return services
+      .filter((s) => !printIds.has(s.id) && !panIds.has(s.id) && !ignoredIds.has(s.id))
+      .map((s) => {
+        let badge = "OFFICIAL SERVICE";
+        let icon = "📄";
+        let defaultDesc = `${s.name} - official application processing and document verification`;
+        let cat = s.category || "General";
+
+        if (s.id.startsWith("CASTE-")) {
+          badge = "CASTE CERTIFICATE";
+          icon = "📜";
+          cat = "Certificates";
+          defaultDesc = "Official State Government Caste / Community Certificate application & verification";
+        } else if (s.id.startsWith("INCOME-")) {
+          badge = "INCOME CERTIFICATE";
+          icon = "💰";
+          cat = "Certificates";
+          defaultDesc = "Official Revenue Department Income & Asset Certificate application & issuance";
+        } else if (s.id.startsWith("VOTER-")) {
+          badge = "VOTER ID CARD";
+          icon = "🗳️";
+          cat = "Voter Services";
+          defaultDesc = "Election Commission of India (ECI) Voter ID application, correction & download";
+        } else if (s.id.startsWith("DL-")) {
+          badge = "DRIVING LICENCE";
+          icon = "🪪";
+          cat = "Vehicle Services";
+          defaultDesc = "State Transport Department Driving Licence learner, new, renewal & duplicate issue";
+        } else if (s.id.startsWith("RC-")) {
+          badge = "RC SMART CARD";
+          icon = "🚗";
+          cat = "Vehicle Services";
+          defaultDesc = "Parivahan RTO Vehicle Registration Certificate smart card, transfer & renewal";
+        } else if (s.id.startsWith("ITR-")) {
+          badge = "INCOME TAX (ITR)";
+          icon = "📊";
+          cat = "Utilities & Banking";
+          defaultDesc = "Income Tax Department ITR e-filing, verification & revised computation";
+        } else if (s.id.startsWith("GST-")) {
+          badge = "GST SERVICES";
+          icon = "💼";
+          cat = "Utilities & Banking";
+          defaultDesc = "Goods & Services Tax (GSTIN) new business registration & amendment filing";
+        } else if (s.category === "Certificate") {
+          badge = "CERTIFICATE";
+          icon = "📜";
+          cat = "Certificates";
+        }
+
+        return {
+          id: s.id,
+          name: s.name,
+          category: cat,
+          badge: (s as any).badge || badge,
+          icon: (s as any).icon || icon,
+          processingTime: s.processingTime || "1-3 days",
+          customerPrice: Number(s.customerPrice || 0),
+          status: s.status || "active",
+          documents: Array.isArray(s.documents) ? s.documents : [],
+          color: s.color || "#4F46E5",
+          description: (s as any).description || defaultDesc,
+          isPrintService: false,
+          isCatalogService: true,
+        };
+      });
+  }, [services]);
 
   const allAvailableServices = useMemo(() => {
     return [
@@ -4484,23 +4555,46 @@ export default function ServicesPage() {
           ...p,
           category: "PAN Card Services",
           customerPrice: matched && Number.isFinite(matched.customerPrice) ? matched.customerPrice : p.customerPrice,
+          status: matched?.status || "active",
+          name: matched?.name || p.name,
           badge: "PAN SERVICE",
           isPrintService: false,
         };
       }),
+      ...catalogExtraServices,
     ];
-  }, [services]);
+  }, [services, catalogExtraServices]);
+
+  const categories = useMemo(() => {
+    const dynamicCategories = new Set(BASE_CATEGORIES);
+    for (const s of allAvailableServices) {
+      if (s.status !== "disabled" && s.category && !BASE_CATEGORIES.includes(s.category)) {
+        if (s.category !== "Government" && s.category !== "General") {
+          dynamicCategories.add(s.category);
+        }
+      }
+    }
+    return Array.from(dynamicCategories);
+  }, [allAvailableServices]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { "All Services": 0 };
-    for (const c of BASE_CATEGORIES) {
+    for (const c of categories) {
       if (c !== "All Services") counts[c] = 0;
     }
     const activeList = allAvailableServices.filter((s: any) => s.status !== "disabled");
     counts["All Services"] = activeList.length;
 
     for (const s of activeList) {
-      if (s.category === "Vehicle Services" || s.category === "Vehicle") {
+      if (
+        s.category === "Vehicle Services" ||
+        s.category === "Vehicle" ||
+        ((s.category === "Government" || s.category === "Transport") && (s.id.startsWith("DL-") || s.id.startsWith("RC-"))) ||
+        s.id.startsWith("SVC-DL") ||
+        s.id.startsWith("SVC-RC") ||
+        s.id.startsWith("SVC-CHALLAN") ||
+        s.id.startsWith("SVC-VEHICLE")
+      ) {
         counts["Vehicle Services"] = (counts["Vehicle Services"] || 0) + 1;
       } else if (
         s.category === "Aadhaar Services" ||
@@ -4508,7 +4602,9 @@ export default function ServicesPage() {
         s.id.includes("AADHAAR") ||
         s.id === "SVC-ABHA-CARD" ||
         s.id === "SVC-ESHRAM-CARD" ||
-        s.id === "SVC-NPCI-STATUS"
+        s.id === "SVC-NPCI-STATUS" ||
+        s.id.startsWith("SVC-ESHRAM") ||
+        s.id.startsWith("SVC-UID")
       ) {
         counts["Aadhaar Services"] = (counts["Aadhaar Services"] || 0) + 1;
       } else if (s.category === "Voter Services" || s.category === "Voter" || s.id.includes("VOTER")) {
@@ -4516,27 +4612,47 @@ export default function ServicesPage() {
       } else if (s.category === "PAN Card Services" || s.category === "PAN" || s.id.includes("PAN")) {
         counts["PAN Card Services"] = (counts["PAN Card Services"] || 0) + 1;
       } else if (
+        s.category === "Certificates" ||
+        s.category === "Certificate" ||
+        s.id.startsWith("CASTE-") ||
+        s.id.startsWith("INCOME-") ||
+        s.id === "SVC-RTPS-CERTIFICATE-BR" ||
+        /caste|income|certificate/i.test(s.name)
+      ) {
+        counts["Certificates"] = (counts["Certificates"] || 0) + 1;
+      } else if (
         s.category === "Citizen Documents" ||
         s.category === "Citizen" ||
         s.id === "SVC-RATION-PRINT" ||
         s.id === "SVC-AGRISTACK-FARMER" ||
         s.id === "SVC-UDYOG-AADHAAR" ||
-        s.id === "SVC-PASSPORT-VERIFY"
+        s.id === "SVC-PASSPORT-VERIFY" ||
+        s.id.startsWith("SVC-RATION") ||
+        s.id.startsWith("SVC-FARMER")
       ) {
         counts["Citizen Documents"] = (counts["Citizen Documents"] || 0) + 1;
       } else if (
         s.category === "Utilities & Banking" ||
+        s.category === "Tax" ||
         s.category === "Financial Documents" ||
         s.category === "Utilities Documents" ||
+        s.id.startsWith("ITR-") ||
+        s.id.startsWith("GST-") ||
+        s.id.startsWith("SVC-MOBILE-TO-") ||
+        s.id.startsWith("SVC-MCA") ||
+        s.id.startsWith("SVC-DIN") ||
+        s.id.startsWith("SVC-TIN") ||
         s.id === "SVC-ELECTRIC-BILL" ||
         s.id === "SVC-GST-DETAILS" ||
         s.id === "SVC-IFSC-DETAILS"
       ) {
         counts["Utilities & Banking"] = (counts["Utilities & Banking"] || 0) + 1;
+      } else if (counts[s.category] !== undefined) {
+        counts[s.category] = (counts[s.category] || 0) + 1;
       }
     }
     return counts;
-  }, [allAvailableServices]);
+  }, [allAvailableServices, categories]);
 
   const filteredServices = useMemo(() => {
     return allAvailableServices.filter((s) => {
@@ -4544,11 +4660,22 @@ export default function ServicesPage() {
 
       const matchesSearch =
         s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.description.toLowerCase().includes(search.toLowerCase());
+        s.description.toLowerCase().includes(search.toLowerCase()) ||
+        s.id.toLowerCase().includes(search.toLowerCase());
       if (!matchesSearch) return false;
 
       if (activeCategory === "All Services" || activeCategory === "All") return true;
-      if (activeCategory === "Vehicle Services") return s.category === "Vehicle Services" || s.category === "Vehicle";
+      if (activeCategory === "Vehicle Services") {
+        return (
+          s.category === "Vehicle Services" ||
+          s.category === "Vehicle" ||
+          ((s.category === "Government" || s.category === "Transport") && (s.id.startsWith("DL-") || s.id.startsWith("RC-"))) ||
+          s.id.startsWith("SVC-DL") ||
+          s.id.startsWith("SVC-RC") ||
+          s.id.startsWith("SVC-CHALLAN") ||
+          s.id.startsWith("SVC-VEHICLE")
+        );
+      }
       if (activeCategory === "Aadhaar Services") {
         return (
           s.category === "Aadhaar Services" ||
@@ -4556,12 +4683,24 @@ export default function ServicesPage() {
           s.id.includes("AADHAAR") ||
           s.id === "SVC-ABHA-CARD" ||
           s.id === "SVC-ESHRAM-CARD" ||
-          s.id === "SVC-NPCI-STATUS"
+          s.id === "SVC-NPCI-STATUS" ||
+          s.id.startsWith("SVC-ESHRAM") ||
+          s.id.startsWith("SVC-UID")
         );
       }
       if (activeCategory === "Voter Services") return s.category === "Voter Services" || s.category === "Voter" || s.id.includes("VOTER");
       if (activeCategory === "PAN Card Services" || activeCategory === "PAN Services") {
         return s.category === "PAN Card Services" || s.category === "PAN" || s.id.includes("PAN");
+      }
+      if (activeCategory === "Certificates") {
+        return (
+          s.category === "Certificates" ||
+          s.category === "Certificate" ||
+          s.id.startsWith("CASTE-") ||
+          s.id.startsWith("INCOME-") ||
+          s.id === "SVC-RTPS-CERTIFICATE-BR" ||
+          /caste|income|certificate/i.test(s.name)
+        );
       }
       if (activeCategory === "Citizen Documents") {
         return (
@@ -4570,24 +4709,37 @@ export default function ServicesPage() {
           s.id === "SVC-RATION-PRINT" ||
           s.id === "SVC-AGRISTACK-FARMER" ||
           s.id === "SVC-UDYOG-AADHAAR" ||
-          s.id === "SVC-PASSPORT-VERIFY"
+          s.id === "SVC-PASSPORT-VERIFY" ||
+          s.id.startsWith("SVC-RATION") ||
+          s.id.startsWith("SVC-FARMER")
         );
       }
       if (activeCategory === "Utilities & Banking") {
         return (
           s.category === "Utilities & Banking" ||
+          s.category === "Tax" ||
           s.category === "Financial Documents" ||
           s.category === "Utilities Documents" ||
+          s.id.startsWith("ITR-") ||
+          s.id.startsWith("GST-") ||
+          s.id.startsWith("SVC-MOBILE-TO-") ||
+          s.id.startsWith("SVC-MCA") ||
+          s.id.startsWith("SVC-DIN") ||
+          s.id.startsWith("SVC-TIN") ||
           s.id === "SVC-ELECTRIC-BILL" ||
           s.id === "SVC-GST-DETAILS" ||
           s.id === "SVC-IFSC-DETAILS"
         );
       }
-      return true;
+      return s.category === activeCategory;
     });
   }, [search, activeCategory, allAvailableServices]);
 
   const openApplication = (service: any) => {
+    if (service.status === "disabled") {
+      alert("This service is currently disabled by administrator.");
+      return;
+    }
     setForm({});
     setFiles({});
     setSelectedFiles({});
@@ -4621,6 +4773,8 @@ export default function ServicesPage() {
     if (selectedService.id?.startsWith("RC-")) return [...names, "Aadhaar Number", "Vehicle Registration Number"];
     if (selectedService.id?.startsWith("ITR-")) return [...names, "PAN Number", "Assessment Year"];
     if (selectedService.id?.startsWith("GST-")) return [...names, "PAN Number", "Business Name", "Business Address"];
+    if (selectedService.id?.startsWith("CASTE-")) return [...names, "Aadhaar Number", "Caste / Category", "Address"];
+    if (selectedService.id?.startsWith("INCOME-")) return [...names, "Aadhaar Number", "Annual Family Income (INR)", "Address"];
     return [...names, "Aadhaar Number", "Address"];
   }, [selectedService]);
 

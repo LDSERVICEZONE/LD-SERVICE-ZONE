@@ -74,6 +74,7 @@ const EMPTY_SERVICE = {
   documents: "",
   color: "#4F46E5",
   provider: "manual",
+  status: "active",
 };
 
 const CATEGORIES = [
@@ -171,6 +172,48 @@ export const DEFAULT_SUBCATEGORIES: Record<string, string> = {
   "SVC-IFSC-DETAILS": "Banking Verification",
   "SVC-NPCI-STATUS": "Banking Verification",
   "SVC-ELECTRIC-BILL": "Utility Bills",
+
+  // APINICE Additional 40 Services
+  "SVC-DL-TO-MOBILE": "Driving Licence",
+  "SVC-DL-TO-MOBILE-AKFAST": "Driving Licence",
+  "SVC-CHALLAN-MOBILE": "Vehicle Verification",
+  "SVC-CHALLAN-DETAILS": "Vehicle Verification",
+  "SVC-DL-ADVANCE": "Driving Licence",
+  "SVC-DL-PDF-BLUE": "Driving Licence",
+  "SVC-DL-PDF-WHITE": "Driving Licence",
+  "SVC-RC-DETAILS-VERIFY": "RC Services",
+  "SVC-RC-PDF-DOWNLOAD": "RC Services",
+  "SVC-RC-PRINT-OTHER": "RC Services",
+  "SVC-VEHICLE-RC-PDF-V2": "RC Services",
+  "SVC-NSDL-ACCOUNT-OPENING": "Banking Verification",
+  "SVC-MCA-CIN-SEARCH": "Corporate & Business",
+  "SVC-DIN-VERIFICATION": "Corporate & Business",
+  "SVC-TIN-VERIFICATION": "GST & Business",
+  "SVC-MOBILE-TO-MULTI-ACCOUNT": "Banking Verification",
+  "SVC-MOBILE-TO-MULTI-BANK-AKFAST": "Banking Verification",
+  "SVC-MOBILE-TO-IFSC-ACCOUNT": "Banking Verification",
+  "SVC-AADHAAR-PAN-LINK-CHECK": "PAN Search & Extraction",
+  "SVC-MOBILE-TO-PAN-LINK": "PAN Search & Extraction",
+  "SVC-PAN-TO-BANK-LINK": "PAN Search & Extraction",
+  "SVC-AADHAAR-TO-PAN-V2": "PAN Search & Extraction",
+  "SVC-MASK-PAN-VERIFICATION": "PAN Search & Extraction",
+  "SVC-PAN-TO-DETAILS": "PAN Search & Extraction",
+  "SVC-AADHAAR-MASKING": "Aadhaar Services",
+  "SVC-MASK-AADHAAR-VERIFICATION": "Aadhaar Services",
+  "SVC-UP-RATION-TO-AADHAAR": "Civil Supplies & Ration",
+  "SVC-NPCI-STATUS-AKFAST": "Banking Verification",
+  "SVC-ESHRAM-MOBILE-UPDATE": "Health & Social Cards",
+  "SVC-UID-TO-FULL-DETAILS": "Aadhaar Services",
+  "SVC-RATION-PDF-BY-AADHAAR": "Civil Supplies & Ration",
+  "SVC-RATION-PDF-BY-RATION": "Civil Supplies & Ration",
+  "SVC-RATION-TO-AADHAAR-ALL": "Civil Supplies & Ration",
+  "SVC-RATION-TO-UID-ALL-V2": "Civil Supplies & Ration",
+  "SVC-AGRISTACK-FARMER-STATUS": "Farmer & Social Cards",
+  "SVC-FARMER-PDF-AKFAST": "Farmer & Social Cards",
+  "SVC-RTPS-CERTIFICATE-BR": "Certificates",
+  "SVC-VOTER-LINK-REQUEST-NEXT": "Voter Services",
+  "SVC-MOBILE-DETAILS-FIND": "Telecom & Mobile",
+  "SVC-MOBILE-NUMBER-INFO": "Telecom & Mobile",
 };
 
 export function getServiceSubCategory(s: Service): string {
@@ -192,11 +235,13 @@ export function getSubCategoryIcon(name: string) {
   if (n.includes("driving") || n.includes("licence") || n.includes("dl")) return <ShieldCheck size={15} className="text-blue-600" />;
   if (n.includes("voter")) return <Award size={15} className="text-amber-600" />;
   if (n.includes("pan")) return <CreditCard size={15} className="text-violet-600" />;
-  if (n.includes("gst") || n.includes("tax") || n.includes("itr") || n.includes("msme")) return <Briefcase size={15} className="text-emerald-600" />;
+  if (n.includes("gst") || n.includes("tax") || n.includes("itr") || n.includes("msme") || n.includes("corporate")) return <Briefcase size={15} className="text-emerald-600" />;
   if (n.includes("aadhaar")) return <Fingerprint size={15} className="text-indigo-600" />;
   if (n.includes("ration") || n.includes("civil")) return <ShoppingBag size={15} className="text-rose-600" />;
   if (n.includes("bank") || n.includes("ifsc") || n.includes("npci")) return <Landmark size={15} className="text-teal-600" />;
   if (n.includes("bill") || n.includes("electric") || n.includes("utilit")) return <Zap size={15} className="text-amber-500" />;
+  if (n.includes("telecom") || n.includes("mobile")) return <Zap size={15} className="text-blue-500" />;
+  if (n.includes("certificate") || n.includes("caste") || n.includes("income")) return <Award size={15} className="text-purple-600" />;
   return <Layers size={15} className="text-slate-600" />;
 }
 
@@ -232,15 +277,57 @@ export const APINICE_SERVICE_IDS = new Set([
   "SVC-MOBILE-TO-RC",
   "SVC-PAN-ADDRESS-DETAILS",
   "SVC-PAN-OCR",
+  // 40 new services
+  "SVC-DL-TO-MOBILE",
+  "SVC-DL-TO-MOBILE-AKFAST",
+  "SVC-CHALLAN-MOBILE",
+  "SVC-CHALLAN-DETAILS",
+  "SVC-DL-ADVANCE",
+  "SVC-DL-PDF-BLUE",
+  "SVC-DL-PDF-WHITE",
+  "SVC-RC-DETAILS-VERIFY",
+  "SVC-RC-PDF-DOWNLOAD",
+  "SVC-RC-PRINT-OTHER",
+  "SVC-VEHICLE-RC-PDF-V2",
+  "SVC-NSDL-ACCOUNT-OPENING",
+  "SVC-MCA-CIN-SEARCH",
+  "SVC-DIN-VERIFICATION",
+  "SVC-TIN-VERIFICATION",
+  "SVC-MOBILE-TO-MULTI-ACCOUNT",
+  "SVC-MOBILE-TO-MULTI-BANK-AKFAST",
+  "SVC-MOBILE-TO-IFSC-ACCOUNT",
+  "SVC-AADHAAR-PAN-LINK-CHECK",
+  "SVC-MOBILE-TO-PAN-LINK",
+  "SVC-PAN-TO-BANK-LINK",
+  "SVC-AADHAAR-TO-PAN-V2",
+  "SVC-MASK-PAN-VERIFICATION",
+  "SVC-PAN-TO-DETAILS",
+  "SVC-AADHAAR-MASKING",
+  "SVC-MASK-AADHAAR-VERIFICATION",
+  "SVC-UP-RATION-TO-AADHAAR",
+  "SVC-NPCI-STATUS-AKFAST",
+  "SVC-ESHRAM-MOBILE-UPDATE",
+  "SVC-UID-TO-FULL-DETAILS",
+  "SVC-RATION-PDF-BY-AADHAAR",
+  "SVC-RATION-PDF-BY-RATION",
+  "SVC-RATION-TO-AADHAAR-ALL",
+  "SVC-RATION-TO-UID-ALL-V2",
+  "SVC-AGRISTACK-FARMER-STATUS",
+  "SVC-FARMER-PDF-AKFAST",
+  "SVC-RTPS-CERTIFICATE-BR",
+  "SVC-VOTER-LINK-REQUEST-NEXT",
+  "SVC-MOBILE-DETAILS-FIND",
+  "SVC-MOBILE-NUMBER-INFO",
 ]);
 
 export const isApiniceService = (s: Service) =>
-  APINICE_SERVICE_IDS.has(s.id) || (s as any).provider === "apinice";
+  APINICE_SERVICE_IDS.has(s.id) || (s as any).provider === "apinice" || s.id.startsWith("SVC-");
 
 export default function AdminServices() {
   const [activeTab, setActiveTab] = useState<"catalog" | "apinice" | "panmitra" | "all">("catalog");
 
   // Catalog state
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [form, setForm] = useState<any>(EMPTY_SERVICE);
   const [editing, setEditing] = useState<string | null>(null);
@@ -359,7 +446,14 @@ export default function AdminServices() {
     loadCatalog();
     loadPanMitra();
     loadApiniceBalance();
+    api<any>("/auth/me")
+      .then((d) => setCurrentUser(d.user))
+      .catch(() => {});
   }, []);
+
+  const isSuperAdmin =
+    currentUser?.role === "admin" &&
+    (currentUser?.adminRole === "super_admin" || !currentUser?.adminRole);
 
   // Filtered Services Lists
   const apiniceServices = useMemo(() => services.filter(isApiniceService), [services]);
@@ -382,6 +476,7 @@ export default function AdminServices() {
       commission: s.commission ?? 0,
       processingTime: s.processingTime || "Instant",
       documents: (s.documents || []).join(", "),
+      status: s.status || "active",
     });
     setError("");
     setOpen(true);
@@ -403,6 +498,7 @@ export default function AdminServices() {
           .map((x) => x.trim())
           .filter(Boolean),
         color: form.color || "#4F46E5",
+        status: form.status === "disabled" ? "disabled" : "active",
       };
       const d = editing
         ? await api<any>(`/services/${encodeURIComponent(editing)}`, {
@@ -471,6 +567,10 @@ export default function AdminServices() {
   };
 
   const handleToggleServiceStatus = async (service: Service) => {
+    if (!isSuperAdmin) {
+      alert("Permission Denied: Only Super Admin can change service visibility.");
+      return;
+    }
     const newStatus = service.status === "disabled" ? "active" : "disabled";
     try {
       await api<any>(`/services/${encodeURIComponent(service.id)}`, {
@@ -916,7 +1016,7 @@ export default function AdminServices() {
                           {!isCollapsed && (
                             <div className="p-5 grid md:grid-cols-2 xl:grid-cols-3 gap-4 bg-slate-50/20">
                               {items.map((s) => (
-                                <ServiceCard
+                                <ServiceCard isSuperAdmin={isSuperAdmin}
                                   key={s.id}
                                   service={s}
                                   isApinice={false}
@@ -943,7 +1043,7 @@ export default function AdminServices() {
             ) : (
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filtered.map((s) => (
-                  <ServiceCard
+                  <ServiceCard isSuperAdmin={isSuperAdmin}
                     key={s.id}
                     service={s}
                     isApinice={false}
@@ -1020,7 +1120,7 @@ export default function AdminServices() {
                       https://apinice.in/api/v1
                     </span>
                     <span className="px-2 py-0.5 rounded-full bg-cyan-500/30 text-[10px] text-cyan-200 font-bold">
-                      31 Instant Automated Services
+                      {apiniceServices.length} Instant Automated Services
                     </span>
                   </div>
                   <h2 className="text-2xl font-black font-display tracking-tight text-white">
@@ -1229,7 +1329,7 @@ export default function AdminServices() {
                           {!isCollapsed && (
                             <div className="p-5 grid md:grid-cols-2 xl:grid-cols-3 gap-4 bg-slate-50/20">
                               {items.map((s) => (
-                                <ServiceCard
+                                <ServiceCard isSuperAdmin={isSuperAdmin}
                                   key={s.id}
                                   service={s}
                                   isApinice={true}
@@ -1256,7 +1356,7 @@ export default function AdminServices() {
             ) : (
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filtered.map((s) => (
-                  <ServiceCard
+                  <ServiceCard isSuperAdmin={isSuperAdmin}
                     key={s.id}
                     service={s}
                     isApinice={true}
@@ -1367,7 +1467,7 @@ export default function AdminServices() {
                       {!isCollapsed && (
                         <div className="p-5 grid md:grid-cols-2 xl:grid-cols-3 gap-4 bg-slate-50/20">
                           {items.map((s) => (
-                            <ServiceCard
+                            <ServiceCard isSuperAdmin={isSuperAdmin}
                               key={s.id}
                               service={s}
                               isApinice={isApiniceService(s)}
@@ -1392,7 +1492,7 @@ export default function AdminServices() {
             ) : (
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {services.map((s) => (
-                  <ServiceCard
+                  <ServiceCard isSuperAdmin={isSuperAdmin}
                     key={s.id}
                     service={s}
                     isApinice={isApiniceService(s)}
@@ -2027,6 +2127,21 @@ export default function AdminServices() {
                   onChange={(v: any) => setForm({ ...form, documents: v })}
                 />
               </div>
+              <div className="sm:col-span-2">
+                <label className="block">
+                  <span className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    Service Status & Visibility
+                  </span>
+                  <select
+                    value={form.status || "active"}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold bg-white outline-none focus:border-violet-500"
+                  >
+                    <option value="active">Visible / Active (Shown to all retailers)</option>
+                    <option value="disabled">Hidden / Disabled (Hidden from retailers)</option>
+                  </select>
+                </label>
+              </div>
             </div>
 
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -2152,6 +2267,7 @@ export default function AdminServices() {
 function ServiceCard({
   service,
   isApinice,
+  isSuperAdmin = true,
   onToggleStatus,
   onEdit,
   onQuickPrice,
@@ -2159,29 +2275,53 @@ function ServiceCard({
 }: {
   service: Service;
   isApinice: boolean;
+  isSuperAdmin?: boolean;
   onToggleStatus: () => void;
   onEdit: () => void;
   onQuickPrice: () => void;
   onDelete: () => void;
 }) {
+  const isHidden = service.status === "disabled";
+
   return (
-    <article className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-lg transition-all flex flex-col justify-between group">
+    <article
+      className={`rounded-2xl border transition-all flex flex-col justify-between group p-5 ${
+        isHidden
+          ? "bg-slate-50/70 border-rose-200 shadow-none opacity-90"
+          : "bg-white border-slate-200 hover:shadow-lg hover:border-slate-300"
+      }`}
+    >
       <div>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isApinice ? "bg-cyan-50 text-cyan-600" : "bg-violet-50 text-violet-600"}`}>
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                isHidden
+                  ? "bg-rose-50 text-rose-500"
+                  : isApinice
+                  ? "bg-cyan-50 text-cyan-600"
+                  : "bg-violet-50 text-violet-600"
+              }`}
+            >
               {isApinice ? <Zap size={20} /> : <Building2 size={20} />}
             </div>
             <div>
-              <span
-                className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                  service.status === "disabled"
-                    ? "bg-rose-100 text-rose-700 border border-rose-200"
-                    : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+              <button
+                type="button"
+                onClick={onToggleStatus}
+                disabled={!isSuperAdmin}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition border ${
+                  !isSuperAdmin ? "opacity-75 cursor-not-allowed" : "cursor-pointer"
+                } ${
+                  isHidden
+                    ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
                 }`}
+                title={!isSuperAdmin ? "Super Admin access required to toggle visibility" : isHidden ? "Service is currently HIDDEN from retailers. Click to Show." : "Service is VISIBLE to retailers. Click to Hide."}
               >
-                {service.status === "disabled" ? "Hidden / Disabled" : "Visible / Active"}
-              </span>
+                <span className={`w-1.5 h-1.5 rounded-full ${isHidden ? "bg-rose-500" : "bg-emerald-500"}`} />
+                <span>{isHidden ? "Hidden / Disabled" : "Visible / Active"}</span>
+              </button>
               {isApinice && (
                 <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-cyan-100 text-cyan-800 border border-cyan-200">
                   APINICE API
@@ -2194,13 +2334,13 @@ function ServiceCard({
             <button
               onClick={onToggleStatus}
               className={`p-2 rounded-lg transition ${
-                service.status === "disabled"
-                  ? "bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
+                isHidden
+                  ? "bg-rose-100 text-rose-700 hover:bg-emerald-100 hover:text-emerald-700"
                   : "bg-emerald-50 text-emerald-600 hover:bg-rose-50 hover:text-rose-600"
               }`}
-              title={service.status === "disabled" ? "Click to Show to Retailers (Activate)" : "Click to Hide from Retailers (Disable)"}
+              title={isHidden ? "Click to Show to Retailers (Activate)" : "Click to Hide from Retailers (Disable)"}
             >
-              {service.status === "disabled" ? <PowerOff size={14} /> : <Power size={14} />}
+              {isHidden ? <PowerOff size={15} /> : <Power size={15} />}
             </button>
             <button
               onClick={onEdit}

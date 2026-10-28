@@ -71,10 +71,11 @@ export async function handleApplicationRoutes(context) {
     const auth = requireAuth(req, res, db)
     if (!auth) return true
     const input = await parseJson(req)
-    const service = db.services.find(
-      (candidate) =>
-        candidate.id === input.serviceId && candidate.active !== false,
-    )
+    const rawService = db.services.find((c) => c.id === input.serviceId)
+    if (rawService && (rawService.status === "disabled" || rawService.active === false)) {
+      return respond(403, { error: "This service is currently disabled by administrator" })
+    }
+    const service = rawService
     if (
       !service ||
       !input.applicant ||
