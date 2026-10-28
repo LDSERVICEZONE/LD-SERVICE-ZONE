@@ -15,6 +15,8 @@ import {
   Smartphone,
   Upload,
   ExternalLink,
+  Copy,
+  Check,
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 import { useWallet } from "@/features/session/AppContext";
@@ -78,6 +80,92 @@ const BASE_CATEGORIES = [
   "Citizen Documents",
   "Utilities & Banking",
 ];
+
+
+const PARAM_CONFIG: Record<string, { label: string; placeholder: string; type?: string; options?: { value: string; label: string }[] }> = {
+  dlNo: { label: "Driving Licence Number", placeholder: "e.g. DL-0420110012345" },
+  dlNumber: { label: "Driving Licence Number", placeholder: "e.g. DL-0420110012345" },
+  dl: { label: "Driving Licence Number", placeholder: "e.g. DL-0420110012345" },
+  dob: { label: "Date of Birth", placeholder: "YYYY-MM-DD", type: "date" },
+  date_of_birth: { label: "Date of Birth", placeholder: "YYYY-MM-DD", type: "date" },
+  mobile: { label: "10-Digit Mobile Number", placeholder: "9876543210", type: "tel" },
+  newMobile: { label: "New Mobile Number to Update", placeholder: "9876543210", type: "tel" },
+  vehicleNumber: { label: "Vehicle Registration Number", placeholder: "e.g. MH01AB1234" },
+  vehicalNo: { label: "Vehicle Registration Number", placeholder: "e.g. MH01AB1234" },
+  vehicle_number: { label: "Vehicle Registration Number", placeholder: "e.g. MH01AB1234" },
+  fatherName: { label: "Father's Full Name", placeholder: "Enter father's name" },
+  type: {
+    label: "Card Format Type",
+    placeholder: "Select format",
+    options: [
+      { value: "1", label: "Format 1 (Standard White)" },
+      { value: "2", label: "Format 2 (Color High-Res)" },
+    ],
+  },
+  pdfType: {
+    label: "PDF Layout Template",
+    placeholder: "Select template",
+    options: [
+      { value: "1", label: "Standard Layout" },
+      { value: "2", label: "Alternative Layout" },
+    ],
+  },
+  rc_type: {
+    label: "RC Type / Format",
+    placeholder: "Select RC format",
+    options: [
+      { value: "NEW", label: "New Digital Format (Parivahan V2)" },
+      { value: "OLD", label: "Legacy Classic Format" },
+    ],
+  },
+  name: { label: "Full Name", placeholder: "Enter full legal name" },
+  email: { label: "Email Address", placeholder: "name@example.com", type: "email" },
+  address: { label: "Residential / Office Address", placeholder: "Complete street address" },
+  state_name: { label: "State Name", placeholder: "e.g. Maharashtra, Odisha, Delhi" },
+  city_name: { label: "City / District Name", placeholder: "Enter city or district" },
+  pincode: { label: "Postal PIN Code", placeholder: "6-digit PIN code", type: "tel" },
+  pancard: { label: "PAN Card Number", placeholder: "ABCDE1234F" },
+  pan: { label: "PAN Card Number", placeholder: "ABCDE1234F" },
+  panNumber: { label: "PAN Card Number", placeholder: "ABCDE1234F" },
+  account_type: {
+    label: "Account Type",
+    placeholder: "Select account type",
+    options: [
+      { value: "SAVINGS", label: "Savings Account" },
+      { value: "CURRENT", label: "Current Business Account" },
+    ],
+  },
+  cin: { label: "Corporate CIN Number (21-char)", placeholder: "e.g. U72200MH2010PTC204567" },
+  din: { label: "Director DIN Number (8-digit)", placeholder: "e.g. 01234567" },
+  tin: { label: "TIN Number", placeholder: "Enter TIN number" },
+  aadhaar: { label: "Citizen Aadhaar Number (12-digit)", placeholder: "123456789012", type: "tel" },
+  aadhaarNumber: { label: "Citizen Aadhaar Number (12-digit)", placeholder: "123456789012", type: "tel" },
+  uidNumber: { label: "Citizen Aadhaar / UID (12-digit)", placeholder: "123456789012", type: "tel" },
+  account: { label: "Bank Account Number", placeholder: "Enter bank account number" },
+  ifsc: { label: "Bank IFSC Code (11-char)", placeholder: "e.g. SBIN0001234" },
+  front_image: { label: "Aadhaar Front Image / Photo", placeholder: "Upload Aadhaar card image", type: "file" },
+  ration_no: { label: "UP Ration Card Number", placeholder: "Enter ration card number" },
+  rationNumber: { label: "Ration Card Number", placeholder: "Enter citizen ration card number" },
+  stateCode: { label: "State Code (2-Letter)", placeholder: "e.g. UP, BR, OD, MH, DL" },
+  state: { label: "State Name / Code", placeholder: "e.g. OD, UP, BR, MH" },
+  language: {
+    label: "Regional Language",
+    placeholder: "Select language",
+    options: [
+      { value: "HI", label: "Hindi (हिंदी)" },
+      { value: "EN", label: "English" },
+      { value: "OD", label: "Odia (ଓଡ଼ିଆ)" },
+      { value: "BN", label: "Bengali (বাংলা)" },
+      { value: "MR", label: "Marathi (मराठी)" },
+      { value: "GU", label: "Gujarati (ગુજરાતી)" },
+      { value: "TE", label: "Telugu (తెలుగు)" },
+      { value: "TA", label: "Tamil (தமிழ்)" },
+      { value: "KN", label: "Kannada (ಕನ್ನಡ)" },
+    ],
+  },
+  applicationNumber: { label: "Application / Reference Number", placeholder: "e.g. RTPS/2024/123456" },
+  epic_number: { label: "Voter ID / EPIC Number", placeholder: "e.g. ABC1234567" },
+};
 
 const PRINT_SERVICES = [
   {
@@ -439,6 +527,646 @@ const PRINT_SERVICES = [
     documents: ["PAN Card Photo (JPG/PNG)"],
     color: "#0891B2",
     description: "Instant OCR extraction of PAN number, full name, father name, and date of birth from photo",
+  },
+  {
+    id: "SVC-DL-TO-MOBILE",
+    name: "DL to Mobile Lookup",
+    category: "Vehicle Services",
+    badge: "P4P",
+    icon: "🛵",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["Driving Licence Number","Date of Birth (YYYY-MM-DD)"],
+    color: "#2563EB",
+    description: "Lookup vehicle driving licence holder mobile number and RTO record",
+    routePath: "/api/apinice/dl-to-mobile",
+    params: ["dlNo","dob"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-DL-TO-MOBILE-AKFAST",
+    name: "DL to Mobile Find (AKFast)",
+    category: "Vehicle Services",
+    badge: "AKFAST",
+    icon: "📞",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["Driving Licence Number","Date of Birth"],
+    color: "#0284C7",
+    description: "High-speed driving licence owner contact mobile number discovery",
+    routePath: "/api/apinice/dl-to-mobile-akfast",
+    params: ["dlNumber","dob"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-CHALLAN-MOBILE",
+    name: "Challan by Mobile Number",
+    category: "Vehicle Services",
+    badge: "NICE EASY",
+    icon: "🚨",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["10-digit Registered Mobile Number"],
+    color: "#D97706",
+    description: "Search all pending traffic e-challans registered across all vehicles for a mobile number",
+    routePath: "/api/apinice/challan-by-mobile",
+    params: ["mobile"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-CHALLAN-DETAILS",
+    name: "Challan Details Check (AKFast)",
+    category: "Vehicle Services",
+    badge: "AKFAST",
+    icon: "🚦",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["Vehicle Registration Number"],
+    color: "#EA580C",
+    description: "Complete offence breakdown, court challan status and payment links by vehicle number",
+    routePath: "/api/apinice/challan-details-akfast",
+    params: ["vehicleNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-DL-ADVANCE",
+    name: "Driving Licence Advance Details",
+    category: "Vehicle Services",
+    badge: "NICE EASY",
+    icon: "🪪",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["Driving Licence Number","Date of Birth"],
+    color: "#4F46E5",
+    description: "Comprehensive Sarathi driver profile, vehicle class authorization, validity and endorsement details",
+    routePath: "/api/apinice/dl-advance-details",
+    params: ["dl","dob"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-DL-PDF-BLUE",
+    name: "DL PDF (Blue Type Format)",
+    category: "Vehicle Services",
+    badge: "AKFAST",
+    icon: "📜",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["Driving Licence Number","Date of Birth"],
+    color: "#1D56D8",
+    description: "Official printable Driving Licence document in high-resolution Blue Card Layout",
+    routePath: "/api/apinice/dl-pdf-blue",
+    params: ["dlNumber","dob"],
+    isPdf: true,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-DL-PDF-WHITE",
+    name: "DL PDF (White Type Format)",
+    category: "Vehicle Services",
+    badge: "AKFAST",
+    icon: "📑",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["Driving Licence Number","Date of Birth"],
+    color: "#0891B2",
+    description: "Official printable Driving Licence document in Classic White Smart Layout",
+    routePath: "/api/apinice/dl-pdf-white",
+    params: ["dlNumber","dob","type"],
+    isPdf: true,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-RC-DETAILS-VERIFY",
+    name: "RC Details Verify",
+    category: "Vehicle Services",
+    badge: "AKFAST",
+    icon: "🔍",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["Vehicle Registration Number"],
+    color: "#059669",
+    description: "Live Vahan registry vehicle verification: owner name, insurance validity, PUCC, hypothecation & fitness",
+    routePath: "/api/apinice/rc-details-verify",
+    params: ["vehicleNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-RC-PDF-DOWNLOAD",
+    name: "RC PDF Download (AKFast)",
+    category: "Vehicle Services",
+    badge: "AKFAST",
+    icon: "🚗",
+    processingTime: "Instant",
+    defaultPrice: 35,
+    documents: ["Vehicle Registration Number"],
+    color: "#06B6D4",
+    description: "Instant printable official Vehicle Registration Certificate (RC) PDF via AKFast engine",
+    routePath: "/api/apinice/rc-pdf-akfast",
+    params: ["vehicleNumber","fatherName"],
+    isPdf: true,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-RC-PRINT-OTHER",
+    name: "RC Print (Other Format)",
+    category: "Vehicle Services",
+    badge: "OTHER",
+    icon: "🚘",
+    processingTime: "Instant",
+    defaultPrice: 35,
+    documents: ["Vehicle Registration Number"],
+    color: "#2563EB",
+    description: "Alternate high-resolution Parivahan RC smart card printable PDF format",
+    routePath: "/api/apinice/rc-print-other",
+    params: ["vehicalNo","pdfType","fatherName"],
+    isPdf: true,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-VEHICLE-RC-PDF-V2",
+    name: "Vehicle RC PDF (Next)",
+    category: "Vehicle Services",
+    badge: "NEXT",
+    icon: "🚙",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["Vehicle Registration Number"],
+    color: "#7C3AED",
+    description: "Next-gen direct printable Vehicle RC document layout with QR code and bar code",
+    routePath: "/api/apinice/vehicle-rc-pdf-v2",
+    params: ["vehicle_number","rc_type"],
+    isPdf: true,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-NSDL-ACCOUNT-OPENING",
+    name: "NSDL Payment Bank Account Opening",
+    category: "Utilities & Banking",
+    badge: "NSDL",
+    icon: "🏦",
+    processingTime: "Instant",
+    defaultPrice: 250,
+    documents: ["Applicant Name","Mobile Number","Email","PAN Card","Aadhaar","Address"],
+    color: "#1D56D8",
+    description: "Paperless digital savings bank account opening with instant debit card and UPI activation",
+    routePath: "/api/apinice/nsdl-account-opening",
+    params: ["name","mobile","email","date_of_birth","address","state_name","city_name","pincode","pancard","account_type"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-MCA-CIN-SEARCH",
+    name: "MCA Company CIN Search",
+    category: "Utilities & Banking",
+    badge: "NICE EASY",
+    icon: "🏢",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["21-character Corporate CIN Number"],
+    color: "#4338CA",
+    description: "Official Ministry of Corporate Affairs (MCA) registry check: directors, ROC code, authorized capital, status",
+    routePath: "/api/apinice/mca-cin-search",
+    params: ["cin"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-DIN-VERIFICATION",
+    name: "Company Director DIN Verification",
+    category: "Utilities & Banking",
+    badge: "NICE EASY",
+    icon: "👔",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["8-digit Director Identification Number (DIN)","Date of Birth"],
+    color: "#6366F1",
+    description: "Verify corporate director credentials, associated companies, LLP appointments and DIN status",
+    routePath: "/api/apinice/din-verification",
+    params: ["din","dob"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-TIN-VERIFICATION",
+    name: "TIN Number Verification",
+    category: "Utilities & Banking",
+    badge: "NICE EASY",
+    icon: "💼",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["11-digit Taxpayer Identification Number (TIN)"],
+    color: "#0D9488",
+    description: "Commercial tax department TIN & CST number validity, dealer registration status and trade name",
+    routePath: "/api/apinice/tin-verification",
+    params: ["tin"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-MOBILE-TO-MULTI-ACCOUNT",
+    name: "Mobile to Multiple Bank Accounts",
+    category: "Utilities & Banking",
+    badge: "NICE EASY",
+    icon: "💳",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["10-digit Mobile Number"],
+    color: "#2563EB",
+    description: "Find all active bank savings and current accounts linked to a registered customer mobile number",
+    routePath: "/api/apinice/mobile-to-multi-account",
+    params: ["mobile"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-MOBILE-TO-MULTI-BANK-AKFAST",
+    name: "Mobile to Multiple Bank Account (AKFast)",
+    category: "Utilities & Banking",
+    badge: "AKFAST",
+    icon: "🏦",
+    processingTime: "Instant",
+    defaultPrice: 35,
+    documents: ["10-digit Mobile Number"],
+    color: "#0284C7",
+    description: "High-speed multi-bank account discovery linked across all major Indian banks",
+    routePath: "/api/apinice/mobile-to-multi-bank-akfast",
+    params: ["mobile"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-MOBILE-TO-IFSC-ACCOUNT",
+    name: "Mobile to IFSC Account Details",
+    category: "Utilities & Banking",
+    badge: "NICE EASY",
+    icon: "🏦",
+    processingTime: "Instant",
+    defaultPrice: 20,
+    documents: ["10-digit Mobile Number"],
+    color: "#0891B2",
+    description: "Resolve primary bank account, branch IFSC code, and beneficiary account name from mobile number",
+    routePath: "/api/apinice/mobile-to-ifsc-account",
+    params: ["mobile"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-AADHAAR-PAN-LINK-CHECK",
+    name: "Aadhaar-PAN Link Check",
+    category: "PAN Card Services",
+    badge: "NICE EASY",
+    icon: "🔗",
+    processingTime: "Instant",
+    defaultPrice: 10,
+    documents: ["12-digit Aadhaar Number"],
+    color: "#10B981",
+    description: "Check official Income Tax department Aadhaar-PAN linkage status and compliance notice",
+    routePath: "/api/apinice/aadhaar-pan-link-check",
+    params: ["aadhaar","pan"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-MOBILE-TO-PAN-LINK",
+    name: "Mobile Number to PAN Link Check",
+    category: "PAN Card Services",
+    badge: "NICE EASY",
+    icon: "📱",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["10-digit Mobile Number"],
+    color: "#3B82F6",
+    description: "Find active PAN card numbers registered under a citizen's mobile number",
+    routePath: "/api/apinice/mobile-to-pan-link",
+    params: ["mobile"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-PAN-TO-BANK-LINK",
+    name: "PAN to Bank Account Details",
+    category: "PAN Card Services",
+    badge: "NICE EASY",
+    icon: "🏦",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["10-digit PAN Number","Bank Account Number","Bank IFSC Code"],
+    color: "#8B5CF6",
+    description: "Verify if a bank account is officially seeded and linked with a PAN card for income tax refunds",
+    routePath: "/api/apinice/pan-to-bank-link",
+    params: ["pan","account","ifsc"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-AADHAAR-TO-PAN-V2",
+    name: "Aadhaar to PAN Find (V2)",
+    category: "PAN Card Services",
+    badge: "NICE EASY",
+    icon: "🔍",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["12-digit Aadhaar Number"],
+    color: "#6366F1",
+    description: "Secondary high-accuracy lookup to find lost PAN card number by 12-digit Aadhaar",
+    routePath: "/api/apinice/aadhar-to-pan-v2",
+    params: ["uidNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-MASK-PAN-VERIFICATION",
+    name: "Masked PAN Verification",
+    category: "PAN Card Services",
+    badge: "AKFAST",
+    icon: "🛡️",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["12-digit Aadhaar Number"],
+    color: "#D97706",
+    description: "Verify masked PAN number (e.g. ABCXX1234X) registered with an Aadhaar card",
+    routePath: "/api/apinice/mask-pan-verification",
+    params: ["aadhaarNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-PAN-TO-DETAILS",
+    name: "PAN to Full Details",
+    category: "PAN Card Services",
+    badge: "NICE EASY",
+    icon: "🪪",
+    processingTime: "Instant",
+    defaultPrice: 20,
+    documents: ["10-digit PAN Number"],
+    color: "#4F46E5",
+    description: "Comprehensive PAN card record: full name, father's name, DOB, gender, category and active status",
+    routePath: "/api/apinice/pan-to-details",
+    params: ["panNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-AADHAAR-MASKING",
+    name: "Aadhaar Masking Service",
+    category: "Aadhaar Services",
+    badge: "NICE EASY",
+    icon: "🎭",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["Aadhaar Card Front Photo (JPEG/PNG)"],
+    color: "#0D9488",
+    description: "Automated UIDAI-compliant masking of first 8 digits on Aadhaar card photos for secure submission",
+    routePath: "/api/apinice/aadhaar-masking",
+    params: ["front_image"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-MASK-AADHAAR-VERIFICATION",
+    name: "Masked Aadhaar Verification",
+    category: "Aadhaar Services",
+    badge: "AKFAST",
+    icon: "🆔",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["10-digit PAN Number"],
+    color: "#0891B2",
+    description: "Verify masked 12-digit Aadhaar number (XXXXXXXX1234) linked with a PAN card",
+    routePath: "/api/apinice/mask-aadhar-verification",
+    params: ["panNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-UP-RATION-TO-AADHAAR",
+    name: "UP Ration to Aadhaar Link Check",
+    category: "Citizen Documents",
+    badge: "P4P",
+    icon: "🌾",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["UP Ration Card Number"],
+    color: "#16A34A",
+    description: "Uttar Pradesh FCS portal lookup: find linked Aadhaar numbers of all family members from Ration Card",
+    routePath: "/api/apinice/up-ration-to-aadhaar",
+    params: ["ration_no"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-NPCI-STATUS-AKFAST",
+    name: "NPCI Status Check (AKFast Engine)",
+    category: "Aadhaar Services",
+    badge: "AKFAST",
+    icon: "🏦",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["12-digit Aadhaar Number"],
+    color: "#2563EB",
+    description: "Alternative fast lookup for Direct Benefit Transfer (DBT) active bank account mapping",
+    routePath: "/api/apinice/npci-status-akfast",
+    params: ["aadhaarNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-ESHRAM-MOBILE-UPDATE",
+    name: "e-Shram Mobile Number Update",
+    category: "Aadhaar Services",
+    badge: "AKFAST",
+    icon: "👷",
+    processingTime: "Instant",
+    defaultPrice: 130,
+    documents: ["12-digit Aadhaar Number","Date of Birth","New 10-digit Mobile"],
+    color: "#EA580C",
+    description: "Direct mobile number update for unorganised worker e-Shram card portal registration",
+    routePath: "/api/apinice/eshram-mobile-update",
+    params: ["uidNumber","dob","newMobile"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-UID-TO-FULL-DETAILS",
+    name: "UID to Full Demographic Details",
+    category: "Aadhaar Services",
+    badge: "AKFAST",
+    icon: "👤",
+    processingTime: "Instant",
+    defaultPrice: 180,
+    documents: ["12-digit Aadhaar Number"],
+    color: "#7C3AED",
+    description: "Retrieve complete verified citizen demographic profile, address and biometric validity status",
+    routePath: "/api/apinice/uid-to-full-details",
+    params: ["uidNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-RATION-PDF-BY-AADHAAR",
+    name: "Ration PDF by Aadhaar Number",
+    category: "Citizen Documents",
+    badge: "AKFAST",
+    icon: "🍚",
+    processingTime: "Instant",
+    defaultPrice: 90,
+    documents: ["12-digit Aadhaar Number"],
+    color: "#10B981",
+    description: "Download official printable Citizen NFSA Ration Card PDF directly using citizen Aadhaar number",
+    routePath: "/api/apinice/ration-pdf-by-aadhaar",
+    params: ["uidNumber"],
+    isPdf: true,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-RATION-PDF-BY-RATION",
+    name: "Ration PDF by Ration Card Number",
+    category: "Citizen Documents",
+    badge: "AKFAST",
+    icon: "📄",
+    processingTime: "Instant",
+    defaultPrice: 90,
+    documents: ["Ration Card Number"],
+    color: "#059669",
+    description: "Official printable Citizen NFSA Ration Card document PDF download by Ration card number",
+    routePath: "/api/apinice/ration-pdf-by-ration",
+    params: ["rationNumber"],
+    isPdf: true,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-RATION-TO-AADHAAR-ALL",
+    name: "Ration to Aadhaar (All State Search)",
+    category: "Citizen Documents",
+    badge: "AKFAST",
+    icon: "🔍",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["Ration Card Number"],
+    color: "#D97706",
+    description: "Search and discover linked Aadhaar numbers across all Indian state food and civil supply portals",
+    routePath: "/api/apinice/ration-to-aadhar-all",
+    params: ["rationNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-RATION-TO-UID-ALL-V2",
+    name: "Ration to UID (All State V2)",
+    category: "Citizen Documents",
+    badge: "AKFAST",
+    icon: "🌾",
+    processingTime: "Instant",
+    defaultPrice: 180,
+    documents: ["State Code (e.g. OD, UP, BR, MH)","Ration Card Number"],
+    color: "#9333EA",
+    description: "Advanced nationwide lookup resolving full Aadhaar UID numbers of all ration card beneficiaries",
+    routePath: "/api/apinice/ration-to-uid-all-v2",
+    params: ["stateCode","rationNumber"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-AGRISTACK-FARMER-STATUS",
+    name: "AgriStack Farmer Status Check",
+    category: "Citizen Documents",
+    badge: "WEBAPI",
+    icon: "🚜",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["Farmer Aadhaar Number","State (e.g. UP, OD, BR)"],
+    color: "#16A34A",
+    description: "Check farmer registration, eKYC status, land parcel records and PM-Kisan installment eligibility",
+    routePath: "/api/apinice/agristack-farmer-status",
+    params: ["uidNumber","state"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-FARMER-PDF-AKFAST",
+    name: "Farmer Beneficiary PDF (AKFast)",
+    category: "Citizen Documents",
+    badge: "AKFAST",
+    icon: "🌾",
+    processingTime: "Instant",
+    defaultPrice: 25,
+    documents: ["Farmer Aadhaar Number","Language (Hindi/English)"],
+    color: "#65A30D",
+    description: "Instant printable PM-Kisan / AgriStack approved farmer beneficiary certificate PDF download",
+    routePath: "/api/apinice/farmer-pdf-akfast",
+    params: ["aadhaarNumber","language"],
+    isPdf: true,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-RTPS-CERTIFICATE-BR",
+    name: "RTPS Citizen Certificate Download (Bihar)",
+    category: "Citizen Documents",
+    badge: "P4P",
+    icon: "📜",
+    processingTime: "Instant",
+    defaultPrice: 15,
+    documents: ["RTPS Application Reference Number"],
+    color: "#EA580C",
+    description: "Instant download of verified Bihar RTPS Caste, Income, Residence and EWS certificates PDF",
+    routePath: "/api/apinice/rtps-certificate-br",
+    params: ["applicationNumber"],
+    isPdf: true,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-VOTER-LINK-REQUEST-NEXT",
+    name: "Voter Mobile Link Request (Next Engine)",
+    category: "Voter Services",
+    badge: "NEXT",
+    icon: "📲",
+    processingTime: "Instant (5 mins)",
+    defaultPrice: 40,
+    documents: ["EPIC / Voter Card Number","10-digit Mobile Number","State"],
+    color: "#EC4899",
+    description: "Next-gen queue for linking mobile number with Election Commission of India voter identity record",
+    routePath: "/api/apinice/voter-link-request-next",
+    params: ["epic_number","mobile","state"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-MOBILE-DETAILS-FIND",
+    name: "Mobile Details Lookup (Owner & Circle Info)",
+    category: "Utilities & Banking",
+    badge: "WEBAPI",
+    icon: "📞",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["10-digit Mobile Number"],
+    color: "#2563EB",
+    description: "Comprehensive mobile intelligence: subscriber name, telecom circle, network operator & KYC address",
+    routePath: "/api/apinice/mobile-details-lookup",
+    params: ["mobile"],
+    isPdf: false,
+    isDynamicApinice: true,
+  },
+  {
+    id: "SVC-MOBILE-NUMBER-INFO",
+    name: "Mobile Number Intelligence",
+    category: "Utilities & Banking",
+    badge: "AKFAST",
+    icon: "📱",
+    processingTime: "Instant",
+    defaultPrice: 30,
+    documents: ["10-digit Mobile Number"],
+    color: "#0284C7",
+    description: "Telecom carrier verification, active circle location and mobile validity check via AKFast engine",
+    routePath: "/api/apinice/mobile-number-info",
+    params: ["mobile"],
+    isPdf: false,
+    isDynamicApinice: true,
   },
 ];
 
@@ -2954,6 +3682,215 @@ export default function ServicesPage() {
     reader.readAsDataURL(file);
   };
 
+
+  // Dynamic APINice Unified Services state
+  const [dynamicModalOpen, setDynamicModalOpen] = useState(false);
+  const [selectedDynamicService, setSelectedDynamicService] = useState<any>(null);
+  const [dynamicForm, setDynamicForm] = useState<Record<string, string>>({});
+  const [dynamicFile, setDynamicFile] = useState<File | null>(null);
+  const [dynamicFileBase64, setDynamicFileBase64] = useState<string>("");
+  const [dynamicLoading, setDynamicLoading] = useState(false);
+  const [dynamicError, setDynamicError] = useState("");
+  const [dynamicResult, setDynamicResult] = useState<any>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, keyName: string) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedKey(keyName);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const handleDynamicFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setDynamicError("File size must be under 5MB");
+      return;
+    }
+    setDynamicFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = String(reader.result);
+      setDynamicFileBase64(base64);
+      setDynamicForm((prev) => ({ ...prev, front_image: base64 }));
+      setDynamicError("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDynamicSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDynamicService) return;
+    const dyn = getDynamicService(selectedDynamicService.id, selectedDynamicService.defaultPrice);
+    if (dyn.status === "disabled") {
+      setDynamicError("This service is temporarily disabled by admin.");
+      return;
+    }
+    if (Number(wallet?.balance || 0) < dyn.price) {
+      setDynamicError(
+        `Insufficient wallet balance. Required: ₹${dyn.price.toFixed(2)}, Current: ₹${Number(wallet?.balance || 0).toFixed(2)}. Please recharge your wallet.`
+      );
+      return;
+    }
+
+    const missing = selectedDynamicService.params?.find(
+      (p: string) => !dynamicForm[p] || !String(dynamicForm[p]).trim()
+    );
+    if (missing) {
+      const label = PARAM_CONFIG[missing]?.label || missing;
+      setDynamicError(`Please provide ${label}.`);
+      return;
+    }
+
+    setDynamicLoading(true);
+    setDynamicError("");
+    try {
+      const res = await api<any>(selectedDynamicService.routePath, {
+        method: "POST",
+        body: JSON.stringify(dynamicForm),
+      });
+      if (res.balance !== undefined) {
+        updateBalance(res.balance);
+      } else {
+        refreshWallet();
+      }
+      setDynamicResult(res);
+    } catch (err: any) {
+      setDynamicError(err.message || "Failed to execute service with provider");
+    } finally {
+      setDynamicLoading(false);
+    }
+  };
+
+  const printCustomerReceiptSlip = (svc: any, inputData: Record<string, any>, resData: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to print verification slip");
+      return;
+    }
+    const txId = resData.ledgerId || resData.transactionId || "TXN-" + Date.now();
+    const d = resData.data || resData;
+
+    const queryRows = Object.entries(inputData)
+      .filter(([k, v]) => v && typeof v === "string" && !v.startsWith("data:") && k !== "photoBase64" && k !== "signatureBase64")
+      .map(([k, v]) => `<tr><td class="label">${escapeHtml(PARAM_CONFIG[k]?.label || k)}</td><td><strong>${escapeHtml(v)}</strong></td></tr>`)
+      .join("");
+
+    const formatVal = (v: any): string => {
+      if (v === null || v === undefined) return "N/A";
+      if (typeof v === "object") {
+        if (Array.isArray(v)) {
+          return `<div class="sub-list">${v.map((item, idx) => `<div class="sub-item">#${idx + 1}: ${typeof item === "object" ? Object.entries(item).map(([k2, v2]) => `<span><strong>${escapeHtml(k2)}:</strong> ${escapeHtml(String(v2))}</span>`).join(" | ") : escapeHtml(String(item))}</div>`).join("")}</div>`;
+        }
+        return Object.entries(v)
+          .filter(([k2]) => !k2.includes("base64") && !k2.includes("Base64") && !k2.includes("image"))
+          .map(([k2, v2]) => `<div><strong>${escapeHtml(k2)}:</strong> ${escapeHtml(String(v2))}</div>`)
+          .join("");
+      }
+      return escapeHtml(String(v));
+    };
+
+    const resultRows = Object.entries(d)
+      .filter(([k, v]) => !["ok", "service", "serviceId", "serviceName", "debited", "balance", "ledgerId", "transactionId", "pdfBase64", "pdf", "pdfUrl", "rawResponse"].includes(k) && typeof v !== "function")
+      .map(([k, v]) => `<tr><td class="label">${escapeHtml(k.replace(/([A-Z])/g, " $1").replace(/_/g, " ").toUpperCase())}</td><td>${formatVal(v)}</td></tr>`)
+      .join("");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${escapeHtml(svc.name)} - Verification Slip</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; max-width: 750px; margin: auto; }
+            .header { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-bottom: 16px; }
+            .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 16px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            .table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; vertical-align: top; }
+            .table td.label { font-weight: bold; background: #f8fafc; width: 38%; color: #3730a3; }
+            .sub-list { display: flex; flex-direction: column; gap: 4px; }
+            .sub-item { background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+            .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin:0;color:#1e293b;letter-spacing:0.5px;">LD SERVICE ZONE</h2>
+            <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Official E-Governance & Digital Citizen Services Center</p>
+            <h3 style="margin:8px 0 0;color:#4f46e5;">${escapeHtml(svc.name)} Enquiry & Verification Receipt</h3>
+          </div>
+          <div class="meta">
+            <div><strong>Service:</strong> ${escapeHtml(svc.name)}</div>
+            <div><strong>Txn ID:</strong> <span style="font-family:monospace;font-weight:bold;">${escapeHtml(txId)}</span></div>
+            <div><strong>Date:</strong> ${new Date().toLocaleString("en-IN")}</div>
+          </div>
+          <table class="table">
+            ${queryRows}
+            <tr><td class="label">Status</td><td><strong style="color:#16a34a;">OFFICIALLY VERIFIED & COMPLETED ✓</strong></td></tr>
+            ${resultRows}
+          </table>
+          <div class="footer">
+            This is an official computerized electronic verification enquiry receipt issued by LD Service Zone.<br/>
+            Data retrieved directly via authenticated government and departmental registries.
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const renderDynamicResultFields = (data: any) => {
+    if (!data || typeof data !== "object") {
+      return <div className="p-3 text-slate-600">{String(data)}</div>;
+    }
+
+    if (Array.isArray(data)) {
+      if (data.length === 0) {
+        return <div className="p-3 text-slate-500">No records found.</div>;
+      }
+      return (
+        <div className="p-3 space-y-2">
+          {data.map((item, index) => (
+            <div key={index} className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-[10px] font-bold text-blue-600 uppercase">Item #{index + 1}</span>
+              {typeof item === "object" ? renderDynamicResultFields(item) : <p className="font-semibold">{String(item)}</p>}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return Object.entries(data)
+      .filter(([k, v]) => !k.includes("base64") && !k.includes("Base64") && !k.includes("rawResponse") && typeof v !== "function")
+      .map(([k, v]) => {
+        const valStr = typeof v === "object" && v !== null ? JSON.stringify(v) : String(v ?? "N/A");
+        const isPrimitive = typeof v !== "object" || v === null;
+        return (
+          <div key={k} className="p-2.5 flex items-start justify-between gap-3 hover:bg-slate-50/70 transition">
+            <span className="font-semibold text-slate-500 w-1/3 shrink-0 uppercase tracking-tight text-[11px]">
+              {k.replace(/([A-Z])/g, " $1").replace(/_/g, " ")}
+            </span>
+            <div className="flex-1 flex items-center justify-between gap-2 overflow-hidden">
+              <span className="text-slate-900 font-medium break-all select-all">
+                {isPrimitive ? valStr : <pre className="text-[10px] font-mono whitespace-pre-wrap">{valStr}</pre>}
+              </span>
+              {isPrimitive && valStr !== "N/A" && (
+                <button
+                  type="button"
+                  title="Copy"
+                  onClick={() => copyToClipboard(valStr, k)}
+                  className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition shrink-0"
+                >
+                  {copiedKey === k ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      });
+  };
+
   const handlePanOcrSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!panOcrPhotoBase64) {
@@ -4109,6 +5046,16 @@ export default function ServicesPage() {
                   }
                   if (item.id === "PAN-NSDL") {
                     setNsdlModalOpen(true);
+                    return;
+                  }
+                  if (item.isDynamicApinice || item.routePath) {
+                    setSelectedDynamicService(item);
+                    setDynamicForm({});
+                    setDynamicFile(null);
+                    setDynamicFileBase64("");
+                    setDynamicError("");
+                    setDynamicResult(null);
+                    setDynamicModalOpen(true);
                     return;
                   }
                   openApplication({ ...item, category: item.category || "PAN" });
@@ -10189,6 +11136,350 @@ export default function ServicesPage() {
           </div>
         </div>
       )}
+
+      {/* Universal Dynamic APINice Service Modal */}
+      {dynamicModalOpen && selectedDynamicService && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[92vh] flex flex-col">
+            {/* Header */}
+            <div className="p-5 sm:p-6 border-b border-slate-100 flex items-start justify-between bg-gradient-to-r from-slate-50 via-white to-blue-50/40">
+              <div className="flex items-center gap-3.5">
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-sm"
+                  style={{ backgroundColor: (selectedDynamicService.color || "#4F46E5") + "20" }}
+                >
+                  {selectedDynamicService.icon || "📄"}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 uppercase tracking-wide">
+                      {selectedDynamicService.badge || "LIVE API"}
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium">
+                      {selectedDynamicService.category}
+                    </span>
+                  </div>
+                  <h3 className="font-display font-extrabold text-lg text-slate-900 mt-0.5">
+                    {selectedDynamicService.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {selectedDynamicService.description}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDynamicModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Service Pricing & Wallet Bar */}
+            <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex flex-wrap items-center justify-between text-xs gap-2">
+              <div className="flex items-center gap-3">
+                <span className="text-slate-600 font-medium">
+                  Service Fee:{" "}
+                  <strong className="text-slate-900 text-sm">
+                    ₹{getDynamicService(selectedDynamicService.id, selectedDynamicService.defaultPrice).price.toFixed(2)}
+                  </strong>
+                </span>
+                <span className="text-slate-300">|</span>
+                <span className="text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  ⚡ Instant Electronic Delivery
+                </span>
+              </div>
+              <div className="text-slate-500">
+                Wallet Balance:{" "}
+                <strong
+                  className={
+                    Number(wallet?.balance || 0) <
+                    getDynamicService(selectedDynamicService.id, selectedDynamicService.defaultPrice).price
+                      ? "text-rose-600 font-bold"
+                      : "text-slate-900 font-semibold"
+                  }
+                >
+                  ₹{Number(wallet?.balance || 0).toFixed(2)}
+                </strong>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {dynamicError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-medium">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{dynamicError}</span>
+                </div>
+              )}
+
+              {/* SUCCESS RESULT VIEW */}
+              {dynamicResult ? (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
+                    <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-sm">Service Request Processed Successfully!</p>
+                      <p className="text-[11px] text-emerald-700 mt-0.5">
+                        Transaction Ref: <span className="font-mono font-bold">{dynamicResult.ledgerId || dynamicResult.transactionId || "N/A"}</span> · Debited: ₹{(dynamicResult.debited || getDynamicService(selectedDynamicService.id, selectedDynamicService.defaultPrice).price).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* If PDF Output */}
+                  {(dynamicResult.pdf || dynamicResult.pdfBase64 || dynamicResult.pdfUrl) && (
+                    <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-md">
+                          📄
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-900">
+                            {selectedDynamicService.name} Document
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Official digital format PDF document ready for printing or download.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2.5 pt-2">
+                        <button
+                          onClick={() => {
+                            if (dynamicResult.pdfBase64 || dynamicResult.pdf) {
+                              downloadBase64Pdf(
+                                dynamicResult.pdfBase64 || dynamicResult.pdf,
+                                `${selectedDynamicService.name.replace(/\s+/g, "_")}.pdf`
+                              );
+                            } else if (dynamicResult.pdfUrl) {
+                              window.open(dynamicResult.pdfUrl, "_blank");
+                            }
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                        >
+                          <Download size={14} />
+                          <span>Download PDF Document</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (dynamicResult.pdfBase64 || dynamicResult.pdf) {
+                              openBase64Pdf(dynamicResult.pdfBase64 || dynamicResult.pdf);
+                            } else if (dynamicResult.pdfUrl) {
+                              window.open(dynamicResult.pdfUrl, "_blank");
+                            }
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition flex items-center gap-1.5"
+                        >
+                          <ExternalLink size={14} />
+                          <span>Open in New Tab</span>
+                        </button>
+                        <button
+                          onClick={() => printCustomerReceiptSlip(selectedDynamicService, dynamicForm, dynamicResult)}
+                          className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                        >
+                          <Printer size={14} />
+                          <span>Print Customer Slip</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* If Data Details Output */}
+                  {dynamicResult.data && (
+                    <div className="rounded-2xl border border-slate-200 overflow-hidden text-xs">
+                      <div className="bg-slate-100 px-4 py-2.5 font-bold text-slate-700 border-b border-slate-200 flex justify-between items-center">
+                        <span>Verified Result Information</span>
+                        <button
+                          onClick={() => printCustomerReceiptSlip(selectedDynamicService, dynamicForm, dynamicResult)}
+                          className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 rounded-lg border border-slate-300 font-semibold text-[11px] flex items-center gap-1"
+                        >
+                          <Printer size={12} />
+                          <span>Print Slip</span>
+                        </button>
+                      </div>
+                      <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                        {renderDynamicResultFields(dynamicResult.data)}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDynamicResult(null);
+                        setDynamicForm({});
+                        setDynamicFile(null);
+                        setDynamicFileBase64("");
+                      }}
+                      className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold"
+                    >
+                      Process Another Enquiry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDynamicModalOpen(false)}
+                      className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold"
+                    >
+                      Done / Close
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* INPUT FORM VIEW */
+                <form onSubmit={handleDynamicSubmit} className="space-y-4">
+                  {selectedDynamicService.params?.map((paramName: string) => {
+                    const cfg = PARAM_CONFIG[paramName] || {
+                      label: paramName.replace(/([A-Z])/g, " $1").replace(/_/g, " "),
+                      placeholder: `Enter ${paramName}`,
+                    };
+
+                    if (cfg.type === "file") {
+                      return (
+                        <div key={paramName} className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700">
+                            {cfg.label} <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-4 text-center cursor-pointer transition bg-slate-50/50">
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              id={`dynamic-file-${paramName}`}
+                              className="hidden"
+                              onChange={handleDynamicFileUpload}
+                            />
+                            <label
+                              htmlFor={`dynamic-file-${paramName}`}
+                              className="cursor-pointer flex flex-col items-center justify-center gap-2"
+                            >
+                              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                                <Upload size={18} />
+                              </div>
+                              {dynamicFile ? (
+                                <div>
+                                  <p className="text-xs font-bold text-slate-900">{dynamicFile.name}</p>
+                                  <p className="text-[11px] text-slate-400">
+                                    {(dynamicFile.size / 1024).toFixed(1)} KB · Click to change
+                                  </p>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-xs font-bold text-slate-700">
+                                    Click or drag image to upload
+                                  </p>
+                                  <p className="text-[11px] text-slate-400">
+                                    JPG, PNG, or PDF under 5MB
+                                  </p>
+                                </div>
+                              )}
+                            </label>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (cfg.options) {
+                      return (
+                        <div key={paramName} className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700">
+                            {cfg.label} <span className="text-rose-500">*</span>
+                          </label>
+                          <select
+                            value={dynamicForm[paramName] || cfg.options[0]?.value || ""}
+                            onChange={(e) =>
+                              setDynamicForm((prev) => ({ ...prev, [paramName]: e.target.value }))
+                            }
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            {cfg.options.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={paramName} className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">
+                          {cfg.label} <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type={cfg.type || "text"}
+                          placeholder={cfg.placeholder}
+                          value={dynamicForm[paramName] || ""}
+                          maxLength={
+                            cfg.type === "tel" && (paramName.toLowerCase().includes("aadhaar") || paramName.toLowerCase().includes("uid"))
+                              ? 12
+                              : cfg.type === "tel" && paramName.toLowerCase().includes("mobile")
+                              ? 10
+                              : cfg.type === "tel" && paramName.toLowerCase().includes("pin")
+                              ? 6
+                              : undefined
+                          }
+                          style={
+                            !cfg.type || cfg.type === "text"
+                              ? { textTransform: "uppercase" }
+                              : undefined
+                          }
+                          onChange={(e) => {
+                            const val =
+                              !cfg.type || cfg.type === "text"
+                                ? e.target.value.toUpperCase()
+                                : e.target.value;
+                            setDynamicForm((prev) => ({ ...prev, [paramName]: val }));
+                          }}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
+                        />
+                      </div>
+                    );
+                  })}
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={
+                        dynamicLoading ||
+                        Number(wallet?.balance || 0) <
+                          getDynamicService(selectedDynamicService.id, selectedDynamicService.defaultPrice).price
+                      }
+                      className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                    >
+                      {dynamicLoading ? (
+                        <>
+                          <RefreshCw size={16} className="animate-spin" />
+                          <span>Processing Enquiry with Provider API...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search size={16} />
+                          <span>
+                            Pay ₹
+                            {getDynamicService(
+                              selectedDynamicService.id,
+                              selectedDynamicService.defaultPrice
+                            ).price.toFixed(2)}{" "}
+                            & Execute {selectedDynamicService.name}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                    {Number(wallet?.balance || 0) <
+                      getDynamicService(selectedDynamicService.id, selectedDynamicService.defaultPrice).price && (
+                      <p className="text-[11px] text-rose-600 font-semibold text-center mt-2">
+                        Insufficient wallet balance. Please top up your wallet in the Wallet page.
+                      </p>
+                    )}
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

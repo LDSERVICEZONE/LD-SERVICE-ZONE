@@ -1564,6 +1564,1390 @@ export class ApiniceProvider {
       raw: response,
     }
   }
+
+
+  async lookupDlToMobile(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.dlNo !== undefined) query.set("dlNo", String(input.dlNo));
+    if (input.dob !== undefined) query.set("dob", String(input.dob));
+    
+    // Also set common aliases
+    if (input.dlNumber) query.set("dlNo", String(input.dlNumber));
+    
+    
+    
+    
+    
+    
+    
+
+    const response = await this.request(`dl_to_mobile_p4p?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process DL to Mobile Lookup");
+    }
+
+    return {
+      success: true,
+      service: "SVC-DL-TO-MOBILE",
+      identifier: input.dlNo || input.dob,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "DL to Mobile Lookup processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async findDlToMobileAkfast(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.dlNumber !== undefined) query.set("dlNumber", String(input.dlNumber));
+    if (input.dob !== undefined) query.set("dob", String(input.dob));
+    
+    // Also set common aliases
+    
+    if (input.dlNo) query.set("dlNumber", String(input.dlNo));
+    
+    
+    
+    
+    
+    
+
+    const response = await this.request(`dl_mobile_find?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process DL to Mobile Find (AKFast)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-DL-TO-MOBILE-AKFAST",
+      identifier: input.dlNumber || input.dob,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "DL to Mobile Find (AKFast) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async checkChallanByMobile(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.mobile !== undefined) body.mobile = input.mobile;
+
+    const response = await this.request("challan_by_mobile", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Challan by Mobile Number");
+    }
+
+    return {
+      success: true,
+      service: "SVC-CHALLAN-MOBILE",
+      identifier: input.mobile,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Challan by Mobile Number processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async checkChallanDetailsAkfast(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.vehicleNumber !== undefined) query.set("vehicleNumber", String(input.vehicleNumber));
+    
+    // Also set common aliases
+    
+    
+    if (input.vehicalNo || input.vehicle_number) query.set("vehicleNumber", String(input.vehicalNo || input.vehicle_number));
+    
+    
+    
+    
+    
+
+    const response = await this.request(`challan_details_check?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Challan Details Check (AKFast)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-CHALLAN-DETAILS",
+      identifier: input.vehicleNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Challan Details Check (AKFast) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async fetchDlAdvanceDetails(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.dl !== undefined) body.dl = input.dl;
+    if (input.dob !== undefined) body.dob = input.dob;
+
+    const response = await this.request("dl_advance_details", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Driving Licence Advance Details");
+    }
+
+    return {
+      success: true,
+      service: "SVC-DL-ADVANCE",
+      identifier: input.dl || input.dob,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Driving Licence Advance Details processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async downloadDlPdfBlue(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.dlNumber !== undefined) query.set("dlNumber", String(input.dlNumber));
+    if (input.dob !== undefined) query.set("dob", String(input.dob));
+    
+    // Also set common aliases
+    
+    if (input.dlNo) query.set("dlNumber", String(input.dlNo));
+    
+    
+    
+    
+    
+    
+
+    const response = await this.request(`dl_pdf_blue?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process DL PDF (Blue Type Format)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-DL-PDF-BLUE",
+      identifier: input.dlNumber || input.dob,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "DL PDF (Blue Type Format) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async downloadDlPdfWhite(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.dlNumber !== undefined) query.set("dlNumber", String(input.dlNumber));
+    if (input.dob !== undefined) query.set("dob", String(input.dob));
+    if (input.type !== undefined) query.set("type", String(input.type));
+    
+    // Also set common aliases
+    
+    if (input.dlNo) query.set("dlNumber", String(input.dlNo));
+    
+    
+    
+    
+    
+    
+
+    const response = await this.request(`dl_pdf_white?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process DL PDF (White Type Format)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-DL-PDF-WHITE",
+      identifier: input.dlNumber || input.dob || input.type,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "DL PDF (White Type Format) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async verifyRcDetailsAkfast(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.vehicleNumber !== undefined) query.set("vehicleNumber", String(input.vehicleNumber));
+    
+    // Also set common aliases
+    
+    
+    if (input.vehicalNo || input.vehicle_number) query.set("vehicleNumber", String(input.vehicalNo || input.vehicle_number));
+    
+    
+    
+    
+    
+
+    const response = await this.request(`rc_details_verify?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process RC Details Verify");
+    }
+
+    return {
+      success: true,
+      service: "SVC-RC-DETAILS-VERIFY",
+      identifier: input.vehicleNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "RC Details Verify processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async downloadRcPdfAkfast(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.vehicleNumber !== undefined) query.set("vehicleNumber", String(input.vehicleNumber));
+    if (input.fatherName !== undefined) query.set("fatherName", String(input.fatherName));
+    
+    // Also set common aliases
+    
+    
+    if (input.vehicalNo || input.vehicle_number) query.set("vehicleNumber", String(input.vehicalNo || input.vehicle_number));
+    
+    
+    
+    
+    
+
+    const response = await this.request(`rc_pdf_download?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process RC PDF Download (AKFast)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-RC-PDF-DOWNLOAD",
+      identifier: input.vehicleNumber || input.fatherName,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "RC PDF Download (AKFast) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async printRcOther(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.vehicalNo !== undefined) query.set("vehicalNo", String(input.vehicalNo));
+    if (input.pdfType !== undefined) query.set("pdfType", String(input.pdfType));
+    if (input.fatherName !== undefined) query.set("fatherName", String(input.fatherName));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    
+    
+    
+
+    const response = await this.request(`rc_pdf_verification?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process RC Print (Other Format)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-RC-PRINT-OTHER",
+      identifier: input.vehicalNo || input.pdfType || input.fatherName,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "RC Print (Other Format) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async generateVehicleRcPdfV2(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.vehicle_number !== undefined) body.vehicle_number = input.vehicle_number;
+    if (input.rc_type !== undefined) body.rc_type = input.rc_type;
+
+    const response = await this.request("v2/vehicle-rc-pdf", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Vehicle RC PDF (Next)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-VEHICLE-RC-PDF-V2",
+      identifier: input.vehicle_number || input.rc_type,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Vehicle RC PDF (Next) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async openNsdlAccount(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.name !== undefined) body.name = input.name;
+    if (input.mobile !== undefined) body.mobile = input.mobile;
+    if (input.email !== undefined) body.email = input.email;
+    if (input.date_of_birth !== undefined) body.date_of_birth = input.date_of_birth;
+    if (input.address !== undefined) body.address = input.address;
+    if (input.state_name !== undefined) body.state_name = input.state_name;
+    if (input.city_name !== undefined) body.city_name = input.city_name;
+    if (input.pincode !== undefined) body.pincode = input.pincode;
+    if (input.pancard !== undefined) body.pancard = input.pancard;
+    if (input.account_type !== undefined) body.account_type = input.account_type;
+
+    const response = await this.request("nsdl_account_opening", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process NSDL Payment Bank Account Opening");
+    }
+
+    return {
+      success: true,
+      service: "SVC-NSDL-ACCOUNT-OPENING",
+      identifier: input.name || input.mobile || input.email || input.date_of_birth || input.address || input.state_name || input.city_name || input.pincode || input.pancard || input.account_type,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "NSDL Payment Bank Account Opening processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async searchMcaCin(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.cin !== undefined) body.cin = input.cin;
+
+    const response = await this.request("mca_cin_search", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process MCA Company CIN Search");
+    }
+
+    return {
+      success: true,
+      service: "SVC-MCA-CIN-SEARCH",
+      identifier: input.cin,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "MCA Company CIN Search processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async verifyDirectorDin(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.din !== undefined) body.din = input.din;
+    if (input.dob !== undefined) body.dob = input.dob;
+
+    const response = await this.request("din_verification", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Company Director DIN Verification");
+    }
+
+    return {
+      success: true,
+      service: "SVC-DIN-VERIFICATION",
+      identifier: input.din || input.dob,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Company Director DIN Verification processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async verifyTinNumber(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.tin !== undefined) body.tin = input.tin;
+
+    const response = await this.request("tin_verification", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process TIN Number Verification");
+    }
+
+    return {
+      success: true,
+      service: "SVC-TIN-VERIFICATION",
+      identifier: input.tin,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "TIN Number Verification processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async findMobileToMultiAccount(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.mobile !== undefined) body.mobile = input.mobile;
+
+    const response = await this.request("mobile_to_multi_account", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Mobile to Multiple Bank Accounts");
+    }
+
+    return {
+      success: true,
+      service: "SVC-MOBILE-TO-MULTI-ACCOUNT",
+      identifier: input.mobile,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Mobile to Multiple Bank Accounts processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async findMobileToMultiBankAkfast(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.mobile !== undefined) body.mobile = input.mobile;
+
+    const response = await this.request("mobile_to_multiple_bank_account", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Mobile to Multiple Bank Account (AKFast)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-MOBILE-TO-MULTI-BANK-AKFAST",
+      identifier: input.mobile,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Mobile to Multiple Bank Account (AKFast) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async fetchMobileToIfscAccount(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.mobile !== undefined) body.mobile = input.mobile;
+
+    const response = await this.request("mobile_to_ifsc_account", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Mobile to IFSC Account Details");
+    }
+
+    return {
+      success: true,
+      service: "SVC-MOBILE-TO-IFSC-ACCOUNT",
+      identifier: input.mobile,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Mobile to IFSC Account Details processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async checkAadhaarPanLink(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.aadhaar !== undefined) body.aadhaar = input.aadhaar;
+    if (input.pan !== undefined) body.pan = input.pan;
+
+    const response = await this.request("aadhaar_pan_link_check", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Aadhaar-PAN Link Check");
+    }
+
+    return {
+      success: true,
+      service: "SVC-AADHAAR-PAN-LINK-CHECK",
+      identifier: input.aadhaar || input.pan,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Aadhaar-PAN Link Check processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async checkMobileToPanLink(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.mobile !== undefined) body.mobile = input.mobile;
+
+    const response = await this.request("mobile_to_pan_link", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Mobile Number to PAN Link Check");
+    }
+
+    return {
+      success: true,
+      service: "SVC-MOBILE-TO-PAN-LINK",
+      identifier: input.mobile,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Mobile Number to PAN Link Check processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async checkPanToBankLink(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.pan !== undefined) body.pan = input.pan;
+    if (input.account !== undefined) body.account = input.account;
+    if (input.ifsc !== undefined) body.ifsc = input.ifsc;
+
+    const response = await this.request("pan_to_bank_link", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process PAN to Bank Account Details");
+    }
+
+    return {
+      success: true,
+      service: "SVC-PAN-TO-BANK-LINK",
+      identifier: input.pan || input.account || input.ifsc,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "PAN to Bank Account Details processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async findAadhaarToPanV2(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.uidNumber !== undefined) query.set("uidNumber", String(input.uidNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    if (input.aadhaar || input.aadhaarNumber) query.set("uidNumber", String(input.aadhaar || input.aadhaarNumber));
+    
+    
+    
+    
+
+    const response = await this.request(`aadhar_to_pan_find_v2?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Aadhaar to PAN Find (V2)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-AADHAAR-TO-PAN-V2",
+      identifier: input.uidNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Aadhaar to PAN Find (V2) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async verifyMaskPanAkfast(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.aadhaarNumber !== undefined) query.set("aadhaarNumber", String(input.aadhaarNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    if (input.uidNumber || input.aadhaar) query.set("aadhaarNumber", String(input.uidNumber || input.aadhaar));
+    
+    
+    
+
+    const response = await this.request(`mask_pan_verification?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Masked PAN Verification");
+    }
+
+    return {
+      success: true,
+      service: "SVC-MASK-PAN-VERIFICATION",
+      identifier: input.aadhaarNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Masked PAN Verification processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async fetchPanToDetails(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.panNumber !== undefined) query.set("panNumber", String(input.panNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    if (input.pan) query.set("panNumber", String(input.pan));
+    
+    
+
+    const response = await this.request(`pan_to_details?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process PAN to Full Details");
+    }
+
+    return {
+      success: true,
+      service: "SVC-PAN-TO-DETAILS",
+      identifier: input.panNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "PAN to Full Details processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async maskAadhaarImage(input = {}) {
+    const rawPhoto = input.photoBase64 || input.front_image || input.image || input.photo;
+    if (!rawPhoto) {
+      throw new Error("Aadhaar front image is required (JPEG/PNG, max 5MB)");
+    }
+    const mimeType = input.mimeType || "image/jpeg";
+    const key = this.getApiKey();
+    const cleanB64 = String(rawPhoto).replace(/^data:image\/[a-zA-Z]+;base64,/, "").trim();
+    const buffer = Buffer.from(cleanB64, "base64");
+    const blob = new Blob([buffer], { type: mimeType || "image/jpeg" });
+    const form = new FormData();
+    form.append("apiKey", key);
+    form.append("api_key", key);
+    form.append("front_image", blob, "aadhaar_front.jpg");
+
+    const response = await this.request("aadhaar_masking", {
+      method: "POST",
+      body: form,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.error_code) {
+      throw new Error(response.message || "Failed to mask Aadhaar card");
+    }
+
+    return {
+      success: true,
+      service: "SVC-AADHAAR-MASKING",
+      maskedImageUrl: response.masked_image_url || response.url || response.image || null,
+      message: response.message || "Aadhaar card masked successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async verifyMaskAadhaarAkfast(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.panNumber !== undefined) query.set("panNumber", String(input.panNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    if (input.pan) query.set("panNumber", String(input.pan));
+    
+    
+
+    const response = await this.request(`mask_aadhar_verification?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Masked Aadhaar Verification");
+    }
+
+    return {
+      success: true,
+      service: "SVC-MASK-AADHAAR-VERIFICATION",
+      identifier: input.panNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Masked Aadhaar Verification processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async checkUpRationToAadhaar(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.ration_no !== undefined) query.set("ration_no", String(input.ration_no));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    
+    if (input.rationNumber) query.set("ration_no", String(input.rationNumber));
+    
+
+    const response = await this.request(`up_ration_to_aadhaar?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process UP Ration to Aadhaar Link Check");
+    }
+
+    return {
+      success: true,
+      service: "SVC-UP-RATION-TO-AADHAAR",
+      identifier: input.ration_no,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "UP Ration to Aadhaar Link Check processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async checkNpciStatusAkfast(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.aadhaarNumber !== undefined) query.set("aadhaarNumber", String(input.aadhaarNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    if (input.uidNumber || input.aadhaar) query.set("aadhaarNumber", String(input.uidNumber || input.aadhaar));
+    
+    
+    
+
+    const response = await this.request(`npci_status_check?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process NPCI Status Check (AKFast Engine)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-NPCI-STATUS-AKFAST",
+      identifier: input.aadhaarNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "NPCI Status Check (AKFast Engine) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async updateEshramMobile(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.uidNumber !== undefined) query.set("uidNumber", String(input.uidNumber));
+    if (input.dob !== undefined) query.set("dob", String(input.dob));
+    if (input.newMobile !== undefined) query.set("newMobile", String(input.newMobile));
+    
+    // Also set common aliases
+    
+    
+    
+    if (input.aadhaar || input.aadhaarNumber) query.set("uidNumber", String(input.aadhaar || input.aadhaarNumber));
+    
+    
+    
+    
+
+    const response = await this.request(`eshram_mobile_update?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process e-Shram Mobile Number Update");
+    }
+
+    return {
+      success: true,
+      service: "SVC-ESHRAM-MOBILE-UPDATE",
+      identifier: input.uidNumber || input.dob || input.newMobile,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "e-Shram Mobile Number Update processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async fetchUidToFullDetails(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.uidNumber !== undefined) query.set("uidNumber", String(input.uidNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    if (input.aadhaar || input.aadhaarNumber) query.set("uidNumber", String(input.aadhaar || input.aadhaarNumber));
+    
+    
+    
+    
+
+    const response = await this.request(`uid_to_full_details?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process UID to Full Demographic Details");
+    }
+
+    return {
+      success: true,
+      service: "SVC-UID-TO-FULL-DETAILS",
+      identifier: input.uidNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "UID to Full Demographic Details processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async downloadRationPdfByAadhaar(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.uidNumber !== undefined) query.set("uidNumber", String(input.uidNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    if (input.aadhaar || input.aadhaarNumber) query.set("uidNumber", String(input.aadhaar || input.aadhaarNumber));
+    
+    
+    
+    
+
+    const response = await this.request(`aadhar_to_ration_pdf?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Ration PDF by Aadhaar Number");
+    }
+
+    return {
+      success: true,
+      service: "SVC-RATION-PDF-BY-AADHAAR",
+      identifier: input.uidNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Ration PDF by Aadhaar Number processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async downloadRationPdfByRation(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.rationNumber !== undefined) query.set("rationNumber", String(input.rationNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    
+    
+    if (input.ration_no) query.set("rationNumber", String(input.ration_no));
+
+    const response = await this.request(`ration_to_ration_pdf?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Ration PDF by Ration Card Number");
+    }
+
+    return {
+      success: true,
+      service: "SVC-RATION-PDF-BY-RATION",
+      identifier: input.rationNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Ration PDF by Ration Card Number processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async findRationToAadhaarAll(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.rationNumber !== undefined) query.set("rationNumber", String(input.rationNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    
+    
+    if (input.ration_no) query.set("rationNumber", String(input.ration_no));
+
+    const response = await this.request(`ration_to_aadhar_all?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Ration to Aadhaar (All State Search)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-RATION-TO-AADHAAR-ALL",
+      identifier: input.rationNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Ration to Aadhaar (All State Search) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async findRationToUidAllV2(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.stateCode !== undefined) query.set("stateCode", String(input.stateCode));
+    if (input.rationNumber !== undefined) query.set("rationNumber", String(input.rationNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    
+    
+    if (input.ration_no) query.set("rationNumber", String(input.ration_no));
+
+    const response = await this.request(`ration_to_uid_all_state_v2?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Ration to UID (All State V2)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-RATION-TO-UID-ALL-V2",
+      identifier: input.stateCode || input.rationNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Ration to UID (All State V2) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async checkAgristackFarmerStatus(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.uidNumber !== undefined) query.set("uidNumber", String(input.uidNumber));
+    if (input.state !== undefined) query.set("state", String(input.state));
+    
+    // Also set common aliases
+    
+    
+    
+    if (input.aadhaar || input.aadhaarNumber) query.set("uidNumber", String(input.aadhaar || input.aadhaarNumber));
+    
+    
+    
+    
+
+    const response = await this.request(`agristack_farmer_status_check?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process AgriStack Farmer Status Check");
+    }
+
+    return {
+      success: true,
+      service: "SVC-AGRISTACK-FARMER-STATUS",
+      identifier: input.uidNumber || input.state,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "AgriStack Farmer Status Check processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async downloadFarmerPdfAkfast(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.aadhaarNumber !== undefined) query.set("aadhaarNumber", String(input.aadhaarNumber));
+    if (input.language !== undefined) query.set("language", String(input.language));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    if (input.uidNumber || input.aadhaar) query.set("aadhaarNumber", String(input.uidNumber || input.aadhaar));
+    
+    
+    
+
+    const response = await this.request(`farmer_pdf?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Farmer Beneficiary PDF (AKFast)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-FARMER-PDF-AKFAST",
+      identifier: input.aadhaarNumber || input.language,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Farmer Beneficiary PDF (AKFast) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async downloadRtpsCertificateBr(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.applicationNumber !== undefined) query.set("applicationNumber", String(input.applicationNumber));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    
+    
+    
+
+    const response = await this.request(`rtps_certificate_br_p4p?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process RTPS Citizen Certificate Download (Bihar)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-RTPS-CERTIFICATE-BR",
+      identifier: input.applicationNumber,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "RTPS Citizen Certificate Download (Bihar) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async requestVoterMobileLinkNext(input = {}) {
+    const key = this.getApiKey();
+    const body = { apiKey: key, api_key: key };
+    if (input.epic_number !== undefined) body.epic_number = input.epic_number;
+    if (input.mobile !== undefined) body.mobile = input.mobile;
+    if (input.state !== undefined) body.state = input.state;
+
+    const response = await this.request("voter_link_request", {
+      method: "POST",
+      body,
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Voter Mobile Link Request (Next Engine)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-VOTER-LINK-REQUEST-NEXT",
+      identifier: input.epic_number || input.mobile || input.state,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Voter Mobile Link Request (Next Engine) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async lookupMobileDetails(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.mobile !== undefined) query.set("mobile", String(input.mobile));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    
+    
+    
+
+    const response = await this.request(`v2/mobile_details_lookup.php?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Mobile Details Lookup (Owner & Circle Info)");
+    }
+
+    return {
+      success: true,
+      service: "SVC-MOBILE-DETAILS-FIND",
+      identifier: input.mobile,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Mobile Details Lookup (Owner & Circle Info) processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
+  async fetchMobileNumberInfo(input = {}) {
+    const key = this.getApiKey();
+    const query = new URLSearchParams({ apiKey: key, api_key: key });
+    if (input.mobile !== undefined) query.set("mobile", String(input.mobile));
+    
+    // Also set common aliases
+    
+    
+    
+    
+    
+    
+    
+    
+
+    const response = await this.request(`mobile_number_info?${query.toString()}`, {
+      method: "GET",
+      timeoutMs: 60000,
+    });
+
+    if (response.status === false || response.success === false || response.error) {
+      throw new Error(response.message || response.error || "Failed to process Mobile Number Intelligence");
+    }
+
+    return {
+      success: true,
+      service: "SVC-MOBILE-NUMBER-INFO",
+      identifier: input.mobile,
+      data: response.data || response,
+      pdfBase64: response.pdf_base64 || response.pdf || response.data?.pdf || null,
+      pdfUrl: response.pdf_url || response.url || response.data?.pdf_url || null,
+      message: response.message || "Mobile Number Intelligence processed successfully",
+      balanceRemaining: response.balance || response.balance_remaining,
+      raw: response,
+    };
+  }
+
 }
 
 export const apiniceProvider = new ApiniceProvider()

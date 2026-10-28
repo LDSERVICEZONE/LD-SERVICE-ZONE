@@ -344,6 +344,447 @@ export const DEFAULT_APINICE_SERVICES = [
     color: "#0891B2",
     status: "active",
   },
+  // --- NEW 40 EXPANDED SERVICES ---
+  {
+    id: "SVC-DL-TO-MOBILE",
+    name: "DL to Mobile Lookup",
+    category: "Vehicle Services",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Driving Licence Number","Date of Birth (YYYY-MM-DD)"],
+    color: "#2563EB",
+    status: "active",
+  },
+  {
+    id: "SVC-DL-TO-MOBILE-AKFAST",
+    name: "DL to Mobile Find (AKFast)",
+    category: "Vehicle Services",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Driving Licence Number","Date of Birth"],
+    color: "#0284C7",
+    status: "active",
+  },
+  {
+    id: "SVC-CHALLAN-MOBILE",
+    name: "Challan by Mobile Number",
+    category: "Vehicle Services",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["10-digit Registered Mobile Number"],
+    color: "#D97706",
+    status: "active",
+  },
+  {
+    id: "SVC-CHALLAN-DETAILS",
+    name: "Challan Details Check (AKFast)",
+    category: "Vehicle Services",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Vehicle Registration Number"],
+    color: "#EA580C",
+    status: "active",
+  },
+  {
+    id: "SVC-DL-ADVANCE",
+    name: "Driving Licence Advance Details",
+    category: "Vehicle Services",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["Driving Licence Number","Date of Birth"],
+    color: "#4F46E5",
+    status: "active",
+  },
+  {
+    id: "SVC-DL-PDF-BLUE",
+    name: "DL PDF (Blue Type Format)",
+    category: "Vehicle Services",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Driving Licence Number","Date of Birth"],
+    color: "#1D56D8",
+    status: "active",
+  },
+  {
+    id: "SVC-DL-PDF-WHITE",
+    name: "DL PDF (White Type Format)",
+    category: "Vehicle Services",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Driving Licence Number","Date of Birth"],
+    color: "#0891B2",
+    status: "active",
+  },
+  {
+    id: "SVC-RC-DETAILS-VERIFY",
+    name: "RC Details Verify",
+    category: "Vehicle Services",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Vehicle Registration Number"],
+    color: "#059669",
+    status: "active",
+  },
+  {
+    id: "SVC-RC-PDF-DOWNLOAD",
+    name: "RC PDF Download (AKFast)",
+    category: "Vehicle Services",
+    customerPrice: 35,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Vehicle Registration Number"],
+    color: "#06B6D4",
+    status: "active",
+  },
+  {
+    id: "SVC-RC-PRINT-OTHER",
+    name: "RC Print (Other Format)",
+    category: "Vehicle Services",
+    customerPrice: 35,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Vehicle Registration Number"],
+    color: "#2563EB",
+    status: "active",
+  },
+  {
+    id: "SVC-VEHICLE-RC-PDF-V2",
+    name: "Vehicle RC PDF (Next)",
+    category: "Vehicle Services",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Vehicle Registration Number"],
+    color: "#7C3AED",
+    status: "active",
+  },
+  {
+    id: "SVC-NSDL-ACCOUNT-OPENING",
+    name: "NSDL Payment Bank Account Opening",
+    category: "Utilities & Banking",
+    customerPrice: 250,
+    commission: 25,
+    processingTime: "Instant",
+    documents: ["Applicant Name","Mobile Number","Email","PAN Card","Aadhaar","Address"],
+    color: "#1D56D8",
+    status: "active",
+  },
+  {
+    id: "SVC-MCA-CIN-SEARCH",
+    name: "MCA Company CIN Search",
+    category: "Utilities & Banking",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["21-character Corporate CIN Number"],
+    color: "#4338CA",
+    status: "active",
+  },
+  {
+    id: "SVC-DIN-VERIFICATION",
+    name: "Company Director DIN Verification",
+    category: "Utilities & Banking",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["8-digit Director Identification Number (DIN)","Date of Birth"],
+    color: "#6366F1",
+    status: "active",
+  },
+  {
+    id: "SVC-TIN-VERIFICATION",
+    name: "TIN Number Verification",
+    category: "Utilities & Banking",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["11-digit Taxpayer Identification Number (TIN)"],
+    color: "#0D9488",
+    status: "active",
+  },
+  {
+    id: "SVC-MOBILE-TO-MULTI-ACCOUNT",
+    name: "Mobile to Multiple Bank Accounts",
+    category: "Utilities & Banking",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["10-digit Mobile Number"],
+    color: "#2563EB",
+    status: "active",
+  },
+  {
+    id: "SVC-MOBILE-TO-MULTI-BANK-AKFAST",
+    name: "Mobile to Multiple Bank Account (AKFast)",
+    category: "Utilities & Banking",
+    customerPrice: 35,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["10-digit Mobile Number"],
+    color: "#0284C7",
+    status: "active",
+  },
+  {
+    id: "SVC-MOBILE-TO-IFSC-ACCOUNT",
+    name: "Mobile to IFSC Account Details",
+    category: "Utilities & Banking",
+    customerPrice: 20,
+    commission: 4,
+    processingTime: "Instant",
+    documents: ["10-digit Mobile Number"],
+    color: "#0891B2",
+    status: "active",
+  },
+  {
+    id: "SVC-AADHAAR-PAN-LINK-CHECK",
+    name: "Aadhaar-PAN Link Check",
+    category: "PAN Card Services",
+    customerPrice: 10,
+    commission: 2,
+    processingTime: "Instant",
+    documents: ["12-digit Aadhaar Number"],
+    color: "#10B981",
+    status: "active",
+  },
+  {
+    id: "SVC-MOBILE-TO-PAN-LINK",
+    name: "Mobile Number to PAN Link Check",
+    category: "PAN Card Services",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["10-digit Mobile Number"],
+    color: "#3B82F6",
+    status: "active",
+  },
+  {
+    id: "SVC-PAN-TO-BANK-LINK",
+    name: "PAN to Bank Account Details",
+    category: "PAN Card Services",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["10-digit PAN Number","Bank Account Number","Bank IFSC Code"],
+    color: "#8B5CF6",
+    status: "active",
+  },
+  {
+    id: "SVC-AADHAAR-TO-PAN-V2",
+    name: "Aadhaar to PAN Find (V2)",
+    category: "PAN Card Services",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["12-digit Aadhaar Number"],
+    color: "#6366F1",
+    status: "active",
+  },
+  {
+    id: "SVC-MASK-PAN-VERIFICATION",
+    name: "Masked PAN Verification",
+    category: "PAN Card Services",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["12-digit Aadhaar Number"],
+    color: "#D97706",
+    status: "active",
+  },
+  {
+    id: "SVC-PAN-TO-DETAILS",
+    name: "PAN to Full Details",
+    category: "PAN Card Services",
+    customerPrice: 20,
+    commission: 4,
+    processingTime: "Instant",
+    documents: ["10-digit PAN Number"],
+    color: "#4F46E5",
+    status: "active",
+  },
+  {
+    id: "SVC-AADHAAR-MASKING",
+    name: "Aadhaar Masking Service",
+    category: "Aadhaar Services",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["Aadhaar Card Front Photo (JPEG/PNG)"],
+    color: "#0D9488",
+    status: "active",
+  },
+  {
+    id: "SVC-MASK-AADHAAR-VERIFICATION",
+    name: "Masked Aadhaar Verification",
+    category: "Aadhaar Services",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["10-digit PAN Number"],
+    color: "#0891B2",
+    status: "active",
+  },
+  {
+    id: "SVC-UP-RATION-TO-AADHAAR",
+    name: "UP Ration to Aadhaar Link Check",
+    category: "Citizen Documents",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["UP Ration Card Number"],
+    color: "#16A34A",
+    status: "active",
+  },
+  {
+    id: "SVC-NPCI-STATUS-AKFAST",
+    name: "NPCI Status Check (AKFast Engine)",
+    category: "Aadhaar Services",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["12-digit Aadhaar Number"],
+    color: "#2563EB",
+    status: "active",
+  },
+  {
+    id: "SVC-ESHRAM-MOBILE-UPDATE",
+    name: "e-Shram Mobile Number Update",
+    category: "Aadhaar Services",
+    customerPrice: 130,
+    commission: 15,
+    processingTime: "Instant",
+    documents: ["12-digit Aadhaar Number","Date of Birth","New 10-digit Mobile"],
+    color: "#EA580C",
+    status: "active",
+  },
+  {
+    id: "SVC-UID-TO-FULL-DETAILS",
+    name: "UID to Full Demographic Details",
+    category: "Aadhaar Services",
+    customerPrice: 180,
+    commission: 20,
+    processingTime: "Instant",
+    documents: ["12-digit Aadhaar Number"],
+    color: "#7C3AED",
+    status: "active",
+  },
+  {
+    id: "SVC-RATION-PDF-BY-AADHAAR",
+    name: "Ration PDF by Aadhaar Number",
+    category: "Citizen Documents",
+    customerPrice: 90,
+    commission: 10,
+    processingTime: "Instant",
+    documents: ["12-digit Aadhaar Number"],
+    color: "#10B981",
+    status: "active",
+  },
+  {
+    id: "SVC-RATION-PDF-BY-RATION",
+    name: "Ration PDF by Ration Card Number",
+    category: "Citizen Documents",
+    customerPrice: 90,
+    commission: 10,
+    processingTime: "Instant",
+    documents: ["Ration Card Number"],
+    color: "#059669",
+    status: "active",
+  },
+  {
+    id: "SVC-RATION-TO-AADHAAR-ALL",
+    name: "Ration to Aadhaar (All State Search)",
+    category: "Citizen Documents",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Ration Card Number"],
+    color: "#D97706",
+    status: "active",
+  },
+  {
+    id: "SVC-RATION-TO-UID-ALL-V2",
+    name: "Ration to UID (All State V2)",
+    category: "Citizen Documents",
+    customerPrice: 180,
+    commission: 20,
+    processingTime: "Instant",
+    documents: ["State Code (e.g. OD, UP, BR, MH)","Ration Card Number"],
+    color: "#9333EA",
+    status: "active",
+  },
+  {
+    id: "SVC-AGRISTACK-FARMER-STATUS",
+    name: "AgriStack Farmer Status Check",
+    category: "Citizen Documents",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["Farmer Aadhaar Number","State (e.g. UP, OD, BR)"],
+    color: "#16A34A",
+    status: "active",
+  },
+  {
+    id: "SVC-FARMER-PDF-AKFAST",
+    name: "Farmer Beneficiary PDF (AKFast)",
+    category: "Citizen Documents",
+    customerPrice: 25,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["Farmer Aadhaar Number","Language (Hindi/English)"],
+    color: "#65A30D",
+    status: "active",
+  },
+  {
+    id: "SVC-RTPS-CERTIFICATE-BR",
+    name: "RTPS Citizen Certificate Download (Bihar)",
+    category: "Citizen Documents",
+    customerPrice: 15,
+    commission: 3,
+    processingTime: "Instant",
+    documents: ["RTPS Application Reference Number"],
+    color: "#EA580C",
+    status: "active",
+  },
+  {
+    id: "SVC-VOTER-LINK-REQUEST-NEXT",
+    name: "Voter Mobile Link Request (Next Engine)",
+    category: "Voter Services",
+    customerPrice: 40,
+    commission: 5,
+    processingTime: "Instant (5 mins)",
+    documents: ["EPIC / Voter Card Number","10-digit Mobile Number","State"],
+    color: "#EC4899",
+    status: "active",
+  },
+  {
+    id: "SVC-MOBILE-DETAILS-FIND",
+    name: "Mobile Details Lookup (Owner & Circle Info)",
+    category: "Utilities & Banking",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["10-digit Mobile Number"],
+    color: "#2563EB",
+    status: "active",
+  },
+  {
+    id: "SVC-MOBILE-NUMBER-INFO",
+    name: "Mobile Number Intelligence",
+    category: "Utilities & Banking",
+    customerPrice: 30,
+    commission: 5,
+    processingTime: "Instant",
+    documents: ["10-digit Mobile Number"],
+    color: "#0284C7",
+    status: "active",
+  },
 ]
 
 export function seedApiniceServices(db) {
@@ -529,6 +970,7 @@ export async function handleApiniceRoutes(context) {
     return respond(200, {
       ok: true,
       service: serviceId,
+      serviceId: serviceId,
       serviceName: svcConfig.name,
       debited: requiredPrice,
       balance: balanceAfter,
@@ -3741,6 +4183,692 @@ export async function handleApiniceRoutes(context) {
       message: "PAN card details extracted from image successfully",
     })
   }
+
+  
+
+  // =========================================================
+  // EXPANDED 40 APINICE DIGITAL CITIZEN & INTELLIGENCE SERVICES
+  // =========================================================
+  // SVC-DL-TO-MOBILE - DL to Mobile Lookup
+  if (pathName === "/api/apinice/dl-to-mobile" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-DL-TO-MOBILE",
+      fallbackPrice: 25,
+      fallbackName: "DL to Mobile Lookup",
+      descriptionPrefix: "DL to Mobile Lookup",
+      executor: async (input) => {
+        const res = await apiniceProvider.lookupDlToMobile(input);
+        return {
+          ...res,
+          identifier: input.dlNo || input.dob,
+        };
+      },
+    });
+  }
+
+  // SVC-DL-TO-MOBILE-AKFAST - DL to Mobile Find (AKFast)
+  if (pathName === "/api/apinice/dl-to-mobile-akfast" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-DL-TO-MOBILE-AKFAST",
+      fallbackPrice: 30,
+      fallbackName: "DL to Mobile Find (AKFast)",
+      descriptionPrefix: "DL to Mobile Find (AKFast)",
+      executor: async (input) => {
+        const res = await apiniceProvider.findDlToMobileAkfast(input);
+        return {
+          ...res,
+          identifier: input.dlNumber || input.dob,
+        };
+      },
+    });
+  }
+
+  // SVC-CHALLAN-MOBILE - Challan by Mobile Number
+  if (pathName === "/api/apinice/challan-by-mobile" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-CHALLAN-MOBILE",
+      fallbackPrice: 15,
+      fallbackName: "Challan by Mobile Number",
+      descriptionPrefix: "Challan by Mobile Number",
+      executor: async (input) => {
+        const res = await apiniceProvider.checkChallanByMobile(input);
+        return {
+          ...res,
+          identifier: input.mobile,
+        };
+      },
+    });
+  }
+
+  // SVC-CHALLAN-DETAILS - Challan Details Check (AKFast)
+  if (pathName === "/api/apinice/challan-details-akfast" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-CHALLAN-DETAILS",
+      fallbackPrice: 30,
+      fallbackName: "Challan Details Check (AKFast)",
+      descriptionPrefix: "Challan Details Check (AKFast)",
+      executor: async (input) => {
+        const res = await apiniceProvider.checkChallanDetailsAkfast(input);
+        return {
+          ...res,
+          identifier: input.vehicleNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-DL-ADVANCE - Driving Licence Advance Details
+  if (pathName === "/api/apinice/dl-advance-details" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-DL-ADVANCE",
+      fallbackPrice: 15,
+      fallbackName: "Driving Licence Advance Details",
+      descriptionPrefix: "Driving Licence Advance Details",
+      executor: async (input) => {
+        const res = await apiniceProvider.fetchDlAdvanceDetails(input);
+        return {
+          ...res,
+          identifier: input.dl || input.dob,
+        };
+      },
+    });
+  }
+
+  // SVC-DL-PDF-BLUE - DL PDF (Blue Type Format)
+  if (pathName === "/api/apinice/dl-pdf-blue" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-DL-PDF-BLUE",
+      fallbackPrice: 25,
+      fallbackName: "DL PDF (Blue Type Format)",
+      descriptionPrefix: "DL PDF (Blue Type Format)",
+      executor: async (input) => {
+        const res = await apiniceProvider.downloadDlPdfBlue(input);
+        return {
+          ...res,
+          identifier: input.dlNumber || input.dob,
+        };
+      },
+    });
+  }
+
+  // SVC-DL-PDF-WHITE - DL PDF (White Type Format)
+  if (pathName === "/api/apinice/dl-pdf-white" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-DL-PDF-WHITE",
+      fallbackPrice: 25,
+      fallbackName: "DL PDF (White Type Format)",
+      descriptionPrefix: "DL PDF (White Type Format)",
+      executor: async (input) => {
+        const res = await apiniceProvider.downloadDlPdfWhite(input);
+        return {
+          ...res,
+          identifier: input.dlNumber || input.dob || input.type,
+        };
+      },
+    });
+  }
+
+  // SVC-RC-DETAILS-VERIFY - RC Details Verify
+  if (pathName === "/api/apinice/rc-details-verify" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-RC-DETAILS-VERIFY",
+      fallbackPrice: 30,
+      fallbackName: "RC Details Verify",
+      descriptionPrefix: "RC Details Verify",
+      executor: async (input) => {
+        const res = await apiniceProvider.verifyRcDetailsAkfast(input);
+        return {
+          ...res,
+          identifier: input.vehicleNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-RC-PDF-DOWNLOAD - RC PDF Download (AKFast)
+  if (pathName === "/api/apinice/rc-pdf-akfast" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-RC-PDF-DOWNLOAD",
+      fallbackPrice: 35,
+      fallbackName: "RC PDF Download (AKFast)",
+      descriptionPrefix: "RC PDF Download (AKFast)",
+      executor: async (input) => {
+        const res = await apiniceProvider.downloadRcPdfAkfast(input);
+        return {
+          ...res,
+          identifier: input.vehicleNumber || input.fatherName,
+        };
+      },
+    });
+  }
+
+  // SVC-RC-PRINT-OTHER - RC Print (Other Format)
+  if (pathName === "/api/apinice/rc-print-other" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-RC-PRINT-OTHER",
+      fallbackPrice: 35,
+      fallbackName: "RC Print (Other Format)",
+      descriptionPrefix: "RC Print (Other Format)",
+      executor: async (input) => {
+        const res = await apiniceProvider.printRcOther(input);
+        return {
+          ...res,
+          identifier: input.vehicalNo || input.pdfType || input.fatherName,
+        };
+      },
+    });
+  }
+
+  // SVC-VEHICLE-RC-PDF-V2 - Vehicle RC PDF (Next)
+  if (pathName === "/api/apinice/vehicle-rc-pdf-v2" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-VEHICLE-RC-PDF-V2",
+      fallbackPrice: 25,
+      fallbackName: "Vehicle RC PDF (Next)",
+      descriptionPrefix: "Vehicle RC PDF (Next)",
+      executor: async (input) => {
+        const res = await apiniceProvider.generateVehicleRcPdfV2(input);
+        return {
+          ...res,
+          identifier: input.vehicle_number || input.rc_type,
+        };
+      },
+    });
+  }
+
+  // SVC-NSDL-ACCOUNT-OPENING - NSDL Payment Bank Account Opening
+  if (pathName === "/api/apinice/nsdl-account-opening" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-NSDL-ACCOUNT-OPENING",
+      fallbackPrice: 250,
+      fallbackName: "NSDL Payment Bank Account Opening",
+      descriptionPrefix: "NSDL Payment Bank Account Opening",
+      executor: async (input) => {
+        const res = await apiniceProvider.openNsdlAccount(input);
+        return {
+          ...res,
+          identifier: input.name || input.mobile || input.email || input.date_of_birth || input.address || input.state_name || input.city_name || input.pincode || input.pancard || input.account_type,
+        };
+      },
+    });
+  }
+
+  // SVC-MCA-CIN-SEARCH - MCA Company CIN Search
+  if (pathName === "/api/apinice/mca-cin-search" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-MCA-CIN-SEARCH",
+      fallbackPrice: 15,
+      fallbackName: "MCA Company CIN Search",
+      descriptionPrefix: "MCA Company CIN Search",
+      executor: async (input) => {
+        const res = await apiniceProvider.searchMcaCin(input);
+        return {
+          ...res,
+          identifier: input.cin,
+        };
+      },
+    });
+  }
+
+  // SVC-DIN-VERIFICATION - Company Director DIN Verification
+  if (pathName === "/api/apinice/din-verification" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-DIN-VERIFICATION",
+      fallbackPrice: 15,
+      fallbackName: "Company Director DIN Verification",
+      descriptionPrefix: "Company Director DIN Verification",
+      executor: async (input) => {
+        const res = await apiniceProvider.verifyDirectorDin(input);
+        return {
+          ...res,
+          identifier: input.din || input.dob,
+        };
+      },
+    });
+  }
+
+  // SVC-TIN-VERIFICATION - TIN Number Verification
+  if (pathName === "/api/apinice/tin-verification" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-TIN-VERIFICATION",
+      fallbackPrice: 15,
+      fallbackName: "TIN Number Verification",
+      descriptionPrefix: "TIN Number Verification",
+      executor: async (input) => {
+        const res = await apiniceProvider.verifyTinNumber(input);
+        return {
+          ...res,
+          identifier: input.tin,
+        };
+      },
+    });
+  }
+
+  // SVC-MOBILE-TO-MULTI-ACCOUNT - Mobile to Multiple Bank Accounts
+  if (pathName === "/api/apinice/mobile-to-multi-account" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-MOBILE-TO-MULTI-ACCOUNT",
+      fallbackPrice: 30,
+      fallbackName: "Mobile to Multiple Bank Accounts",
+      descriptionPrefix: "Mobile to Multiple Bank Accounts",
+      executor: async (input) => {
+        const res = await apiniceProvider.findMobileToMultiAccount(input);
+        return {
+          ...res,
+          identifier: input.mobile,
+        };
+      },
+    });
+  }
+
+  // SVC-MOBILE-TO-MULTI-BANK-AKFAST - Mobile to Multiple Bank Account (AKFast)
+  if (pathName === "/api/apinice/mobile-to-multi-bank-akfast" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-MOBILE-TO-MULTI-BANK-AKFAST",
+      fallbackPrice: 35,
+      fallbackName: "Mobile to Multiple Bank Account (AKFast)",
+      descriptionPrefix: "Mobile to Multiple Bank Account (AKFast)",
+      executor: async (input) => {
+        const res = await apiniceProvider.findMobileToMultiBankAkfast(input);
+        return {
+          ...res,
+          identifier: input.mobile,
+        };
+      },
+    });
+  }
+
+  // SVC-MOBILE-TO-IFSC-ACCOUNT - Mobile to IFSC Account Details
+  if (pathName === "/api/apinice/mobile-to-ifsc-account" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-MOBILE-TO-IFSC-ACCOUNT",
+      fallbackPrice: 20,
+      fallbackName: "Mobile to IFSC Account Details",
+      descriptionPrefix: "Mobile to IFSC Account Details",
+      executor: async (input) => {
+        const res = await apiniceProvider.fetchMobileToIfscAccount(input);
+        return {
+          ...res,
+          identifier: input.mobile,
+        };
+      },
+    });
+  }
+
+  // SVC-AADHAAR-PAN-LINK-CHECK - Aadhaar-PAN Link Check
+  if (pathName === "/api/apinice/aadhaar-pan-link-check" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-AADHAAR-PAN-LINK-CHECK",
+      fallbackPrice: 10,
+      fallbackName: "Aadhaar-PAN Link Check",
+      descriptionPrefix: "Aadhaar-PAN Link Check",
+      executor: async (input) => {
+        const res = await apiniceProvider.checkAadhaarPanLink(input);
+        return {
+          ...res,
+          identifier: input.aadhaar || input.pan,
+        };
+      },
+    });
+  }
+
+  // SVC-MOBILE-TO-PAN-LINK - Mobile Number to PAN Link Check
+  if (pathName === "/api/apinice/mobile-to-pan-link" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-MOBILE-TO-PAN-LINK",
+      fallbackPrice: 15,
+      fallbackName: "Mobile Number to PAN Link Check",
+      descriptionPrefix: "Mobile Number to PAN Link Check",
+      executor: async (input) => {
+        const res = await apiniceProvider.checkMobileToPanLink(input);
+        return {
+          ...res,
+          identifier: input.mobile,
+        };
+      },
+    });
+  }
+
+  // SVC-PAN-TO-BANK-LINK - PAN to Bank Account Details
+  if (pathName === "/api/apinice/pan-to-bank-link" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-PAN-TO-BANK-LINK",
+      fallbackPrice: 15,
+      fallbackName: "PAN to Bank Account Details",
+      descriptionPrefix: "PAN to Bank Account Details",
+      executor: async (input) => {
+        const res = await apiniceProvider.checkPanToBankLink(input);
+        return {
+          ...res,
+          identifier: input.pan || input.account || input.ifsc,
+        };
+      },
+    });
+  }
+
+  // SVC-AADHAAR-TO-PAN-V2 - Aadhaar to PAN Find (V2)
+  if (pathName === "/api/apinice/aadhar-to-pan-v2" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-AADHAAR-TO-PAN-V2",
+      fallbackPrice: 30,
+      fallbackName: "Aadhaar to PAN Find (V2)",
+      descriptionPrefix: "Aadhaar to PAN Find (V2)",
+      executor: async (input) => {
+        const res = await apiniceProvider.findAadhaarToPanV2(input);
+        return {
+          ...res,
+          identifier: input.uidNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-MASK-PAN-VERIFICATION - Masked PAN Verification
+  if (pathName === "/api/apinice/mask-pan-verification" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-MASK-PAN-VERIFICATION",
+      fallbackPrice: 30,
+      fallbackName: "Masked PAN Verification",
+      descriptionPrefix: "Masked PAN Verification",
+      executor: async (input) => {
+        const res = await apiniceProvider.verifyMaskPanAkfast(input);
+        return {
+          ...res,
+          identifier: input.aadhaarNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-PAN-TO-DETAILS - PAN to Full Details
+  if (pathName === "/api/apinice/pan-to-details" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-PAN-TO-DETAILS",
+      fallbackPrice: 20,
+      fallbackName: "PAN to Full Details",
+      descriptionPrefix: "PAN to Full Details",
+      executor: async (input) => {
+        const res = await apiniceProvider.fetchPanToDetails(input);
+        return {
+          ...res,
+          identifier: input.panNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-AADHAAR-MASKING - Aadhaar Masking Service
+  if (pathName === "/api/apinice/aadhaar-masking" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-AADHAAR-MASKING",
+      fallbackPrice: 15,
+      fallbackName: "Aadhaar Masking Service",
+      descriptionPrefix: "Aadhaar Masking Service",
+      executor: async (input) => {
+        const res = await apiniceProvider.maskAadhaarImage(input);
+        return {
+          ...res,
+          identifier: input.front_image,
+        };
+      },
+    });
+  }
+
+  // SVC-MASK-AADHAAR-VERIFICATION - Masked Aadhaar Verification
+  if (pathName === "/api/apinice/mask-aadhar-verification" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-MASK-AADHAAR-VERIFICATION",
+      fallbackPrice: 30,
+      fallbackName: "Masked Aadhaar Verification",
+      descriptionPrefix: "Masked Aadhaar Verification",
+      executor: async (input) => {
+        const res = await apiniceProvider.verifyMaskAadhaarAkfast(input);
+        return {
+          ...res,
+          identifier: input.panNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-UP-RATION-TO-AADHAAR - UP Ration to Aadhaar Link Check
+  if (pathName === "/api/apinice/up-ration-to-aadhaar" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-UP-RATION-TO-AADHAAR",
+      fallbackPrice: 30,
+      fallbackName: "UP Ration to Aadhaar Link Check",
+      descriptionPrefix: "UP Ration to Aadhaar Link Check",
+      executor: async (input) => {
+        const res = await apiniceProvider.checkUpRationToAadhaar(input);
+        return {
+          ...res,
+          identifier: input.ration_no,
+        };
+      },
+    });
+  }
+
+  // SVC-NPCI-STATUS-AKFAST - NPCI Status Check (AKFast Engine)
+  if (pathName === "/api/apinice/npci-status-akfast" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-NPCI-STATUS-AKFAST",
+      fallbackPrice: 30,
+      fallbackName: "NPCI Status Check (AKFast Engine)",
+      descriptionPrefix: "NPCI Status Check (AKFast Engine)",
+      executor: async (input) => {
+        const res = await apiniceProvider.checkNpciStatusAkfast(input);
+        return {
+          ...res,
+          identifier: input.aadhaarNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-ESHRAM-MOBILE-UPDATE - e-Shram Mobile Number Update
+  if (pathName === "/api/apinice/eshram-mobile-update" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-ESHRAM-MOBILE-UPDATE",
+      fallbackPrice: 130,
+      fallbackName: "e-Shram Mobile Number Update",
+      descriptionPrefix: "e-Shram Mobile Number Update",
+      executor: async (input) => {
+        const res = await apiniceProvider.updateEshramMobile(input);
+        return {
+          ...res,
+          identifier: input.uidNumber || input.dob || input.newMobile,
+        };
+      },
+    });
+  }
+
+  // SVC-UID-TO-FULL-DETAILS - UID to Full Demographic Details
+  if (pathName === "/api/apinice/uid-to-full-details" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-UID-TO-FULL-DETAILS",
+      fallbackPrice: 180,
+      fallbackName: "UID to Full Demographic Details",
+      descriptionPrefix: "UID to Full Demographic Details",
+      executor: async (input) => {
+        const res = await apiniceProvider.fetchUidToFullDetails(input);
+        return {
+          ...res,
+          identifier: input.uidNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-RATION-PDF-BY-AADHAAR - Ration PDF by Aadhaar Number
+  if (pathName === "/api/apinice/ration-pdf-by-aadhaar" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-RATION-PDF-BY-AADHAAR",
+      fallbackPrice: 90,
+      fallbackName: "Ration PDF by Aadhaar Number",
+      descriptionPrefix: "Ration PDF by Aadhaar Number",
+      executor: async (input) => {
+        const res = await apiniceProvider.downloadRationPdfByAadhaar(input);
+        return {
+          ...res,
+          identifier: input.uidNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-RATION-PDF-BY-RATION - Ration PDF by Ration Card Number
+  if (pathName === "/api/apinice/ration-pdf-by-ration" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-RATION-PDF-BY-RATION",
+      fallbackPrice: 90,
+      fallbackName: "Ration PDF by Ration Card Number",
+      descriptionPrefix: "Ration PDF by Ration Card Number",
+      executor: async (input) => {
+        const res = await apiniceProvider.downloadRationPdfByRation(input);
+        return {
+          ...res,
+          identifier: input.rationNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-RATION-TO-AADHAAR-ALL - Ration to Aadhaar (All State Search)
+  if (pathName === "/api/apinice/ration-to-aadhar-all" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-RATION-TO-AADHAAR-ALL",
+      fallbackPrice: 30,
+      fallbackName: "Ration to Aadhaar (All State Search)",
+      descriptionPrefix: "Ration to Aadhaar (All State Search)",
+      executor: async (input) => {
+        const res = await apiniceProvider.findRationToAadhaarAll(input);
+        return {
+          ...res,
+          identifier: input.rationNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-RATION-TO-UID-ALL-V2 - Ration to UID (All State V2)
+  if (pathName === "/api/apinice/ration-to-uid-all-v2" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-RATION-TO-UID-ALL-V2",
+      fallbackPrice: 180,
+      fallbackName: "Ration to UID (All State V2)",
+      descriptionPrefix: "Ration to UID (All State V2)",
+      executor: async (input) => {
+        const res = await apiniceProvider.findRationToUidAllV2(input);
+        return {
+          ...res,
+          identifier: input.stateCode || input.rationNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-AGRISTACK-FARMER-STATUS - AgriStack Farmer Status Check
+  if (pathName === "/api/apinice/agristack-farmer-status" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-AGRISTACK-FARMER-STATUS",
+      fallbackPrice: 15,
+      fallbackName: "AgriStack Farmer Status Check",
+      descriptionPrefix: "AgriStack Farmer Status Check",
+      executor: async (input) => {
+        const res = await apiniceProvider.checkAgristackFarmerStatus(input);
+        return {
+          ...res,
+          identifier: input.uidNumber || input.state,
+        };
+      },
+    });
+  }
+
+  // SVC-FARMER-PDF-AKFAST - Farmer Beneficiary PDF (AKFast)
+  if (pathName === "/api/apinice/farmer-pdf-akfast" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-FARMER-PDF-AKFAST",
+      fallbackPrice: 25,
+      fallbackName: "Farmer Beneficiary PDF (AKFast)",
+      descriptionPrefix: "Farmer Beneficiary PDF (AKFast)",
+      executor: async (input) => {
+        const res = await apiniceProvider.downloadFarmerPdfAkfast(input);
+        return {
+          ...res,
+          identifier: input.aadhaarNumber || input.language,
+        };
+      },
+    });
+  }
+
+  // SVC-RTPS-CERTIFICATE-BR - RTPS Citizen Certificate Download (Bihar)
+  if (pathName === "/api/apinice/rtps-certificate-br" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-RTPS-CERTIFICATE-BR",
+      fallbackPrice: 15,
+      fallbackName: "RTPS Citizen Certificate Download (Bihar)",
+      descriptionPrefix: "RTPS Citizen Certificate Download (Bihar)",
+      executor: async (input) => {
+        const res = await apiniceProvider.downloadRtpsCertificateBr(input);
+        return {
+          ...res,
+          identifier: input.applicationNumber,
+        };
+      },
+    });
+  }
+
+  // SVC-VOTER-LINK-REQUEST-NEXT - Voter Mobile Link Request (Next Engine)
+  if (pathName === "/api/apinice/voter-link-request-next" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-VOTER-LINK-REQUEST-NEXT",
+      fallbackPrice: 40,
+      fallbackName: "Voter Mobile Link Request (Next Engine)",
+      descriptionPrefix: "Voter Mobile Link Request (Next Engine)",
+      executor: async (input) => {
+        const res = await apiniceProvider.requestVoterMobileLinkNext(input);
+        return {
+          ...res,
+          identifier: input.epic_number || input.mobile || input.state,
+        };
+      },
+    });
+  }
+
+  // SVC-MOBILE-DETAILS-FIND - Mobile Details Lookup (Owner & Circle Info)
+  if (pathName === "/api/apinice/mobile-details-lookup" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-MOBILE-DETAILS-FIND",
+      fallbackPrice: 30,
+      fallbackName: "Mobile Details Lookup (Owner & Circle Info)",
+      descriptionPrefix: "Mobile Details Lookup (Owner & Circle Info)",
+      executor: async (input) => {
+        const res = await apiniceProvider.lookupMobileDetails(input);
+        return {
+          ...res,
+          identifier: input.mobile,
+        };
+      },
+    });
+  }
+
+  // SVC-MOBILE-NUMBER-INFO - Mobile Number Intelligence
+  if (pathName === "/api/apinice/mobile-number-info" && req.method === "POST") {
+    return executePrintTransaction({
+      serviceId: "SVC-MOBILE-NUMBER-INFO",
+      fallbackPrice: 30,
+      fallbackName: "Mobile Number Intelligence",
+      descriptionPrefix: "Mobile Number Intelligence",
+      executor: async (input) => {
+        const res = await apiniceProvider.fetchMobileNumberInfo(input);
+        return {
+          ...res,
+          identifier: input.mobile,
+        };
+      },
+    });
+  }
+
 
   return false
 }

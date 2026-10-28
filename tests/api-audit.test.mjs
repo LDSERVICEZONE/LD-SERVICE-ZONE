@@ -1468,4 +1468,495 @@ test("retailer can extract PAN details from image (PAN OCR)", async () => {
   assert.ok(res.data.ledgerId);
 });
 
+// =========================================================
+// TESTS FOR ALL 40 NEW EXPANDED APINICE SERVICES
 
+test("fund test wallet for expanded 40 services", async () => {
+  const res = await request("/admin/wallet/adjust", {
+    token: "admin",
+    body: { userId: "other", type: "credit", amount: 10000, reason: "Fund test wallet for 40 services" },
+  });
+  assert.equal(res.status, 200);
+});
+
+// =========================================================
+
+test("retailer can execute #1 DL to Mobile Lookup (SVC-DL-TO-MOBILE)", async () => {
+  const res = await request("/apinice/dl-to-mobile", {
+    token: retailerToken,
+    method: "POST",
+    body: {"dlNo":"OD0220200001234","dob":"1995-05-10"},
+  });
+  assert.equal(res.status, 200, "SVC-DL-TO-MOBILE should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-DL-TO-MOBILE should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-DL-TO-MOBILE", "SVC-DL-TO-MOBILE serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-DL-TO-MOBILE should produce a wallet ledger record");
+});
+
+test("retailer can execute #2 DL to Mobile Find (AKFast) (SVC-DL-TO-MOBILE-AKFAST)", async () => {
+  const res = await request("/apinice/dl-to-mobile-akfast", {
+    token: retailerToken,
+    method: "POST",
+    body: {"dlNumber":"OD0220200001234","dob":"1995-05-10"},
+  });
+  assert.equal(res.status, 200, "SVC-DL-TO-MOBILE-AKFAST should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-DL-TO-MOBILE-AKFAST should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-DL-TO-MOBILE-AKFAST", "SVC-DL-TO-MOBILE-AKFAST serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-DL-TO-MOBILE-AKFAST should produce a wallet ledger record");
+});
+
+test("retailer can execute #3 Challan by Mobile Number (SVC-CHALLAN-MOBILE)", async () => {
+  const res = await request("/apinice/challan-by-mobile", {
+    token: retailerToken,
+    method: "POST",
+    body: {"mobile":"9876543210"},
+  });
+  assert.equal(res.status, 200, "SVC-CHALLAN-MOBILE should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-CHALLAN-MOBILE should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-CHALLAN-MOBILE", "SVC-CHALLAN-MOBILE serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-CHALLAN-MOBILE should produce a wallet ledger record");
+});
+
+test("retailer can execute #4 Challan Details Check (AKFast) (SVC-CHALLAN-DETAILS)", async () => {
+  const res = await request("/apinice/challan-details-akfast", {
+    token: retailerToken,
+    method: "POST",
+    body: {"vehicleNumber":"OD02AB1234"},
+  });
+  assert.equal(res.status, 200, "SVC-CHALLAN-DETAILS should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-CHALLAN-DETAILS should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-CHALLAN-DETAILS", "SVC-CHALLAN-DETAILS serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-CHALLAN-DETAILS should produce a wallet ledger record");
+});
+
+test("retailer can execute #5 Driving Licence Advance Details (SVC-DL-ADVANCE)", async () => {
+  const res = await request("/apinice/dl-advance-details", {
+    token: retailerToken,
+    method: "POST",
+    body: {"dl":"OD0220200001234","dob":"1995-05-10"},
+  });
+  assert.equal(res.status, 200, "SVC-DL-ADVANCE should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-DL-ADVANCE should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-DL-ADVANCE", "SVC-DL-ADVANCE serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-DL-ADVANCE should produce a wallet ledger record");
+});
+
+test("retailer can execute #6 DL PDF (Blue Type Format) (SVC-DL-PDF-BLUE)", async () => {
+  const res = await request("/apinice/dl-pdf-blue", {
+    token: retailerToken,
+    method: "POST",
+    body: {"dlNumber":"OD0220200001234","dob":"1995-05-10"},
+  });
+  assert.equal(res.status, 200, "SVC-DL-PDF-BLUE should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-DL-PDF-BLUE should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-DL-PDF-BLUE", "SVC-DL-PDF-BLUE serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-DL-PDF-BLUE should produce a wallet ledger record");
+});
+
+test("retailer can execute #7 DL PDF (White Type Format) (SVC-DL-PDF-WHITE)", async () => {
+  const res = await request("/apinice/dl-pdf-white", {
+    token: retailerToken,
+    method: "POST",
+    body: {"dlNumber":"OD0220200001234","dob":"1995-05-10","type":"1"},
+  });
+  assert.equal(res.status, 200, "SVC-DL-PDF-WHITE should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-DL-PDF-WHITE should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-DL-PDF-WHITE", "SVC-DL-PDF-WHITE serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-DL-PDF-WHITE should produce a wallet ledger record");
+});
+
+test("retailer can execute #8 RC Details Verify (SVC-RC-DETAILS-VERIFY)", async () => {
+  const res = await request("/apinice/rc-details-verify", {
+    token: retailerToken,
+    method: "POST",
+    body: {"vehicleNumber":"OD02AB1234"},
+  });
+  assert.equal(res.status, 200, "SVC-RC-DETAILS-VERIFY should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-RC-DETAILS-VERIFY should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-RC-DETAILS-VERIFY", "SVC-RC-DETAILS-VERIFY serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-RC-DETAILS-VERIFY should produce a wallet ledger record");
+});
+
+test("retailer can execute #9 RC PDF Download (AKFast) (SVC-RC-PDF-DOWNLOAD)", async () => {
+  const res = await request("/apinice/rc-pdf-akfast", {
+    token: retailerToken,
+    method: "POST",
+    body: {"vehicleNumber":"OD02AB1234","fatherName":"Rajesh Sharma"},
+  });
+  assert.equal(res.status, 200, "SVC-RC-PDF-DOWNLOAD should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-RC-PDF-DOWNLOAD should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-RC-PDF-DOWNLOAD", "SVC-RC-PDF-DOWNLOAD serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-RC-PDF-DOWNLOAD should produce a wallet ledger record");
+});
+
+test("retailer can execute #10 RC Print (Other Format) (SVC-RC-PRINT-OTHER)", async () => {
+  const res = await request("/apinice/rc-print-other", {
+    token: retailerToken,
+    method: "POST",
+    body: {"vehicalNo":"OD02AB1234","pdfType":"1","fatherName":"Rajesh Sharma"},
+  });
+  assert.equal(res.status, 200, "SVC-RC-PRINT-OTHER should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-RC-PRINT-OTHER should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-RC-PRINT-OTHER", "SVC-RC-PRINT-OTHER serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-RC-PRINT-OTHER should produce a wallet ledger record");
+});
+
+test("retailer can execute #11 Vehicle RC PDF (Next) (SVC-VEHICLE-RC-PDF-V2)", async () => {
+  const res = await request("/apinice/vehicle-rc-pdf-v2", {
+    token: retailerToken,
+    method: "POST",
+    body: {"vehicle_number":"OD02AB1234","rc_type":"NEW"},
+  });
+  assert.equal(res.status, 200, "SVC-VEHICLE-RC-PDF-V2 should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-VEHICLE-RC-PDF-V2 should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-VEHICLE-RC-PDF-V2", "SVC-VEHICLE-RC-PDF-V2 serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-VEHICLE-RC-PDF-V2 should produce a wallet ledger record");
+});
+
+test("retailer can execute #12 NSDL Payment Bank Account Opening (SVC-NSDL-ACCOUNT-OPENING)", async () => {
+  const res = await request("/apinice/nsdl-account-opening", {
+    token: retailerToken,
+    method: "POST",
+    body: {"name":"Rahul Sharma","mobile":"9876543210","email":"rahul@example.com","date_of_birth":"1995-05-10","address":"Bhubaneswar, Odisha","state_name":"Odisha","city_name":"Bhubaneswar","pincode":"751024","pancard":"ABCDE1234F","account_type":"SAVINGS"},
+  });
+  assert.equal(res.status, 200, "SVC-NSDL-ACCOUNT-OPENING should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-NSDL-ACCOUNT-OPENING should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-NSDL-ACCOUNT-OPENING", "SVC-NSDL-ACCOUNT-OPENING serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-NSDL-ACCOUNT-OPENING should produce a wallet ledger record");
+});
+
+test("retailer can execute #13 MCA Company CIN Search (SVC-MCA-CIN-SEARCH)", async () => {
+  const res = await request("/apinice/mca-cin-search", {
+    token: retailerToken,
+    method: "POST",
+    body: {"cin":"U72200MH2010PTC204567"},
+  });
+  assert.equal(res.status, 200, "SVC-MCA-CIN-SEARCH should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-MCA-CIN-SEARCH should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-MCA-CIN-SEARCH", "SVC-MCA-CIN-SEARCH serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-MCA-CIN-SEARCH should produce a wallet ledger record");
+});
+
+test("retailer can execute #14 Company Director DIN Verification (SVC-DIN-VERIFICATION)", async () => {
+  const res = await request("/apinice/din-verification", {
+    token: retailerToken,
+    method: "POST",
+    body: {"din":"01234567","dob":"1995-05-10"},
+  });
+  assert.equal(res.status, 200, "SVC-DIN-VERIFICATION should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-DIN-VERIFICATION should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-DIN-VERIFICATION", "SVC-DIN-VERIFICATION serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-DIN-VERIFICATION should produce a wallet ledger record");
+});
+
+test("retailer can execute #15 TIN Number Verification (SVC-TIN-VERIFICATION)", async () => {
+  const res = await request("/apinice/tin-verification", {
+    token: retailerToken,
+    method: "POST",
+    body: {"tin":"1234567890"},
+  });
+  assert.equal(res.status, 200, "SVC-TIN-VERIFICATION should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-TIN-VERIFICATION should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-TIN-VERIFICATION", "SVC-TIN-VERIFICATION serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-TIN-VERIFICATION should produce a wallet ledger record");
+});
+
+test("retailer can execute #16 Mobile to Multiple Bank Accounts (SVC-MOBILE-TO-MULTI-ACCOUNT)", async () => {
+  const res = await request("/apinice/mobile-to-multi-account", {
+    token: retailerToken,
+    method: "POST",
+    body: {"mobile":"9876543210"},
+  });
+  assert.equal(res.status, 200, "SVC-MOBILE-TO-MULTI-ACCOUNT should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-MOBILE-TO-MULTI-ACCOUNT should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-MOBILE-TO-MULTI-ACCOUNT", "SVC-MOBILE-TO-MULTI-ACCOUNT serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-MOBILE-TO-MULTI-ACCOUNT should produce a wallet ledger record");
+});
+
+test("retailer can execute #17 Mobile to Multiple Bank Account (AKFast) (SVC-MOBILE-TO-MULTI-BANK-AKFAST)", async () => {
+  const res = await request("/apinice/mobile-to-multi-bank-akfast", {
+    token: retailerToken,
+    method: "POST",
+    body: {"mobile":"9876543210"},
+  });
+  assert.equal(res.status, 200, "SVC-MOBILE-TO-MULTI-BANK-AKFAST should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-MOBILE-TO-MULTI-BANK-AKFAST should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-MOBILE-TO-MULTI-BANK-AKFAST", "SVC-MOBILE-TO-MULTI-BANK-AKFAST serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-MOBILE-TO-MULTI-BANK-AKFAST should produce a wallet ledger record");
+});
+
+test("retailer can execute #18 Mobile to IFSC Account Details (SVC-MOBILE-TO-IFSC-ACCOUNT)", async () => {
+  const res = await request("/apinice/mobile-to-ifsc-account", {
+    token: retailerToken,
+    method: "POST",
+    body: {"mobile":"9876543210"},
+  });
+  assert.equal(res.status, 200, "SVC-MOBILE-TO-IFSC-ACCOUNT should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-MOBILE-TO-IFSC-ACCOUNT should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-MOBILE-TO-IFSC-ACCOUNT", "SVC-MOBILE-TO-IFSC-ACCOUNT serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-MOBILE-TO-IFSC-ACCOUNT should produce a wallet ledger record");
+});
+
+test("retailer can execute #19 Aadhaar-PAN Link Check (SVC-AADHAAR-PAN-LINK-CHECK)", async () => {
+  const res = await request("/apinice/aadhaar-pan-link-check", {
+    token: retailerToken,
+    method: "POST",
+    body: {"aadhaar":"123456789012","pan":"ABCDE1234F"},
+  });
+  assert.equal(res.status, 200, "SVC-AADHAAR-PAN-LINK-CHECK should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-AADHAAR-PAN-LINK-CHECK should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-AADHAAR-PAN-LINK-CHECK", "SVC-AADHAAR-PAN-LINK-CHECK serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-AADHAAR-PAN-LINK-CHECK should produce a wallet ledger record");
+});
+
+test("retailer can execute #20 Mobile Number to PAN Link Check (SVC-MOBILE-TO-PAN-LINK)", async () => {
+  const res = await request("/apinice/mobile-to-pan-link", {
+    token: retailerToken,
+    method: "POST",
+    body: {"mobile":"9876543210"},
+  });
+  assert.equal(res.status, 200, "SVC-MOBILE-TO-PAN-LINK should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-MOBILE-TO-PAN-LINK should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-MOBILE-TO-PAN-LINK", "SVC-MOBILE-TO-PAN-LINK serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-MOBILE-TO-PAN-LINK should produce a wallet ledger record");
+});
+
+test("retailer can execute #21 PAN to Bank Account Details (SVC-PAN-TO-BANK-LINK)", async () => {
+  const res = await request("/apinice/pan-to-bank-link", {
+    token: retailerToken,
+    method: "POST",
+    body: {"pan":"ABCDE1234F","account":"1234567890123","ifsc":"SBIN0001234"},
+  });
+  assert.equal(res.status, 200, "SVC-PAN-TO-BANK-LINK should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-PAN-TO-BANK-LINK should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-PAN-TO-BANK-LINK", "SVC-PAN-TO-BANK-LINK serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-PAN-TO-BANK-LINK should produce a wallet ledger record");
+});
+
+test("retailer can execute #22 Aadhaar to PAN Find (V2) (SVC-AADHAAR-TO-PAN-V2)", async () => {
+  const res = await request("/apinice/aadhar-to-pan-v2", {
+    token: retailerToken,
+    method: "POST",
+    body: {"uidNumber":"123456789012"},
+  });
+  assert.equal(res.status, 200, "SVC-AADHAAR-TO-PAN-V2 should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-AADHAAR-TO-PAN-V2 should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-AADHAAR-TO-PAN-V2", "SVC-AADHAAR-TO-PAN-V2 serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-AADHAAR-TO-PAN-V2 should produce a wallet ledger record");
+});
+
+test("retailer can execute #23 Masked PAN Verification (SVC-MASK-PAN-VERIFICATION)", async () => {
+  const res = await request("/apinice/mask-pan-verification", {
+    token: retailerToken,
+    method: "POST",
+    body: {"aadhaarNumber":"123456789012"},
+  });
+  assert.equal(res.status, 200, "SVC-MASK-PAN-VERIFICATION should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-MASK-PAN-VERIFICATION should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-MASK-PAN-VERIFICATION", "SVC-MASK-PAN-VERIFICATION serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-MASK-PAN-VERIFICATION should produce a wallet ledger record");
+});
+
+test("retailer can execute #24 PAN to Full Details (SVC-PAN-TO-DETAILS)", async () => {
+  const res = await request("/apinice/pan-to-details", {
+    token: retailerToken,
+    method: "POST",
+    body: {"panNumber":"ABCDE1234F"},
+  });
+  assert.equal(res.status, 200, "SVC-PAN-TO-DETAILS should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-PAN-TO-DETAILS should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-PAN-TO-DETAILS", "SVC-PAN-TO-DETAILS serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-PAN-TO-DETAILS should produce a wallet ledger record");
+});
+
+test("retailer can execute #25 Aadhaar Masking Service (SVC-AADHAAR-MASKING)", async () => {
+  const res = await request("/apinice/aadhaar-masking", {
+    token: retailerToken,
+    method: "POST",
+    body: {"front_image":"data:image/jpeg;base64,mock_image"},
+  });
+  assert.equal(res.status, 200, "SVC-AADHAAR-MASKING should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-AADHAAR-MASKING should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-AADHAAR-MASKING", "SVC-AADHAAR-MASKING serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-AADHAAR-MASKING should produce a wallet ledger record");
+});
+
+test("retailer can execute #26 Masked Aadhaar Verification (SVC-MASK-AADHAAR-VERIFICATION)", async () => {
+  const res = await request("/apinice/mask-aadhar-verification", {
+    token: retailerToken,
+    method: "POST",
+    body: {"panNumber":"ABCDE1234F"},
+  });
+  assert.equal(res.status, 200, "SVC-MASK-AADHAAR-VERIFICATION should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-MASK-AADHAAR-VERIFICATION should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-MASK-AADHAAR-VERIFICATION", "SVC-MASK-AADHAAR-VERIFICATION serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-MASK-AADHAAR-VERIFICATION should produce a wallet ledger record");
+});
+
+test("retailer can execute #27 UP Ration to Aadhaar Link Check (SVC-UP-RATION-TO-AADHAAR)", async () => {
+  const res = await request("/apinice/up-ration-to-aadhaar", {
+    token: retailerToken,
+    method: "POST",
+    body: {"ration_no":"123456789012"},
+  });
+  assert.equal(res.status, 200, "SVC-UP-RATION-TO-AADHAAR should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-UP-RATION-TO-AADHAAR should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-UP-RATION-TO-AADHAAR", "SVC-UP-RATION-TO-AADHAAR serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-UP-RATION-TO-AADHAAR should produce a wallet ledger record");
+});
+
+test("retailer can execute #28 NPCI Status Check (AKFast Engine) (SVC-NPCI-STATUS-AKFAST)", async () => {
+  const res = await request("/apinice/npci-status-akfast", {
+    token: retailerToken,
+    method: "POST",
+    body: {"aadhaarNumber":"123456789012"},
+  });
+  assert.equal(res.status, 200, "SVC-NPCI-STATUS-AKFAST should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-NPCI-STATUS-AKFAST should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-NPCI-STATUS-AKFAST", "SVC-NPCI-STATUS-AKFAST serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-NPCI-STATUS-AKFAST should produce a wallet ledger record");
+});
+
+test("retailer can execute #29 e-Shram Mobile Number Update (SVC-ESHRAM-MOBILE-UPDATE)", async () => {
+  const res = await request("/apinice/eshram-mobile-update", {
+    token: retailerToken,
+    method: "POST",
+    body: {"uidNumber":"123456789012","dob":"1995-05-10","newMobile":"9876543211"},
+  });
+  assert.equal(res.status, 200, "SVC-ESHRAM-MOBILE-UPDATE should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-ESHRAM-MOBILE-UPDATE should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-ESHRAM-MOBILE-UPDATE", "SVC-ESHRAM-MOBILE-UPDATE serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-ESHRAM-MOBILE-UPDATE should produce a wallet ledger record");
+});
+
+test("retailer can execute #30 UID to Full Demographic Details (SVC-UID-TO-FULL-DETAILS)", async () => {
+  const res = await request("/apinice/uid-to-full-details", {
+    token: retailerToken,
+    method: "POST",
+    body: {"uidNumber":"123456789012"},
+  });
+  assert.equal(res.status, 200, "SVC-UID-TO-FULL-DETAILS should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-UID-TO-FULL-DETAILS should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-UID-TO-FULL-DETAILS", "SVC-UID-TO-FULL-DETAILS serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-UID-TO-FULL-DETAILS should produce a wallet ledger record");
+});
+
+test("retailer can execute #31 Ration PDF by Aadhaar Number (SVC-RATION-PDF-BY-AADHAAR)", async () => {
+  const res = await request("/apinice/ration-pdf-by-aadhaar", {
+    token: retailerToken,
+    method: "POST",
+    body: {"uidNumber":"123456789012"},
+  });
+  assert.equal(res.status, 200, "SVC-RATION-PDF-BY-AADHAAR should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-RATION-PDF-BY-AADHAAR should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-RATION-PDF-BY-AADHAAR", "SVC-RATION-PDF-BY-AADHAAR serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-RATION-PDF-BY-AADHAAR should produce a wallet ledger record");
+});
+
+test("retailer can execute #32 Ration PDF by Ration Card Number (SVC-RATION-PDF-BY-RATION)", async () => {
+  const res = await request("/apinice/ration-pdf-by-ration", {
+    token: retailerToken,
+    method: "POST",
+    body: {"rationNumber":"123456789012"},
+  });
+  assert.equal(res.status, 200, "SVC-RATION-PDF-BY-RATION should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-RATION-PDF-BY-RATION should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-RATION-PDF-BY-RATION", "SVC-RATION-PDF-BY-RATION serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-RATION-PDF-BY-RATION should produce a wallet ledger record");
+});
+
+test("retailer can execute #33 Ration to Aadhaar (All State Search) (SVC-RATION-TO-AADHAAR-ALL)", async () => {
+  const res = await request("/apinice/ration-to-aadhar-all", {
+    token: retailerToken,
+    method: "POST",
+    body: {"rationNumber":"123456789012"},
+  });
+  assert.equal(res.status, 200, "SVC-RATION-TO-AADHAAR-ALL should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-RATION-TO-AADHAAR-ALL should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-RATION-TO-AADHAAR-ALL", "SVC-RATION-TO-AADHAAR-ALL serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-RATION-TO-AADHAAR-ALL should produce a wallet ledger record");
+});
+
+test("retailer can execute #34 Ration to UID (All State V2) (SVC-RATION-TO-UID-ALL-V2)", async () => {
+  const res = await request("/apinice/ration-to-uid-all-v2", {
+    token: retailerToken,
+    method: "POST",
+    body: {"stateCode":"OD","rationNumber":"123456789012"},
+  });
+  assert.equal(res.status, 200, "SVC-RATION-TO-UID-ALL-V2 should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-RATION-TO-UID-ALL-V2 should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-RATION-TO-UID-ALL-V2", "SVC-RATION-TO-UID-ALL-V2 serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-RATION-TO-UID-ALL-V2 should produce a wallet ledger record");
+});
+
+test("retailer can execute #35 AgriStack Farmer Status Check (SVC-AGRISTACK-FARMER-STATUS)", async () => {
+  const res = await request("/apinice/agristack-farmer-status", {
+    token: retailerToken,
+    method: "POST",
+    body: {"uidNumber":"123456789012","state":"OD"},
+  });
+  assert.equal(res.status, 200, "SVC-AGRISTACK-FARMER-STATUS should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-AGRISTACK-FARMER-STATUS should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-AGRISTACK-FARMER-STATUS", "SVC-AGRISTACK-FARMER-STATUS serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-AGRISTACK-FARMER-STATUS should produce a wallet ledger record");
+});
+
+test("retailer can execute #36 Farmer Beneficiary PDF (AKFast) (SVC-FARMER-PDF-AKFAST)", async () => {
+  const res = await request("/apinice/farmer-pdf-akfast", {
+    token: retailerToken,
+    method: "POST",
+    body: {"aadhaarNumber":"123456789012","language":"HI"},
+  });
+  assert.equal(res.status, 200, "SVC-FARMER-PDF-AKFAST should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-FARMER-PDF-AKFAST should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-FARMER-PDF-AKFAST", "SVC-FARMER-PDF-AKFAST serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-FARMER-PDF-AKFAST should produce a wallet ledger record");
+});
+
+test("retailer can execute #37 RTPS Citizen Certificate Download (Bihar) (SVC-RTPS-CERTIFICATE-BR)", async () => {
+  const res = await request("/apinice/rtps-certificate-br", {
+    token: retailerToken,
+    method: "POST",
+    body: {"applicationNumber":"APP123456"},
+  });
+  assert.equal(res.status, 200, "SVC-RTPS-CERTIFICATE-BR should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-RTPS-CERTIFICATE-BR should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-RTPS-CERTIFICATE-BR", "SVC-RTPS-CERTIFICATE-BR serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-RTPS-CERTIFICATE-BR should produce a wallet ledger record");
+});
+
+test("retailer can execute #38 Voter Mobile Link Request (Next Engine) (SVC-VOTER-LINK-REQUEST-NEXT)", async () => {
+  const res = await request("/apinice/voter-link-request-next", {
+    token: retailerToken,
+    method: "POST",
+    body: {"epic_number":"ABC1234567","mobile":"9876543210","state":"OD"},
+  });
+  assert.equal(res.status, 200, "SVC-VOTER-LINK-REQUEST-NEXT should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-VOTER-LINK-REQUEST-NEXT should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-VOTER-LINK-REQUEST-NEXT", "SVC-VOTER-LINK-REQUEST-NEXT serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-VOTER-LINK-REQUEST-NEXT should produce a wallet ledger record");
+});
+
+test("retailer can execute #39 Mobile Details Lookup (Owner & Circle Info) (SVC-MOBILE-DETAILS-FIND)", async () => {
+  const res = await request("/apinice/mobile-details-lookup", {
+    token: retailerToken,
+    method: "POST",
+    body: {"mobile":"9876543210"},
+  });
+  assert.equal(res.status, 200, "SVC-MOBILE-DETAILS-FIND should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-MOBILE-DETAILS-FIND should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-MOBILE-DETAILS-FIND", "SVC-MOBILE-DETAILS-FIND serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-MOBILE-DETAILS-FIND should produce a wallet ledger record");
+});
+
+test("retailer can execute #40 Mobile Number Intelligence (SVC-MOBILE-NUMBER-INFO)", async () => {
+  const res = await request("/apinice/mobile-number-info", {
+    token: retailerToken,
+    method: "POST",
+    body: {"mobile":"9876543210"},
+  });
+  assert.equal(res.status, 200, "SVC-MOBILE-NUMBER-INFO should return HTTP 200");
+  assert.equal(res.data.ok, true, "SVC-MOBILE-NUMBER-INFO should return ok: true");
+  assert.equal(res.data.serviceId, "SVC-MOBILE-NUMBER-INFO", "SVC-MOBILE-NUMBER-INFO serviceId should match");
+  assert.ok(res.data.ledgerId, "SVC-MOBILE-NUMBER-INFO should produce a wallet ledger record");
+});
