@@ -1,0 +1,25 @@
+# Robots.txt for LD Service Zone
+# Website: https://ldservicezone.in
+User-agent: *
+Allow: /
+Allow: /register
+Allow: /login
+Allow: /contact
+Allow: /contact-us
+Allow: /terms
+Allow: /terms-and-conditions
+Allow: /privacy
+Allow: /privacy-policy
+Allow: /refund
+Allow: /cancellation-refund
+Allow: /shipping
+Allow: /shipping-policy
+
+# Disallow private dashboards, admin management, and API routes
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /reset-password
+
+Host: https://ldservicezone.in
+Sitemap: https://ldservicezone.in/sitemap.xml

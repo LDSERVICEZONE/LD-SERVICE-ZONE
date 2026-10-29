@@ -660,6 +660,28 @@ export async function handleRequest(req, res) {
         },
       })
     }
+
+    // Serve robots.txt for search engine crawlers
+    if (pathName === "/robots.txt" && req.method === "GET") {
+      const robotsContent = `# Robots.txt for LD Service Zone (https://ldservicezone.in)\nUser-agent: *\nAllow: /\nAllow: /register\nAllow: /login\nAllow: /contact\nAllow: /terms\nAllow: /privacy\nAllow: /refund\nAllow: /shipping\n\nDisallow: /dashboard/\nDisallow: /admin/\nDisallow: /api/\nDisallow: /reset-password\n\nHost: https://ldservicezone.in\nSitemap: https://ldservicezone.in/sitemap.xml\n`
+      res.writeHead(200, {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "public, max-age=86400",
+      })
+      res.end(robotsContent)
+      return
+    }
+
+    // Serve sitemap.xml for search engine crawlers
+    if (pathName === "/sitemap.xml" && req.method === "GET") {
+      const sitemapContent = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://ldservicezone.in/</loc><lastmod>2026-10-30</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>\n  <url><loc>https://ldservicezone.in/register</loc><lastmod>2026-10-30</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>\n  <url><loc>https://ldservicezone.in/login</loc><lastmod>2026-10-30</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>\n  <url><loc>https://ldservicezone.in/contact</loc><lastmod>2026-10-30</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>\n  <url><loc>https://ldservicezone.in/terms</loc><lastmod>2026-10-30</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>\n  <url><loc>https://ldservicezone.in/privacy</loc><lastmod>2026-10-30</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>\n  <url><loc>https://ldservicezone.in/refund</loc><lastmod>2026-10-30</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>\n  <url><loc>https://ldservicezone.in/shipping</loc><lastmod>2026-10-30</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>\n</urlset>\n`
+      res.writeHead(200, {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Cache-Control": "public, max-age=86400",
+      })
+      res.end(sitemapContent)
+      return
+    }
     const authHandled = await handleAuthRoutes({
       req,
       res,

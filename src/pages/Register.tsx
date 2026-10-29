@@ -33,6 +33,7 @@ export default function Register({ onLogin }: Props) {
 
   // Check if routed here with an unconfirmed email from login
   useEffect(() => {
+    document.title = "Partner Registration & Retailer Onboarding — LD SERVICE ZONE";
     const state = location.state as { email?: string; verifyOnly?: boolean } | null;
     if (state?.email) {
       setForm((f) => ({ ...f, email: state.email || "" }));

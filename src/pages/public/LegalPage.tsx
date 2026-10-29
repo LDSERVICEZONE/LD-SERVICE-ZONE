@@ -25,6 +25,14 @@ export default function LegalPage({ initialTab }: LegalPageProps) {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
+    const titles: Record<string, string> = {
+      terms: "Terms of Service & Partner Agreement — LD SERVICE ZONE",
+      privacy: "Privacy Policy & Citizen Data Protection — LD SERVICE ZONE",
+      refund: "Refund & Cancellation Policy — LD SERVICE ZONE",
+      shipping: "Shipping & Delivery Policy (UTIITSL Speed Post) — LD SERVICE ZONE",
+      contact: "Contact Us & Support Helpdesk (Odisha, India) — LD SERVICE ZONE",
+    };
+    document.title = titles[activeTab] || "Policies & Compliance — LD SERVICE ZONE";
   }, [activeTab]);
 
   const tabs = [

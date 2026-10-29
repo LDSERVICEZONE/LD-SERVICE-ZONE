@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { BarChart3, CheckCircle2, CreditCard, FileText, IndianRupee, LayoutDashboard, Menu, Receipt, ShieldCheck, Sparkles, Users, WalletCards, X, Zap } from "lucide-react";
@@ -39,6 +39,10 @@ export default function Landing({ onLogin }: Props) {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.title = "LD SERVICE ZONE — India's Premier Citizen & Retailer Services Portal";
+  }, []);
 
   const handleStartBusiness = () => navigate("/register");
 

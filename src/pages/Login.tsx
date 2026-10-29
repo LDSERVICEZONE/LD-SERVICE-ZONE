@@ -40,6 +40,7 @@ export default function Login({ onLogin }: Props) {
 
   // Load remembered credentials
   useEffect(() => {
+    document.title = "Retailer & Partner Login — LD SERVICE ZONE";
     try {
       const saved = localStorage.getItem("ld_remember_credential");
       if (saved) {

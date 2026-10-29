@@ -2012,3 +2012,19 @@ test("retailer can execute #40 Mobile Number Intelligence (SVC-MOBILE-NUMBER-INF
   assert.equal(res.data.serviceId, "SVC-MOBILE-NUMBER-INFO", "SVC-MOBILE-NUMBER-INFO serviceId should match");
   assert.ok(res.data.ledgerId, "SVC-MOBILE-NUMBER-INFO should produce a wallet ledger record");
 });
+
+test("search engines can access robots.txt and sitemap.xml", async () => {
+  const root = base.replace(/\/api$/, "");
+  const robotsRes = await fetch(`${root}/robots.txt`);
+  assert.equal(robotsRes.status, 200);
+  assert.match(robotsRes.headers.get("content-type"), /text\/plain/);
+  const robotsText = await robotsRes.text();
+  assert.ok(robotsText.includes("Sitemap: https://ldservicezone.in/sitemap.xml"));
+  assert.ok(robotsText.includes("Disallow: /admin/"));
+
+  const sitemapRes = await fetch(`${root}/sitemap.xml`);
+  assert.equal(sitemapRes.status, 200);
+  assert.match(sitemapRes.headers.get("content-type"), /application\/xml/);
+  const sitemapXml = await sitemapRes.text();
+  assert.ok(sitemapXml.includes("https://ldservicezone.in/"));
+});
