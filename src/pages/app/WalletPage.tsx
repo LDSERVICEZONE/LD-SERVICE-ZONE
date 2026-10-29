@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Lock,
   ExternalLink,
+  Info,
 } from "lucide-react";
 import { exportToCsv } from "@/shared/utils/csvExport";
 import ldLogo from "@/imports/ChatGPT_Image_Aug_26__2026_at_03_14_08_PM-1.png";
@@ -79,6 +80,12 @@ export default function WalletPage() {
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
+  // Pending top-ups and UTR submission state
+  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
+  const [claimOrderId, setClaimOrderId] = useState<string | null>(null);
+  const [claimUtr, setClaimUtr] = useState("");
+  const [claimBusy, setClaimBusy] = useState(false);
+
   const pollIntervalRef = useRef<any>(null);
 
   const loadLedger = () =>
@@ -86,18 +93,89 @@ export default function WalletPage() {
       .then((l) => setLedger(l.ledger || []))
       .catch((e) => setError(e.message));
 
+  const loadPendingOrders = () => {
+    api<any>("/wallet/pending-orders")
+      .then((res) => setPendingOrders(res.pending || []))
+      .catch(() => {});
+  };
+
+  const handleCheckStatus = async (orderId: string) => {
+    setClaimBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await api<any>(`/wallet/check-status?orderId=${encodeURIComponent(orderId)}`);
+      if (res.status === "paid") {
+        setMessage(`Payment verified! ₹${res.amount || ""} credited to your wallet.`);
+        await refreshWallet();
+        await loadLedger();
+        loadPendingOrders();
+        setClaimOrderId(null);
+        setClaimUtr("");
+      } else {
+        setMessage("Payment status checked. It is still awaiting bank settlement. You can enter the 12-digit UTR below if debited.");
+        loadPendingOrders();
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to check status with bank");
+    } finally {
+      setClaimBusy(false);
+    }
+  };
+
+  const handleClaimSubmit = async (orderId: string) => {
+    if (!claimUtr.trim() || claimUtr.trim().length < 6) {
+      setError("Please enter a valid 12-digit UPI UTR / RRN number");
+      return;
+    }
+    setClaimBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await api<any>("/wallet/claim-pending", {
+        method: "POST",
+        body: JSON.stringify({ orderId, utrNumber: claimUtr.trim() }),
+      });
+      if (res.status === "paid") {
+        setMessage(res.message || "Payment verified and credited successfully!");
+        setClaimOrderId(null);
+        setClaimUtr("");
+        if (upiOrder) {
+          handlePaymentSuccess(res.wallet?.balance);
+        }
+        await refreshWallet();
+        await loadLedger();
+        loadPendingOrders();
+      } else {
+        setMessage(res.message || "UTR submitted for bank verification.");
+        loadPendingOrders();
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to submit UTR for verification");
+    } finally {
+      setClaimBusy(false);
+    }
+  };
+
   useEffect(() => {
     refreshWallet();
     loadLedger();
+    loadPendingOrders();
 
     const params = new URLSearchParams(window.location.search);
     const topupStatus = params.get("topup");
     const topupAmt = params.get("amount");
+    const topupOrder = params.get("orderId");
     if (topupStatus === "success") {
       setMessage(`Payment verified! ₹${topupAmt || ""} credited to your wallet successfully.`);
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (topupStatus === "pending") {
       setError("Payment verification is processing with the bank. If money was debited, your balance will reflect shortly.");
+      if (topupOrder) {
+        setClaimOrderId(topupOrder);
+        // Automatically trigger status check once
+        handleCheckStatus(topupOrder);
+      }
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [refreshWallet]);
@@ -384,6 +462,127 @@ export default function WalletPage() {
         </div>
       )}
 
+      {/* Pending / Uncredited Top-Ups Alert Section */}
+      {pendingOrders.length > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 sm:p-5 space-y-3 shadow-xs">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                <Clock className="w-5 h-5 text-amber-700" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-sm sm:text-base text-amber-950">
+                  Payment Verification Needed ({pendingOrders.length} Pending)
+                </h3>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  If money was debited from your bank account but your wallet balance has not updated yet, click <strong>Verify Bank Status</strong> or enter your <strong>12-digit UPI UTR number</strong> below.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={loadPendingOrders}
+              className="text-xs font-semibold text-amber-800 hover:text-amber-950 inline-flex items-center gap-1 shrink-0"
+              title="Refresh pending list"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <div className="space-y-2.5 pt-1">
+            {pendingOrders.map((order) => (
+              <div
+                key={order.orderId}
+                className="bg-white rounded-xl border border-amber-200/80 p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-extrabold text-slate-900 text-sm">
+                      ₹{Number(order.amount).toLocaleString("en-IN")}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                      Awaiting Bank Confirmation
+                    </span>
+                    {order.submittedUtr && (
+                      <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-mono font-medium">
+                        Submitted UTR: {order.submittedUtr}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                    Order: {order.orderId} · {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {claimOrderId === order.orderId ? (
+                    <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                      <input
+                        type="text"
+                        maxLength={16}
+                        placeholder="12-digit UTR / RRN"
+                        value={claimUtr}
+                        onChange={(e) => setClaimUtr(e.target.value.replace(/\s+/g, ""))}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono w-40 outline-none focus:border-blue-600"
+                      />
+                      <button
+                        onClick={() => handleClaimSubmit(order.orderId)}
+                        disabled={claimBusy || claimUtr.trim().length < 6}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs disabled:opacity-50 transition"
+                      >
+                        {claimBusy ? "Checking…" : "Submit"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setClaimOrderId(null);
+                          setClaimUtr("");
+                        }}
+                        className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleCheckStatus(order.orderId)}
+                        disabled={claimBusy}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition inline-flex items-center gap-1 shadow-xs"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${claimBusy ? "animate-spin" : ""}`} />
+                        <span>Verify Bank Status</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setClaimOrderId(order.orderId);
+                          setClaimUtr(order.submittedUtr || "");
+                        }}
+                        className="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition"
+                      >
+                        Enter UTR
+                      </button>
+
+                      {order.paymentUrl && (
+                        <a
+                          href={order.paymentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 rounded-lg text-blue-600 hover:bg-blue-50 font-medium text-xs transition inline-flex items-center gap-1"
+                        >
+                          <span>Reopen Payment Page</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -605,11 +804,24 @@ export default function WalletPage() {
             </div>
 
             {/* Total breakdown */}
-            <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5 flex justify-between items-center text-sm mb-4">
+            <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5 flex justify-between items-center text-sm mb-3">
               <span className="text-slate-600 font-medium">Total payable</span>
               <span className="text-slate-900 font-mono font-extrabold text-base">
                 ₹{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
+            </div>
+
+            {/* Instant credit instruction note */}
+            <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/80 text-blue-950 text-xs space-y-1 mb-4">
+              <p className="font-bold flex items-center gap-1.5 text-blue-900">
+                <Info className="w-4 h-4 text-blue-600 shrink-0" />
+                Important Payment Steps:
+              </p>
+              <p className="text-[11px] leading-relaxed text-blue-800">
+                1. Scan QR with PhonePe / GPay / Paytm & pay.<br />
+                2. <strong>Do not close the payment window!</strong> Copy the <strong>12-digit UPI UTR</strong> from your app receipt.<br />
+                3. Paste the UTR into the payment page to receive instant wallet balance.
+              </p>
             </div>
 
             <button
@@ -829,6 +1041,33 @@ export default function WalletPage() {
                       {copiedVpa ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-500" />}
                       <span>{copiedVpa ? "Copied" : "Copy"}</span>
                     </button>
+                  </div>
+
+                  {/* Inline UTR Claiming Box */}
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-left space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                        Paid? Enter 12-Digit UTR
+                      </span>
+                      <span className="text-[10px] text-slate-400">Instant Verify</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        maxLength={16}
+                        placeholder="e.g. 429381928471"
+                        value={claimUtr}
+                        onChange={(e) => setClaimUtr(e.target.value.replace(/\s+/g, ""))}
+                        className="flex-1 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-mono outline-none focus:border-blue-600 bg-white"
+                      />
+                      <button
+                        onClick={() => handleClaimSubmit(upiOrder.orderId)}
+                        disabled={claimBusy || claimUtr.trim().length < 6}
+                        className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs disabled:opacity-50 transition shrink-0"
+                      >
+                        {claimBusy ? "Checking…" : "Submit"}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Test Mode Simulation Button (Only shown in sandbox/test mode) */}

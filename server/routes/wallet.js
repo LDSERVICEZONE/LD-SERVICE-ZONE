@@ -417,6 +417,125 @@ export async function handleWalletRoutes(context) {
     })
   }
 
+  // List recent uncredited/pending top-ups so retailers can claim or re-check
+  if (pathName === "/api/wallet/pending-orders" && req.method === "GET") {
+    const twoDaysAgo = Date.now() - 48 * 60 * 60 * 1000
+    const pendingList = (db.payments || [])
+      .filter(
+        (p) =>
+          p.userId === auth.user.id &&
+          !p.applicationId &&
+          p.status !== "paid" &&
+          (new Date(p.createdAt).getTime() > twoDaysAgo || (p.expiresAt && p.expiresAt > twoDaysAgo))
+      )
+      .slice(0, 5)
+      .map((p) => ({
+        orderId: p.orderId,
+        paymentId: p.paymentId,
+        amount: p.amount,
+        status: p.status,
+        provider: p.provider || p.mode,
+        paymentUrl: p.paymentUrl,
+        upiString: p.upiString,
+        merchantVpa: p.merchantVpa || p.vpa,
+        submittedUtr: p.submittedUtr,
+        createdAt: p.createdAt,
+        expiresAt: p.expiresAt,
+      }))
+    return respond(200, { pending: pendingList })
+  }
+
+  // Retailer claims or attaches a 12-digit UTR to an uncredited top-up order
+  if (pathName === "/api/wallet/claim-pending" && req.method === "POST") {
+    const input = await parseJson(req)
+    const { orderId, utrNumber } = input || {}
+    if (!orderId) return respond(400, { error: "orderId is required" })
+
+    const payment = (db.payments || []).find(
+      (p) => p.orderId === orderId && p.userId === auth.user.id
+    )
+    if (!payment) return respond(404, { error: "Payment order not found" })
+
+    if (payment.status === "paid") {
+      return respond(200, {
+        ok: true,
+        status: "paid",
+        message: "Payment is already verified and credited to your wallet.",
+        wallet: ensureWallet(auth.user.id),
+      })
+    }
+
+    if (utrNumber) {
+      const cleanUtr = String(utrNumber).trim()
+      if (cleanUtr.length >= 6) {
+        payment.submittedUtr = cleanUtr
+        payment.submittedUtrAt = now()
+      }
+    }
+
+    // Check AllAPI live status
+    if (allapiClient.isConfigured && String(process.env.DEMO_MODE).toLowerCase() !== "true") {
+      try {
+        const txnStatus = await allapiClient.checkStatus(payment.orderId)
+        if (
+          txnStatus?.status === true &&
+          String(txnStatus.results?.status).toLowerCase() === "success"
+        ) {
+          payment.status = "paid"
+          payment.gatewayPaymentId =
+            txnStatus.results.txn_id ||
+            txnStatus.results.utr_number ||
+            payment.submittedUtr ||
+            `ALLAPI-${Date.now()}`
+          payment.utrNumber = txnStatus.results.utr_number || payment.submittedUtr
+          payment.paidAt = now()
+          const wallet = ensureWallet(auth.user.id)
+          wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2))
+          wallet.updatedAt = now()
+          db.walletLedger.unshift({
+            id: createId("WL"),
+            userId: auth.user.id,
+            type: "credit",
+            amount: Number(payment.amount),
+            reference: payment.paymentId,
+            description: `AllAPI UPI Payment Claimed (${payment.orderId.slice(-6)})`,
+            status: "success",
+            createdAt: now(),
+            balanceAfter: wallet.balance,
+          })
+          audit(db, auth.user, "WALLET_TOPUP_CLAIMED", "wallet", auth.user.id, {
+            amount: payment.amount,
+            orderId: payment.orderId,
+            submittedUtr: payment.submittedUtr,
+          })
+          await saveDb(db)
+          syncPayment(payment)
+
+          return respond(200, {
+            ok: true,
+            status: "paid",
+            message: `Payment verified! ₹${payment.amount} credited to your wallet.`,
+            wallet,
+          })
+        }
+      } catch {
+        // Continue to save UTR for admin approval
+      }
+    }
+
+    await saveDb(db)
+    syncPayment(payment)
+
+    return respond(200, {
+      ok: true,
+      status: payment.status,
+      submittedUtr: payment.submittedUtr,
+      message: payment.submittedUtr
+        ? "UTR submitted. Our system is checking with the bank. If not updated shortly, Admin will verify and credit your wallet."
+        : "Payment status refreshed.",
+    })
+  }
+
   if (pathName === "/api/wallet/create-order" && req.method === "POST") {
     const input = await parseJson(req)
     const amount = Math.round(Number(input.amount || 0) * 100)

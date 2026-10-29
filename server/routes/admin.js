@@ -6,9 +6,11 @@ import {
   normalizeIndianMobile,
   sanitizeUser,
 } from "../lib/security.js"
+import { createAllApiClient } from "../services/allapiProvider.js"
+import { createPaytmClient } from "../services/paytmProvider.js"
 
 export async function handleAdminRoutes(context) {
-  const { req, res, pathName, db, send, saveDb, audit, requireAuth, ensureWallet, provider, config } = context
+  const { req, res, pathName, url, db, send, saveDb, audit, requireAuth, ensureWallet, syncPayment, provider, config } = context
 
   const respond = (status, payload) => {
     send(res, status, payload)
@@ -224,6 +226,181 @@ export async function handleAdminRoutes(context) {
       wallet,
       ledgerEntry,
     })
+  }
+
+  // GET /api/admin/wallet/topups - List all top-up attempts with user details
+  if (pathName === "/api/admin/wallet/topups" && req.method === "GET") {
+    const allapiClient = createAllApiClient()
+    const usersMap = new Map((db.users || []).map((u) => [u.id, u]))
+    const topups = (db.payments || [])
+      .filter((p) => !p.applicationId)
+      .slice(0, 100)
+      .map((p) => {
+        const u = usersMap.get(p.userId)
+        return {
+          id: p.paymentId,
+          orderId: p.orderId,
+          userId: p.userId,
+          userName: u?.name || u?.username || "Retailer",
+          userMobile: u?.mobile || "",
+          userEmail: u?.email || "",
+          userRole: u?.role || "retailer",
+          amount: p.amount,
+          status: p.status,
+          mode: p.mode || "upi_qr",
+          provider: p.provider || "upi_qr",
+          submittedUtr: p.submittedUtr,
+          submittedUtrAt: p.submittedUtrAt,
+          utrNumber: p.utrNumber,
+          gatewayPaymentId: p.gatewayPaymentId,
+          adminApprovedBy: p.adminApprovedBy,
+          adminNote: p.adminNote,
+          createdAt: p.createdAt,
+          paidAt: p.paidAt,
+          expiresAt: p.expiresAt,
+        }
+      })
+    return respond(200, { ok: true, topups })
+  }
+
+  // POST /api/admin/wallet/approve-topup - Super Admin manual 1-click approval
+  if (pathName === "/api/admin/wallet/approve-topup" && req.method === "POST") {
+    if (!isSuperAdmin) {
+      return respond(403, {
+        error: "Only Super Admin is authorized to manually approve top-ups.",
+      })
+    }
+    const input = await parseJson(req)
+    const { orderId, utrNumber, note } = input || {}
+    if (!orderId) return respond(400, { error: "orderId is required" })
+
+    const payment = (db.payments || []).find((p) => p.orderId === orderId)
+    if (!payment) return respond(404, { error: "Payment order not found" })
+
+    if (payment.status === "paid") {
+      return respond(400, { error: "Payment is already marked as paid and credited." })
+    }
+
+    const targetUser = (db.users || []).find((u) => u.id === payment.userId)
+    if (!targetUser) return respond(404, { error: "Target retailer not found" })
+
+    payment.status = "paid"
+    payment.paidAt = now()
+    payment.gatewayPaymentId =
+      utrNumber || payment.submittedUtr || `ADMIN-APPROVAL-${Date.now()}`
+    payment.utrNumber = utrNumber || payment.submittedUtr || payment.utrNumber
+    payment.adminApprovedBy = auth.user.id
+    payment.adminNote = note || "Manually verified & approved by Super Admin"
+
+    const wallet = ensureWallet(targetUser.id)
+    wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2))
+    wallet.updatedAt = now()
+
+    const adjRef = payment.paymentId || `ADJ-${Date.now()}`
+    const ledgerEntry = {
+      id: createId("WL"),
+      userId: targetUser.id,
+      type: "credit",
+      amount: Number(payment.amount),
+      reference: adjRef,
+      description: `Admin Top-Up Approval (${payment.orderId.slice(-6)})${payment.utrNumber ? ` - UTR: ${payment.utrNumber}` : ""}`,
+      status: "success",
+      createdAt: now(),
+      balanceAfter: wallet.balance,
+    }
+    db.walletLedger.unshift(ledgerEntry)
+
+    if (audit) {
+      audit(db, auth.user, "ADMIN_TOPUP_APPROVE", "wallet", targetUser.id, {
+        amount: payment.amount,
+        orderId: payment.orderId,
+        utrNumber: payment.utrNumber,
+        balanceAfter: wallet.balance,
+      })
+    }
+    if (saveDb) await saveDb(db)
+    if (syncPayment) syncPayment(payment)
+
+    return respond(200, {
+      ok: true,
+      message: `Top-up approved! ₹${payment.amount} credited to ${targetUser.name || "retailer"}'s wallet.`,
+      payment,
+      wallet,
+    })
+  }
+
+  // POST /api/admin/wallet/check-gateway - Admin live gateway check
+  if (pathName === "/api/admin/wallet/check-gateway" && req.method === "POST") {
+    const input = await parseJson(req)
+    const { orderId } = input || {}
+    if (!orderId) return respond(400, { error: "orderId is required" })
+
+    const payment = (db.payments || []).find((p) => p.orderId === orderId)
+    if (!payment) return respond(404, { error: "Payment order not found" })
+
+    const allapiClient = createAllApiClient()
+    if (!allapiClient.isConfigured) {
+      return respond(400, { error: "Payment gateway is not configured for automatic checks" })
+    }
+
+    try {
+      const check = await allapiClient.checkStatus(orderId)
+      const isSuccess =
+        check?.status === true && String(check.results?.status).toLowerCase() === "success"
+
+      if (isSuccess && payment.status !== "paid") {
+        const targetUser = (db.users || []).find((u) => u.id === payment.userId)
+        payment.status = "paid"
+        payment.gatewayPaymentId =
+          check.results.txn_id ||
+          check.results.utr_number ||
+          `ALLAPI-${Date.now()}`
+        payment.utrNumber = check.results.utr_number
+        payment.paidAt = now()
+
+        if (targetUser) {
+          const wallet = ensureWallet(targetUser.id)
+          wallet.balance = Number((wallet.balance + Number(payment.amount)).toFixed(2))
+          wallet.updatedAt = now()
+          db.walletLedger.unshift({
+            id: createId("WL"),
+            userId: targetUser.id,
+            type: "credit",
+            amount: Number(payment.amount),
+            reference: payment.paymentId,
+            description: `AllAPI Verified by Admin (${orderId.slice(-6)})`,
+            status: "success",
+            createdAt: now(),
+            balanceAfter: wallet.balance,
+          })
+          if (audit) {
+            audit(db, auth.user, "ADMIN_GATEWAY_CHECK_CREDIT", "wallet", targetUser.id, {
+              amount: payment.amount,
+              orderId,
+              utrNumber: check.results.utr_number,
+            })
+          }
+        }
+        if (saveDb) await saveDb(db)
+        if (syncPayment) syncPayment(payment)
+
+        return respond(200, {
+          ok: true,
+          status: "paid",
+          message: `Gateway confirmed! ₹${payment.amount} credited to retailer wallet.`,
+          gatewayResponse: check,
+        })
+      }
+
+      return respond(200, {
+        ok: true,
+        status: payment.status,
+        message: `Gateway status: ${check?.results?.status || check?.message || "Pending"}`,
+        gatewayResponse: check,
+      })
+    } catch (err) {
+      return respond(502, { error: err.message || "Failed to query gateway" })
+    }
   }
 
   if (pathName === "/api/admin/staff" && req.method === "POST") {

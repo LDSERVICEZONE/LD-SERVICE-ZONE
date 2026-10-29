@@ -358,6 +358,58 @@ test("paytm callback verifies order and credits user wallet", async () => {
   assert.equal(statusRes.data.status, "paid");
 });
 
+test("retailer can list pending wallet top-ups and submit UTR", async () => {
+  const created = await request("/wallet/create-order", {
+    token: "retailer",
+    body: { amount: 350, mode: "upi_qr" },
+  });
+  assert.equal(created.status, 200);
+
+  // List pending orders
+  const pending = await request("/wallet/pending-orders", { token: "retailer" });
+  assert.equal(pending.status, 200);
+  assert.ok(pending.data.pending.some((p) => p.orderId === created.data.orderId));
+
+  // Submit UTR to claim
+  const claim = await request("/wallet/claim-pending", {
+    token: "retailer",
+    body: { orderId: created.data.orderId, utrNumber: "429381928471" },
+  });
+  assert.equal(claim.status, 200);
+  assert.equal(claim.data.submittedUtr, "429381928471");
+});
+
+test("super admin can list top-up orders and approve uncredited top-up", async () => {
+  const created = await request("/wallet/create-order", {
+    token: "retailer",
+    body: { amount: 450, mode: "upi_qr" },
+  });
+  assert.equal(created.status, 200);
+
+  // Admin lists top-ups
+  const topups = await request("/admin/wallet/topups", { token: "admin" });
+  assert.equal(topups.status, 200);
+  assert.ok(topups.data.topups.some((t) => t.orderId === created.data.orderId));
+
+  // Super Admin approves top-up
+  const approve = await request("/admin/wallet/approve-topup", {
+    token: "admin",
+    body: {
+      orderId: created.data.orderId,
+      utrNumber: "429381928472",
+      note: "Customer payment confirmed via bank",
+    },
+  });
+  assert.equal(approve.status, 200);
+  assert.equal(approve.data.ok, true);
+  assert.equal(approve.data.payment.status, "paid");
+
+  // Wallet of retailer is credited
+  const walletRes = await request("/wallet", { token: "retailer" });
+  assert.equal(walletRes.status, 200);
+  assert.ok(walletRes.data.wallet.balance >= 450);
+});
+
 test("allapi webhook callback verifies order and credits user wallet", async () => {
   const created = await request("/wallet/create-order", {
     token: "retailer",
